@@ -63,8 +63,32 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-                elevarcBlue: '#003366',
-                elevarcGreen: '#00FF00',
+                oxford: {
+                    DEFAULT: '#002147', // Oxford Blue (dark blue for header/footer)
+                    50: '#e0e5eb',
+                    100: '#b3bfcf',
+                    200: '#8095b1',
+                    300: '#4d6b93',
+                    400: '#274c7d',
+                    500: '#002147',
+                    600: '#001d40',
+                    700: '#001837',
+                    800: '#00142e',
+                    900: '#000b1f'
+                },
+                parrot: {
+                    DEFAULT: '#00FF00', // Parrot Green for logo and highlights
+                    50: '#e6ffe6',
+                    100: '#b3ffb3',
+                    200: '#80ff80',
+                    300: '#4dff4d',
+                    400: '#1aff1a',
+                    500: '#00ff00',
+                    600: '#00e600',
+                    700: '#00cc00',
+                    800: '#00b300',
+                    900: '#008000'
+                },
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -98,6 +122,26 @@ export default {
                         transform: 'translateY(0)'
                     }
                 },
+                'slide-in-right': {
+                    '0%': {
+                        transform: 'translateX(100%)',
+                        opacity: '0'
+                    },
+                    '100%': {
+                        transform: 'translateX(0)',
+                        opacity: '1'
+                    }
+                },
+                'slide-in-left': {
+                    '0%': {
+                        transform: 'translateX(-100%)',
+                        opacity: '0'
+                    },
+                    '100%': {
+                        transform: 'translateX(0)',
+                        opacity: '1'
+                    }
+                },
                 'pulse-subtle': {
                     '0%, 100%': {
                         opacity: '1',
@@ -111,6 +155,8 @@ export default {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
                 'fade-in': 'fade-in 0.5s ease-out forwards',
+                'slide-in-right': 'slide-in-right 0.3s ease-out',
+                'slide-in-left': 'slide-in-left 0.3s ease-out',
                 'pulse-subtle': 'pulse-subtle 2s infinite ease-in-out'
 			},
             fontFamily: {

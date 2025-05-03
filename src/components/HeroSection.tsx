@@ -1,71 +1,77 @@
 
 import { Button } from "@/components/ui/button";
-import { NewsArticle } from "@/services/newsService";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import { FundingRound } from "@/types/news";
+import FundingCard from "./FundingCard";
 import { Link } from "react-router-dom";
-import { formatDistanceToNow } from "date-fns";
 
 interface HeroSectionProps {
-  featuredArticle?: NewsArticle;
-  isLoading: boolean;
+  fundingRounds?: FundingRound[];
+  isLoading?: boolean;
 }
 
-const HeroSection = ({ featuredArticle, isLoading }: HeroSectionProps) => {
-  const formattedDate = (dateString?: string) => {
-    if (!dateString) return "";
-    try {
-      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
-    } catch (e) {
-      return "Recently";
-    }
-  };
-
+const HeroSection = ({ fundingRounds = [], isLoading = false }: HeroSectionProps) => {
   return (
-    <section className="bg-gradient-to-r from-elevarcBlue to-blue-700 text-white py-12 md:py-20">
+    <section className="bg-gradient-to-r from-oxford to-oxford-400 text-white py-16">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          <div>
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold mb-4">
-              The Latest in Startup Ecosystem
+          <div className="space-y-6">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold">
+              Discover the Future of Business & Technology
             </h1>
-            <p className="text-blue-100 text-lg mb-6">
-              Stay updated with funding rounds, IPOs, acquisitions, and founder stories that are shaping the future of technology and business.
+            <p className="text-xl text-blue-100">
+              Your daily source for startup intelligence: funding rounds, market insights, 
+              founder stories, and tech breakthroughs.
             </p>
-            <div className="space-x-4">
-              <Button className="bg-elevarcGreen text-elevarcBlue hover:bg-green-400">
-                <Link to="/startup-news">Latest News</Link>
+            <div className="flex flex-wrap gap-4">
+              <Button asChild className="bg-parrot text-oxford hover:bg-parrot-400">
+                <Link to="/newsletter">Subscribe to Newsletter</Link>
               </Button>
-              <Button variant="outline" className="text-white border-white hover:bg-blue-800">
-                <Link to="/tech-stacks">Tech Breakdowns</Link>
+              <Button variant="outline" className="text-white border-white hover:bg-white/10">
+                <Link to="/funding/rounds">Latest Funding</Link>
               </Button>
             </div>
           </div>
           
-          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-lg shadow-lg">
+          <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6">
+            <h2 className="text-xl font-display font-bold mb-6 flex items-center">
+              <span className="bg-parrot h-6 w-1 rounded mr-3"></span>
+              Latest Funding Rounds
+            </h2>
+            
             {isLoading ? (
-              <div className="animate-pulse space-y-4">
-                <div className="h-8 bg-white/20 rounded w-3/4"></div>
-                <div className="h-32 bg-white/20 rounded"></div>
-                <div className="h-4 bg-white/20 rounded w-1/4"></div>
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-white/10 animate-pulse h-32 rounded-lg"></div>
+                ))}
               </div>
-            ) : featuredArticle ? (
-              <div>
-                <h3 className="text-xl font-bold mb-4">{featuredArticle.title}</h3>
-                <p className="text-blue-100 mb-4 line-clamp-3">{featuredArticle.description}</p>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm opacity-70">{formattedDate(featuredArticle.publishedAt)}</span>
-                  <a 
-                    href={featuredArticle.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-elevarcGreen hover:underline"
-                  >
-                    Read full story
-                  </a>
+            ) : fundingRounds.length > 0 ? (
+              <Carousel
+                opts={{
+                  align: "start",
+                }}
+                className="w-full"
+              >
+                <CarouselContent>
+                  {fundingRounds.map((round, index) => (
+                    <CarouselItem key={index} className="md:basis-1/1">
+                      <div className="p-1">
+                        <FundingCard fundingRound={round} />
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <div className="flex justify-center mt-4 space-x-4">
+                  <CarouselPrevious className="relative static" />
+                  <CarouselNext className="relative static" />
                 </div>
-              </div>
+              </Carousel>
             ) : (
-              <div className="text-center py-8">
-                <p>No featured article available</p>
+              <div className="text-center py-12">
+                <p className="text-white/60">No funding rounds available.</p>
+                <Button variant="outline" className="mt-4 border-white text-white hover:bg-white hover:text-oxford">
+                  <Link to="/funding/rounds">Browse All Funding</Link>
+                </Button>
               </div>
             )}
           </div>

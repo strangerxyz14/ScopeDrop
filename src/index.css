@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 210 100% 20%;
+    --primary: 211 100% 14%; /* Oxford blue #002147 */
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -25,7 +25,7 @@
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 127 100% 50%;
+    --accent: 120 100% 50%; /* Parrot green #00FF00 */
     --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 84.2% 60.2%;
@@ -57,7 +57,7 @@
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 127 100% 50%;
+    --accent: 120 100% 50%; /* Keeping parrot green even in dark mode */
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 62.8% 30.6%;
@@ -85,6 +85,54 @@
   }
   
   .gradient-blue {
-    @apply bg-gradient-to-r from-elevarcBlue to-blue-700;
+    @apply bg-gradient-to-r from-oxford to-oxford-400;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded px-2 py-1 text-xs font-medium;
+  }
+
+  .badge-funding {
+    @apply badge bg-green-100 text-green-800;
+  }
+
+  .badge-acquisition {
+    @apply badge bg-purple-100 text-purple-800;
+  }
+
+  .badge-launch {
+    @apply badge bg-blue-100 text-blue-800;
+  }
+
+  .badge-failure {
+    @apply badge bg-red-100 text-red-800;
+  }
+  
+  .nav-link {
+    @apply px-3 py-2 text-sm font-medium rounded-md hover:bg-oxford-50 hover:text-oxford-500 transition-colors;
+  }
+
+  .nav-link-active {
+    @apply bg-oxford-50 text-oxford-500;
+  }
+
+  .header-nav-link {
+    @apply text-white hover:text-parrot transition-colors duration-200 flex items-center space-x-1 py-2 px-3;
+  }
+
+  .footer-link {
+    @apply hover:text-parrot transition-colors;
+  }
+
+  .btn-primary {
+    @apply bg-oxford text-white hover:bg-oxford-400 px-4 py-2 rounded-md font-medium transition-colors;
+  }
+
+  .btn-accent {
+    @apply bg-parrot text-oxford hover:bg-parrot-400 px-4 py-2 rounded-md font-medium transition-colors;
+  }
+
+  .btn-outline {
+    @apply border border-oxford text-oxford hover:bg-oxford hover:text-white px-4 py-2 rounded-md font-medium transition-colors;
   }
 }
