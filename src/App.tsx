@@ -12,6 +12,8 @@ import TechStacks from "./pages/TechStacks";
 import GrowthHacking from "./pages/GrowthHacking";
 import Search from "./pages/Search";
 import Newsletter from "./pages/Newsletter";
+import Events from "./pages/Events";
+import ErrorMonitoring from "./pages/ErrorMonitoring";
 
 // Properly initialize the queryClient inside the component
 const App = () => {
@@ -38,6 +40,8 @@ const App = () => {
             <Route path="/tech/growth-hacking" element={<GrowthHacking />} />
             <Route path="/search" element={<Search />} />
             <Route path="/newsletter" element={<Newsletter />} />
+            <Route path="/events" element={<Events />} />
+            <Route path="/admin/monitoring" element={<ErrorMonitoring />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
