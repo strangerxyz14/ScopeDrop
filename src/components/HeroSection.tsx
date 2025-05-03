@@ -1,16 +1,17 @@
 
 import { Button } from "@/components/ui/button";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
-import { FundingRound } from "@/types/news";
+import { FundingRound, NewsArticle } from "@/types/news";
 import FundingCard from "./FundingCard";
 import { Link } from "react-router-dom";
 
 interface HeroSectionProps {
   fundingRounds?: FundingRound[];
+  featuredArticle?: NewsArticle;
   isLoading?: boolean;
 }
 
-const HeroSection = ({ fundingRounds = [], isLoading = false }: HeroSectionProps) => {
+const HeroSection = ({ fundingRounds = [], featuredArticle, isLoading = false }: HeroSectionProps) => {
   return (
     <section className="bg-gradient-to-r from-oxford to-oxford-400 text-white py-16">
       <div className="container mx-auto px-4">
