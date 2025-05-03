@@ -59,14 +59,21 @@ const FilterBar = ({ onFilterChange }: FilterBarProps) => {
   ];
   const typeOptions: NewsType[] = ["Success", "Funding", "Acquisition", "Failure", "Launch"];
 
-  const handleFilterChange = <T extends FundingStage | Sector | Region | NewsType>(category: keyof Filters, value: T) => {
+  const handleFilterChange = <K extends keyof Filters>(
+    category: K, 
+    value: Filters[K][number]
+  ) => {
     const updatedFilters = { ...filters };
-    const index = updatedFilters[category].indexOf(value as any);
+    const currentValues = [...updatedFilters[category]];
+    
+    const index = currentValues.indexOf(value);
     
     if (index >= 0) {
-      updatedFilters[category] = updatedFilters[category].filter((item) => item !== value);
+      // Remove the value if it exists
+      updatedFilters[category] = currentValues.filter(item => item !== value) as Filters[K];
     } else {
-      updatedFilters[category] = [...updatedFilters[category], value as any];
+      // Add the value if it doesn't exist
+      updatedFilters[category] = [...currentValues, value] as Filters[K];
     }
     
     setFilters(updatedFilters);
@@ -88,11 +95,11 @@ const FilterBar = ({ onFilterChange }: FilterBarProps) => {
     return filters.stages.length + filters.sectors.length + filters.regions.length + filters.types.length;
   };
 
-  const renderFilterDropdown = <T extends string>(
+  const renderFilterDropdown = <T extends FundingStage | Sector | Region | NewsType>(
     label: string, 
     options: T[], 
     category: keyof Filters,
-    selectedItems: string[]
+    selectedItems: T[]
   ) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -108,7 +115,14 @@ const FilterBar = ({ onFilterChange }: FilterBarProps) => {
           <DropdownMenuCheckboxItem
             key={option}
             checked={selectedItems.includes(option)}
-            onCheckedChange={() => handleFilterChange(category, option as any)}
+            onCheckedChange={() => {
+              // We use type assertion here because TypeScript can't infer the relationship
+              // between options array type and the specific filter category
+              handleFilterChange(
+                category, 
+                option as unknown as Filters[typeof category][number]
+              );
+            }}
           >
             <span className="flex-1">{option}</span>
             {selectedItems.includes(option) && <CheckIcon size={16} className="ml-2" />}
