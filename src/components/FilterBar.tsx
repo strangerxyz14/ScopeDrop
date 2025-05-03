@@ -59,14 +59,14 @@ const FilterBar = ({ onFilterChange }: FilterBarProps) => {
   ];
   const typeOptions: NewsType[] = ["Success", "Funding", "Acquisition", "Failure", "Launch"];
 
-  const handleFilterChange = (category: keyof Filters, value: any) => {
+  const handleFilterChange = <T extends FundingStage | Sector | Region | NewsType>(category: keyof Filters, value: T) => {
     const updatedFilters = { ...filters };
-    const index = updatedFilters[category].indexOf(value);
+    const index = updatedFilters[category].indexOf(value as any);
     
     if (index >= 0) {
-      updatedFilters[category].splice(index, 1);
+      updatedFilters[category] = updatedFilters[category].filter((item) => item !== value);
     } else {
-      updatedFilters[category].push(value);
+      updatedFilters[category] = [...updatedFilters[category], value as any];
     }
     
     setFilters(updatedFilters);
@@ -88,9 +88,9 @@ const FilterBar = ({ onFilterChange }: FilterBarProps) => {
     return filters.stages.length + filters.sectors.length + filters.regions.length + filters.types.length;
   };
 
-  const renderFilterDropdown = (
+  const renderFilterDropdown = <T extends string>(
     label: string, 
-    options: string[], 
+    options: T[], 
     category: keyof Filters,
     selectedItems: string[]
   ) => (
@@ -108,7 +108,7 @@ const FilterBar = ({ onFilterChange }: FilterBarProps) => {
           <DropdownMenuCheckboxItem
             key={option}
             checked={selectedItems.includes(option)}
-            onCheckedChange={() => handleFilterChange(category, option)}
+            onCheckedChange={() => handleFilterChange(category, option as any)}
           >
             <span className="flex-1">{option}</span>
             {selectedItems.includes(option) && <CheckIcon size={16} className="ml-2" />}
