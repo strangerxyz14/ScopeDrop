@@ -102,7 +102,7 @@ const Header = () => {
         <div className="flex items-center justify-between py-4 px-4 md:px-6">
           {/* Logo */}
           <Link to="/" className="font-display text-2xl font-bold text-parrot tracking-tight">
-            ElevArc
+            ScopeDrop
           </Link>
 
           {/* Desktop Navigation */}
