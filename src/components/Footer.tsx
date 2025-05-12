@@ -13,16 +13,16 @@ const Footer = () => {
           <div>
             <h3 className="text-xl font-display font-bold mb-4 flex items-center">
               <Info size={18} className="mr-2" />
-              About ElevArc
+              About ScopeDrop
             </h3>
             <p className="text-blue-200 text-sm leading-relaxed">
-              ElevArc provides comprehensive insights into the global startup ecosystem, 
+              ScopeDrop provides comprehensive insights into the global startup ecosystem, 
               covering funding rounds, IPOs, acquisitions, and founder stories. 
               We're dedicated to bringing you high-quality startup intelligence and market analysis.
             </p>
             <div className="mt-4">
               <Link to="/" className="font-display text-2xl font-bold text-parrot">
-                ElevArc
+                ScopeDrop
               </Link>
             </div>
           </div>
@@ -59,7 +59,7 @@ const Footer = () => {
             <div className="space-y-3 text-blue-200">
               <div className="flex items-start">
                 <Mail className="mt-1 mr-2 flex-shrink-0" size={18} />
-                <span>contact@elevarc.com</span>
+                <span>contact@ScopeDrop.com</span>
               </div>
               <div className="flex items-start">
                 <Phone className="mt-1 mr-2 flex-shrink-0" size={18} />
@@ -67,7 +67,7 @@ const Footer = () => {
               </div>
               <div className="flex items-start">
                 <Globe className="mt-1 mr-2 flex-shrink-0" size={18} />
-                <span>www.elevarc.com</span>
+                <span>www.ScopeDrop.com</span>
               </div>
               
               {/* Social Media */}
@@ -110,7 +110,7 @@ const Footer = () => {
         
         {/* Copyright */}
         <div className="border-t border-oxford-400 mt-8 pt-6 text-center text-sm text-blue-300">
-          <p>&copy; {currentYear} ElevArc. All rights reserved.</p>
+          <p>&copy; {currentYear} ScopeDrop. All rights reserved.</p>
         </div>
       </div>
     </footer>
