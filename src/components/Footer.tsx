@@ -59,7 +59,7 @@ const Footer = () => {
             <div className="space-y-3 text-blue-200">
               <div className="flex items-start">
                 <Mail className="mt-1 mr-2 flex-shrink-0" size={18} />
-                <span>contact@ScopeDrop.com</span>
+                <span>contact@scopedrop.com</span>
               </div>
               <div className="flex items-start">
                 <Phone className="mt-1 mr-2 flex-shrink-0" size={18} />
@@ -67,7 +67,7 @@ const Footer = () => {
               </div>
               <div className="flex items-start">
                 <Globe className="mt-1 mr-2 flex-shrink-0" size={18} />
-                <span>www.ScopeDrop.com</span>
+                <span>www.scopedrop.com</span>
               </div>
               
               {/* Social Media */}
