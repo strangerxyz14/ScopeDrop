@@ -17,41 +17,42 @@ import ErrorMonitoring from "./pages/ErrorMonitoring";
 import ArticleView from "./pages/ArticleView";
 import FundingRounds from "./pages/FundingRounds";
 
-// Properly initialize the queryClient inside the component
-const App = () => {
-  // Create a client
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        refetchOnWindowFocus: false,
-        retry: 1,
-      },
+// Create a client outside the component
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
     },
-  });
+  },
+});
 
+const App = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/article/:id" element={<ArticleView />} />
-            <Route path="/startups/news" element={<StartupNews />} />
-            <Route path="/funding/rounds" element={<FundingRounds />} />
-            <Route path="/tech/tech-stacks" element={<TechStacks />} />
-            <Route path="/tech/growth-hacking" element={<GrowthHacking />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/newsletter" element={<Newsletter />} />
-            <Route path="/events" element={<Events />} />
-            <Route path="/admin/monitoring" element={<ErrorMonitoring />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/article/:id" element={<ArticleView />} />
+              <Route path="/startups/news" element={<StartupNews />} />
+              <Route path="/funding/rounds" element={<FundingRounds />} />
+              <Route path="/tech/tech-stacks" element={<TechStacks />} />
+              <Route path="/tech/growth-hacking" element={<GrowthHacking />} />
+              <Route path="/search" element={<Search />} />
+              <Route path="/newsletter" element={<Newsletter />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/admin/monitoring" element={<ErrorMonitoring />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </React.StrictMode>
   );
 };
 

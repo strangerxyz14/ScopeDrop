@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import NewsCard from "./NewsCard";
 import NewsCardSkeleton from "./NewsCardSkeleton";
-import { NewsArticle } from "@/services/newsService";
+import { NewsArticle } from "@/types/news";
 
 interface NewsSectionProps {
   title: string;
