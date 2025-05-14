@@ -13,11 +13,12 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getFundingRounds, getMarketMaps, getEvents, getNewsArticles } from "@/services/mockDataService";
+import NewsSection from "@/components/NewsSection";
 
 const Home = () => {
   const { data: fundingRounds, isLoading: isLoadingFunding } = useQuery({
     queryKey: ['fundingRounds'],
-    queryFn: () => getFundingRounds(3),
+    queryFn: () => getFundingRounds(5),
   });
 
   const { data: marketMaps, isLoading: isLoadingMarketMaps } = useQuery({
@@ -32,54 +33,36 @@ const Home = () => {
 
   const { data: articles, isLoading: isLoadingArticles } = useQuery({
     queryKey: ['articles'],
-    queryFn: () => getNewsArticles(6),
+    queryFn: () => getNewsArticles(10),
   });
+
+  // Select a featured article (in a real app, this might be determined by other factors)
+  const featuredArticle = articles && articles.length > 0 ? articles[0] : undefined;
+  
+  // Remaining articles for other sections
+  const remainingArticles = articles && articles.length > 1 ? articles.slice(1) : [];
 
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
       
       <main className="flex-grow">
-        {/* Hero Section with Funding Carousel */}
+        {/* Hero Section with News Slider and Funding Rounds */}
         <HeroSection 
           fundingRounds={fundingRounds} 
-          isLoading={isLoadingFunding} 
+          newsArticles={articles}
+          featuredArticle={featuredArticle}
+          isLoading={isLoadingFunding || isLoadingArticles} 
         />
         
         {/* Recent Stories Section */}
-        <section className="py-16">
-          <div className="container mx-auto px-4">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-2xl md:text-3xl font-display font-bold text-oxford">
-                Recent Stories
-              </h2>
-              <Link to="/startups/news">
-                <Button variant="ghost" className="text-oxford hover:text-oxford-400">
-                  View All Stories
-                  <ArrowRight size={16} className="ml-2" />
-                </Button>
-              </Link>
-            </div>
-            
-            {isLoadingArticles ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="bg-white animate-pulse h-80 rounded-lg shadow"></div>
-                ))}
-              </div>
-            ) : articles && articles.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {articles.map((article, index) => (
-                  <NewsCard key={index} article={article} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-500">No articles available at the moment.</p>
-              </div>
-            )}
-          </div>
-        </section>
+        <NewsSection
+          title="Recent Stories"
+          subtitle="The latest from the startup ecosystem"
+          articles={remainingArticles?.slice(0, 6) || []}
+          isLoading={isLoadingArticles}
+          viewAllLink="/startups/news"
+        />
         
         {/* Market Maps Section */}
         <MarketMapsSection 

@@ -14,6 +14,8 @@ import Search from "./pages/Search";
 import Newsletter from "./pages/Newsletter";
 import Events from "./pages/Events";
 import ErrorMonitoring from "./pages/ErrorMonitoring";
+import ArticleView from "./pages/ArticleView";
+import FundingRounds from "./pages/FundingRounds";
 
 // Properly initialize the queryClient inside the component
 const App = () => {
@@ -35,7 +37,9 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/article/:id" element={<ArticleView />} />
             <Route path="/startups/news" element={<StartupNews />} />
+            <Route path="/funding/rounds" element={<FundingRounds />} />
             <Route path="/tech/tech-stacks" element={<TechStacks />} />
             <Route path="/tech/growth-hacking" element={<GrowthHacking />} />
             <Route path="/search" element={<Search />} />

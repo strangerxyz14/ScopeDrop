@@ -13,6 +13,7 @@ export interface NewsArticle {
   };
   category?: string;
   tags?: string[];
+  processedByAI?: boolean;
 }
 
 export interface FundingRound {
@@ -66,4 +67,5 @@ export type Sector =
   | "Hardware" 
   | "Consumer" 
   | "Enterprise" 
+  | "Web3"
   | "Other";
