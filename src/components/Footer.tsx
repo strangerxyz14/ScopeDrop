@@ -1,17 +1,66 @@
 
 import { Link } from "react-router-dom";
-import { Facebook, Twitter, Linkedin, Mail, Info, Globe, Phone } from "lucide-react";
+import { ArrowUp, Facebook, Twitter, Linkedin, Mail, Info, Globe, Phone, User, Settings, BookOpen, FileText, MessageSquare, Send } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useState } from "react";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  
+  // Show back to top button when scrolled down
+  const handleScroll = () => {
+    if (window.scrollY > 400) {
+      setShowBackToTop(true);
+    } else {
+      setShowBackToTop(false);
+    }
+  };
+  
+  // Add scroll event listener
+  useState(() => {
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+  
+  // Scroll to top function
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  };
   
   return (
-    <footer className="bg-oxford text-white mt-12">
+    <footer className="bg-oxford text-white relative">
+      {/* Back to top button */}
+      {showBackToTop && (
+        <div className="fixed bottom-8 right-8 z-50">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={scrollToTop}
+                  className="bg-parrot text-oxford rounded-full p-3 shadow-lg hover:bg-parrot-400 transition-all duration-300 animate-fade-in"
+                >
+                  <ArrowUp size={24} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                <p>Back to top</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      )}
+      
+      {/* Main footer content */}
       <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-12 gap-y-10">
           {/* About */}
           <div>
-            <h3 className="text-xl font-display font-bold mb-4 flex items-center">
+            <h3 className="text-xl font-display font-bold mb-4 flex items-center text-parrot">
               <Info size={18} className="mr-2" />
               About ScopeDrop
             </h3>
@@ -20,97 +69,162 @@ const Footer = () => {
               covering funding rounds, IPOs, acquisitions, and founder stories. 
               We're dedicated to bringing you high-quality startup intelligence and market analysis.
             </p>
-            <div className="mt-4">
-              <Link to="/" className="font-display text-2xl font-bold text-parrot">
+            <div className="mt-6">
+              <Link to="/" className="font-display text-2xl font-bold text-parrot hover:text-parrot-300 transition-colors">
                 ScopeDrop
               </Link>
             </div>
           </div>
           
-          {/* Quick Links */}
+          {/* Explore ScopeDrop */}
           <div>
-            <h3 className="text-xl font-display font-bold mb-4">Main Sections</h3>
-            <ul className="space-y-2 text-blue-200">
-              <li><Link to="/startups" className="footer-link">Startups</Link></li>
-              <li><Link to="/tech" className="footer-link">AI & Tech</Link></li>
-              <li><Link to="/funding" className="footer-link">Funding & Investors</Link></li>
-              <li><Link to="/market-insights" className="footer-link">Market Insights</Link></li>
-              <li><Link to="/events" className="footer-link">Events</Link></li>
-              <li><Link to="/newsletter" className="footer-link">Newsletter</Link></li>
+            <h3 className="text-xl font-display font-bold mb-4 text-parrot">Explore ScopeDrop</h3>
+            <ul className="space-y-3 text-blue-200">
+              <li>
+                <Link to="/startups/news" className="footer-link flex items-center group">
+                  <span className="w-0 group-hover:w-2 h-2 bg-parrot rounded-full mr-0 group-hover:mr-2 transition-all duration-300 opacity-0 group-hover:opacity-100"></span>
+                  <span>Startup News</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/funding/big-stories" className="footer-link flex items-center group">
+                  <span className="w-0 group-hover:w-2 h-2 bg-parrot rounded-full mr-0 group-hover:mr-2 transition-all duration-300 opacity-0 group-hover:opacity-100"></span>
+                  <span>Big Funding Stories</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/tech/emerging" className="footer-link flex items-center group">
+                  <span className="w-0 group-hover:w-2 h-2 bg-parrot rounded-full mr-0 group-hover:mr-2 transition-all duration-300 opacity-0 group-hover:opacity-100"></span>
+                  <span>Emerging Tech (AI, Web3 & More)</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/founder-spotlights" className="footer-link flex items-center group">
+                  <span className="w-0 group-hover:w-2 h-2 bg-parrot rounded-full mr-0 group-hover:mr-2 transition-all duration-300 opacity-0 group-hover:opacity-100"></span>
+                  <span>Founder Spotlights</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/case-studies" className="footer-link flex items-center group">
+                  <span className="w-0 group-hover:w-2 h-2 bg-parrot rounded-full mr-0 group-hover:mr-2 transition-all duration-300 opacity-0 group-hover:opacity-100"></span>
+                  <span>In-Depth Case Studies</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/growth-strategies" className="footer-link flex items-center group">
+                  <span className="w-0 group-hover:w-2 h-2 bg-parrot rounded-full mr-0 group-hover:mr-2 transition-all duration-300 opacity-0 group-hover:opacity-100"></span>
+                  <span>Growth Strategy Playbooks</span>
+                </Link>
+              </li>
             </ul>
           </div>
           
-          {/* Company */}
+          {/* Manage My Account */}
           <div>
-            <h3 className="text-xl font-display font-bold mb-4">Company</h3>
-            <ul className="space-y-2 text-blue-200">
-              <li><Link to="/about" className="footer-link">About Us</Link></li>
-              <li><Link to="/team" className="footer-link">Our Team</Link></li>
-              <li><Link to="/careers" className="footer-link">Careers</Link></li>
-              <li><Link to="/contact" className="footer-link">Contact Us</Link></li>
-              <li><Link to="/privacy-policy" className="footer-link">Privacy Policy</Link></li>
-              <li><Link to="/terms" className="footer-link">Terms of Service</Link></li>
+            <h3 className="text-xl font-display font-bold mb-4 text-parrot">Manage My Account</h3>
+            <ul className="space-y-3 text-blue-200">
+              <li>
+                <Link to="/account/dashboard" className="footer-link flex items-center">
+                  <User size={16} className="mr-2 text-oxford-100" />
+                  <span>My Dashboard</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/account/saves" className="footer-link flex items-center">
+                  <BookOpen size={16} className="mr-2 text-oxford-100" />
+                  <span>My Saved Articles</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/account/emails" className="footer-link flex items-center">
+                  <Mail size={16} className="mr-2 text-oxford-100" />
+                  <span>Email Preferences</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/account/recent" className="footer-link flex items-center">
+                  <FileText size={16} className="mr-2 text-oxford-100" />
+                  <span>Recently Viewed</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/account/settings" className="footer-link flex items-center">
+                  <Settings size={16} className="mr-2 text-oxford-100" />
+                  <span>Account Settings</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/signout" className="footer-link flex items-center text-oxford-100 hover:text-red-300">
+                  <span>Sign Out</span>
+                </Link>
+              </li>
             </ul>
           </div>
           
-          {/* Contact */}
+          {/* Resources */}
           <div>
-            <h3 className="text-xl font-display font-bold mb-4">Contact Us</h3>
-            <div className="space-y-3 text-blue-200">
-              <div className="flex items-start">
-                <Mail className="mt-1 mr-2 flex-shrink-0" size={18} />
-                <span>contact@scopedrop.com</span>
-              </div>
-              <div className="flex items-start">
-                <Phone className="mt-1 mr-2 flex-shrink-0" size={18} />
-                <span>+1 (555) 123-4567</span>
-              </div>
-              <div className="flex items-start">
-                <Globe className="mt-1 mr-2 flex-shrink-0" size={18} />
-                <span>www.scopedrop.com</span>
-              </div>
-              
-              {/* Social Media */}
-              <div className="flex space-x-4 mt-4">
-                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="hover:text-parrot transition-colors">
-                  <Facebook size={20} />
-                </a>
-                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-parrot transition-colors">
-                  <Twitter size={20} />
-                </a>
-                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="hover:text-parrot transition-colors">
-                  <Linkedin size={20} />
-                </a>
-              </div>
+            <h3 className="text-xl font-display font-bold mb-4 text-parrot">Resources</h3>
+            <ul className="space-y-3 text-blue-200">
+              <li>
+                <Link to="/blog" className="footer-link flex items-center">
+                  <span>ScopeDrop Blog</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/how-we-curate" className="footer-link flex items-center">
+                  <span>How We Curate Content</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/api-access" className="footer-link flex items-center">
+                  <span>API Access</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/startup-submission" className="footer-link flex items-center">
+                  <span>Startup Submission</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/contact" className="footer-link flex items-center">
+                  <MessageSquare size={16} className="mr-2 text-oxford-100" />
+                  <span>Contact & Support</span>
+                </Link>
+              </li>
+            </ul>
+            
+            {/* Social Media */}
+            <div className="flex space-x-4 mt-8">
+              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="hover:text-parrot transition-colors bg-oxford-400 rounded-full p-2">
+                <Facebook size={20} />
+              </a>
+              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-parrot transition-colors bg-oxford-400 rounded-full p-2">
+                <Twitter size={20} />
+              </a>
+              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="hover:text-parrot transition-colors bg-oxford-400 rounded-full p-2">
+                <Linkedin size={20} />
+              </a>
+              <a href="mailto:contact@scopedrop.com" className="hover:text-parrot transition-colors bg-oxford-400 rounded-full p-2">
+                <Send size={20} />
+              </a>
             </div>
           </div>
         </div>
         
-        {/* Newsletter Signup */}
-        <div className="mt-12 py-6 border-t border-oxford-400">
-          <div className="max-w-xl mx-auto text-center">
-            <h3 className="text-xl font-display font-bold mb-2">Join Our Newsletter</h3>
-            <p className="text-blue-200 mb-4">Stay updated with the latest in the startup ecosystem</p>
-            <form className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="email"
-                placeholder="Your email address"
-                className="flex-grow px-4 py-2 rounded-md bg-white text-gray-800 focus:outline-none"
-                required
-              />
-              <button
-                type="submit"
-                className="bg-parrot text-oxford px-6 py-2 rounded-md font-medium hover:bg-parrot-400 transition-colors"
-              >
-                Subscribe
-              </button>
-            </form>
-          </div>
-        </div>
-        
         {/* Copyright */}
-        <div className="border-t border-oxford-400 mt-8 pt-6 text-center text-sm text-blue-300">
+        <div className="border-t border-oxford-400 mt-8 pt-6 flex flex-col md:flex-row justify-between items-center text-sm text-blue-300">
           <p>&copy; {currentYear} ScopeDrop. All rights reserved.</p>
+          <div className="flex space-x-6 mt-4 md:mt-0">
+            <Link to="/privacy-policy" className="hover:text-parrot transition-colors">
+              Privacy Policy
+            </Link>
+            <Link to="/terms" className="hover:text-parrot transition-colors">
+              Terms of Service
+            </Link>
+            <Link to="/sitemap" className="hover:text-parrot transition-colors">
+              Sitemap
+            </Link>
+          </div>
         </div>
       </div>
     </footer>
