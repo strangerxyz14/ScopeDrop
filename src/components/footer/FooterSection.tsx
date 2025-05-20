@@ -13,12 +13,14 @@ const FooterSection: React.FC<React.PropsWithChildren<FooterSectionProps>> = ({
   children,
 }) => {
   return (
-    <div>
-      <h3 className="text-xl font-display font-bold mb-6 tracking-wide text-white uppercase flex items-center">
+    <div className="footer-section">
+      <h3 className="text-xl font-display font-bold mb-6 tracking-wider text-white uppercase flex items-center border-b border-oxford-400 pb-3">
         {icon && <span className="mr-2 text-parrot">{icon}</span>}
         {title}
       </h3>
-      {children}
+      <div className="mt-4">
+        {children}
+      </div>
     </div>
   );
 };
