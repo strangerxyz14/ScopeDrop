@@ -2,7 +2,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 interface FooterSectionProps {
@@ -15,7 +15,7 @@ const FooterSection: React.FC<React.PropsWithChildren<FooterSectionProps>> = ({
   icon,
   children,
 }) => {
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = React.useState(true);
   
   if (isMobile) {
