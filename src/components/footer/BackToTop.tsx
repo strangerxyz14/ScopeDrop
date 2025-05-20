@@ -24,7 +24,8 @@ const BackToTop: React.FC<BackToTopProps> = ({ visible }) => {
           <TooltipTrigger asChild>
             <button 
               onClick={scrollToTop}
-              className="bg-parrot text-oxford rounded-full p-3 shadow-lg hover:bg-parrot-400 transition-all duration-300 animate-fade-in"
+              className="bg-parrot text-oxford rounded-full p-3 shadow-lg hover:bg-parrot-400 hover:-translate-y-1 transition-all duration-300 animate-fade-in"
+              aria-label="Back to top"
             >
               <ArrowUp size={24} />
             </button>

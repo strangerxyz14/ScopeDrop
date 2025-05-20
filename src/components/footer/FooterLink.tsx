@@ -16,7 +16,7 @@ const FooterLink: React.FC<React.PropsWithChildren<FooterLinkProps>> = ({
   children,
   className,
 }) => {
-  const linkClasses = `footer-link flex items-center group text-opacity-80 text-white text-sm ${className || ""}`;
+  const linkClasses = `footer-link flex items-center group text-[14px] text-white/80 hover:text-white ${className || ""}`;
   
   if (external) {
     return (
@@ -27,7 +27,7 @@ const FooterLink: React.FC<React.PropsWithChildren<FooterLinkProps>> = ({
         className={linkClasses}
       >
         {icon && <span className="mr-2 text-parrot-300">{icon}</span>}
-        <span className="hover:transform hover:-translate-y-0.5 transition-transform">
+        <span className="hover:transform transition-all duration-300 flex items-center">
           {children}
         </span>
       </a>
@@ -37,7 +37,7 @@ const FooterLink: React.FC<React.PropsWithChildren<FooterLinkProps>> = ({
   return (
     <Link to={to} className={linkClasses}>
       {icon && <span className="mr-2 text-parrot-300">{icon}</span>}
-      <span className="hover:transform hover:-translate-y-0.5 transition-transform">
+      <span className="hover:transform transition-all duration-300 flex items-center">
         {children}
       </span>
     </Link>
