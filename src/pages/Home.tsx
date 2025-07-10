@@ -14,8 +14,12 @@ import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getFundingRounds, getMarketMaps, getEvents, getNewsArticles } from "@/services/mockDataService";
 import NewsSection from "@/components/NewsSection";
+import { useScrollReveal } from "@/hooks/useScrollReveal";
 
 const Home = () => {
+  // Initialize scroll reveal animations
+  useScrollReveal();
+
   const { data: fundingRounds, isLoading: isLoadingFunding } = useQuery({
     queryKey: ['fundingRounds'],
     queryFn: () => getFundingRounds(5),

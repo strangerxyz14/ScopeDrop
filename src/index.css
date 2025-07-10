@@ -7,65 +7,73 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 210 40% 96%; /* Light slate background */
+    --foreground: 220 84% 7%; /* Dark text */
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 220 84% 7%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 220 84% 7%;
 
-    --primary: 211 100% 14%; /* Oxford blue #002147 */
-    --primary-foreground: 210 40% 98%;
+    --primary: 221 51% 14%; /* Dark blue #0f172a */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 210 40% 94%;
+    --secondary-foreground: 220 13% 18%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 120 100% 50%; /* Parrot green #00FF00 */
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 142 76% 36%; /* Parrot green #22c55e */
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 142 76% 36%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+    
+    /* Brand gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(221 51% 14%), hsl(262 83% 58%));
+    --gradient-accent: linear-gradient(90deg, hsl(142 76% 36%), hsl(166 76% 36%));
+    
+    /* Shadows */
+    --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-header: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 221 51% 14%; /* Dark blue #0f172a */
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 224 44% 19%; /* Slightly lighter than background */
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 224 44% 19%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 142 76% 36%; /* Parrot green as primary in dark mode */
+    --primary-foreground: 221 51% 14%;
 
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 217 33% 18%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 217 33% 18%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 120 100% 50%; /* Keeping parrot green even in dark mode */
-    --accent-foreground: 210 40% 98%;
+    --accent: 142 76% 36%; /* Parrot green */
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 142 76% 36%;
   }
 }
 
@@ -75,70 +83,134 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+    background-image: 
+      radial-gradient(circle at 25% 25%, hsl(var(--accent) / 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, hsl(var(--primary) / 0.05) 0%, transparent 50%);
+  }
+  
+  html {
+    scroll-behavior: smooth;
   }
 }
 
 @layer components {
-  .news-card {
-    @apply bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden border border-slate-200;
+  /* Modern card design */
+  .insight-card {
+    @apply bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden;
+    @apply hover:scale-[1.02] hover:border-accent/20;
   }
   
-  .gradient-blue {
-    @apply bg-gradient-to-r from-oxford to-oxford-400;
+  /* Enhanced gradient backgrounds */
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(262 83% 58%));
+  }
+  
+  .gradient-accent {
+    background: linear-gradient(90deg, hsl(var(--accent)), hsl(166 76% 36%));
   }
 
+  /* Modern badge system */
   .badge {
-    @apply inline-flex items-center rounded px-2 py-1 text-xs font-medium;
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-wide;
+    @apply transition-all duration-200 hover:scale-105;
   }
 
   .badge-funding {
-    @apply badge bg-green-100 text-green-800;
+    @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300;
   }
 
   .badge-acquisition {
-    @apply badge bg-purple-100 text-purple-800;
+    @apply bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300;
   }
 
-  .badge-launch {
-    @apply badge bg-blue-100 text-blue-800;
+  .badge-ipo {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300;
   }
 
-  .badge-failure {
-    @apply badge bg-red-100 text-red-800;
+  .badge-founder {
+    @apply bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300;
   }
   
+  /* Navigation styles */
   .nav-link {
-    @apply px-3 py-2 text-sm font-medium rounded-md hover:bg-oxford-50 hover:text-oxford-500 transition-colors;
+    @apply px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200;
+    @apply hover:bg-muted hover:text-foreground;
   }
 
   .nav-link-active {
-    @apply bg-oxford-50 text-oxford-500;
+    @apply bg-accent text-accent-foreground shadow-sm;
   }
 
+  /* Enhanced header nav */
   .header-nav-link {
-    @apply text-white hover:text-white/90 transition-all duration-300 ease-in-out flex items-center space-x-1 py-2 px-3 rounded-md hover:bg-white/10 hover:shadow-lg hover:scale-105;
+    @apply text-white/90 hover:text-white transition-all duration-300 ease-in-out;
+    @apply flex items-center space-x-2 py-2 px-4 rounded-lg;
+    @apply hover:bg-white/10 hover:backdrop-blur-sm hover:scale-105;
   }
 
   /* Updated footer link styles */
   .footer-link {
-    @apply hover:text-parrot transition-all duration-200 hover:translate-x-1 inline-block;
+    @apply hover:text-accent transition-all duration-200 hover:translate-x-1 inline-block;
   }
   
   .footer-link:hover {
-    @apply underline underline-offset-4 decoration-parrot decoration-2;
+    @apply underline underline-offset-4 decoration-accent decoration-2;
     transform: translateY(-1px);
   }
 
+  /* Modern button system */
   .btn-primary {
-    @apply bg-oxford text-white hover:bg-oxford-400 px-4 py-2 rounded-md font-medium transition-colors;
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+    @apply px-6 py-3 rounded-lg font-semibold transition-all duration-200;
+    @apply hover:shadow-lg hover:scale-105;
   }
 
   .btn-accent {
-    @apply bg-parrot text-oxford hover:bg-parrot-400 px-4 py-2 rounded-md font-medium transition-colors;
+    @apply bg-accent text-accent-foreground hover:bg-accent/90;
+    @apply px-6 py-3 rounded-lg font-semibold transition-all duration-200;
+    @apply hover:shadow-lg hover:scale-105;
   }
 
   .btn-outline {
-    @apply border border-oxford text-oxford hover:bg-oxford hover:text-white px-4 py-2 rounded-md font-medium transition-colors;
+    @apply border-2 border-accent text-accent hover:bg-accent hover:text-accent-foreground;
+    @apply px-6 py-3 rounded-lg font-semibold transition-all duration-200;
+    @apply hover:shadow-lg hover:scale-105;
+  }
+
+  /* Typography enhancements */
+  .heading-hero {
+    @apply text-4xl md:text-6xl font-bold tracking-tight;
+    background: linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--accent)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .heading-section {
+    @apply text-2xl md:text-3xl font-bold tracking-tight text-foreground;
+  }
+  
+  .text-muted {
+    @apply text-muted-foreground text-lg leading-relaxed;
+  }
+
+  /* Geometric background elements */
+  .bg-geometric::before {
+    content: '';
+    @apply absolute inset-0 opacity-5;
+    background-image: 
+      radial-gradient(circle at 25% 25%, hsl(var(--accent)) 2px, transparent 2px),
+      radial-gradient(circle at 75% 75%, hsl(var(--primary)) 1px, transparent 1px);
+    background-size: 50px 50px, 30px 30px;
+  }
+
+  /* Scroll animations */
+  .scroll-reveal {
+    @apply opacity-0 translate-y-8 transition-all duration-700 ease-out;
+  }
+  
+  .scroll-reveal.revealed {
+    @apply opacity-100 translate-y-0;
   }
 }

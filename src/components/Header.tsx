@@ -102,9 +102,9 @@ const Header = () => {
 
   return (
     <header 
-      className="text-white sticky top-0 z-50 shadow-lg transition-all duration-300 ease-in-out"
+      className="text-white sticky top-0 z-50 backdrop-blur-sm transition-all duration-300 ease-in-out gradient-primary"
       style={{
-        background: 'linear-gradient(90deg, #6366f1, #a855f7)',
+        boxShadow: 'var(--shadow-header)',
       }}
     >
       <div className="container mx-auto">
@@ -113,7 +113,7 @@ const Header = () => {
           <Link 
             to="/" 
             className="font-display font-bold text-white tracking-tight transition-all duration-300 ease-in-out hover:scale-105"
-            style={{ fontSize: '1.5rem' }}
+            style={{ fontSize: '1.75rem' }}
           >
             ScopeDrop
           </Link>

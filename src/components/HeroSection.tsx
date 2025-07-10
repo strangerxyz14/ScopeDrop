@@ -77,23 +77,24 @@ const HeroSection = ({
   return (
     <>
       {/* Hero section with sliding news */}
-      <section className="bg-gradient-to-r from-oxford to-oxford-400 text-white py-12">
+      <section className="gradient-primary text-white py-16 relative overflow-hidden bg-geometric">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left side: Branding and intro */}
-            <div className="lg:col-span-1 space-y-6">
-              <div className="space-y-4">
-                <h1 className="text-3xl md:text-5xl font-display font-bold">
-                  Scope<span className="text-parrot">Drop</span>
+            <div className="lg:col-span-1 space-y-8">
+              <div className="space-y-6">
+                <h1 className="heading-hero text-white">
+                  Smarter startup insights.<br />
+                  <span className="text-accent">All in one place.</span>
                 </h1>
-                <p className="text-xl text-blue-100">
-                  Curated intelligence on startups, funding, and tech innovation.
+                <p className="text-xl text-white/80 leading-relaxed max-w-lg">
+                  Global startup intelligence covering funding, IPOs, acquisitions, and founder journeys — delivered with modern insight.
                 </p>
                 <div className="flex flex-wrap gap-4">
-                  <Button asChild className="bg-parrot text-oxford hover:bg-parrot-400">
-                    <Link to="/newsletter">Subscribe</Link>
+                  <Button asChild className="btn-accent">
+                    <Link to="/newsletter">Explore Insights</Link>
                   </Button>
-                  <Button variant="outline" className="text-white border-white hover:bg-white/10">
+                  <Button variant="outline" className="btn-outline border-white text-white hover:bg-white hover:text-primary">
                     <Link to="/funding/rounds">Latest Funding</Link>
                   </Button>
                 </div>
@@ -104,7 +105,7 @@ const HeroSection = ({
             <div className="lg:col-span-2 relative">
               <div 
                 ref={sliderRef} 
-                className="overflow-hidden rounded-lg bg-white/5 backdrop-blur-sm"
+                className="overflow-hidden rounded-xl bg-white/10 backdrop-blur-md shadow-2xl border border-white/20"
               >
                 <div className="relative w-full h-full">
                   {isLoading ? (
@@ -128,8 +129,10 @@ const HeroSection = ({
                                   className="w-full h-full object-cover rounded-t-lg"
                                 />
                               </AspectRatio>
-                              <div className="absolute top-0 right-0 bg-parrot text-oxford px-2 py-1 m-3 text-xs font-semibold rounded">
-                                {article.category || 'News'}
+                              <div className="absolute top-3 right-3">
+                                <span className="badge badge-funding">
+                                  {article.category || 'News'}
+                                </span>
                               </div>
                             </div>
                             <div className="p-4">
@@ -230,30 +233,32 @@ const HeroSection = ({
               </h2>
               
               {featuredArticle ? (
-                <Card className="overflow-hidden hover:shadow-lg transition-shadow border-gray-200">
+                <Card className="insight-card group">
                   <div className="relative aspect-video overflow-hidden">
                     <img 
                       src={featuredArticle.image || 'https://placehold.co/600x400/e2e8f0/64748b?text=Featured'} 
                       alt={featuredArticle.title}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                     {featuredArticle.category && (
-                      <div className="absolute top-3 left-3 px-2 py-1 rounded text-xs font-medium bg-oxford text-white">
-                        {featuredArticle.category}
+                      <div className="absolute top-3 left-3">
+                        <span className="badge badge-funding">
+                          {featuredArticle.category}
+                        </span>
                       </div>
                     )}
                   </div>
                   
-                  <CardContent className="py-4">
-                    <h3 className="font-bold text-xl mb-2">{featuredArticle.title}</h3>
-                    <p className="text-gray-600 line-clamp-3">{featuredArticle.description}</p>
+                  <CardContent className="p-6">
+                    <h3 className="heading-section text-xl mb-3">{featuredArticle.title}</h3>
+                    <p className="text-muted line-clamp-3 mb-4">{featuredArticle.description}</p>
                     <div className="mt-4">
                       <Link 
                         to={`/article/${featuredArticle.id}`}
-                        className="text-oxford hover:underline font-medium inline-flex items-center"
+                        className="inline-flex items-center text-accent hover:text-accent/80 font-semibold transition-colors"
                       >
                         Read Full Article 
-                        <ArrowRight className="ml-1 h-4 w-4" />
+                        <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                       </Link>
                     </div>
                   </CardContent>
