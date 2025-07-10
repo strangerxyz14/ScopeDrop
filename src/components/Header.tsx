@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
 import { 
   Search, 
   Menu, 
@@ -23,11 +24,14 @@ import {
   Brain,
   DollarSign,
   LineChart,
-  Globe
+  Globe,
+  Sun,
+  Moon
 } from "lucide-react";
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const location = useLocation();
   
   const mainMenuItems = [
@@ -97,16 +101,35 @@ const Header = () => {
   const closeMenu = () => setIsOpen(false);
 
   return (
-    <header className="bg-oxford text-white sticky top-0 z-50 shadow-lg">
+    <header 
+      className="text-white sticky top-0 z-50 shadow-lg transition-all duration-300 ease-in-out"
+      style={{
+        background: 'linear-gradient(90deg, #6366f1, #a855f7)',
+      }}
+    >
       <div className="container mx-auto">
         <div className="flex items-center justify-between py-4 px-4 md:px-6">
           {/* Logo */}
-          <Link to="/" className="font-display text-2xl font-bold text-parrot tracking-tight">
+          <Link 
+            to="/" 
+            className="font-display font-bold text-white tracking-tight transition-all duration-300 ease-in-out hover:scale-105"
+            style={{ fontSize: '1.5rem' }}
+          >
             ScopeDrop
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center space-x-2">
+            {/* Dark Mode Toggle */}
+            <div className="flex items-center space-x-2 mr-4">
+              <Sun size={16} className="text-white" />
+              <Switch 
+                checked={isDarkMode} 
+                onCheckedChange={setIsDarkMode}
+                className="data-[state=checked]:bg-white/20 data-[state=unchecked]:bg-white/10"
+              />
+              <Moon size={16} className="text-white" />
+            </div>
             {mainMenuItems.map((item) => (
               item.submenu ? (
                 <DropdownMenu key={item.name}>
