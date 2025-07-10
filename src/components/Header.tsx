@@ -120,16 +120,6 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center space-x-2">
-            {/* Dark Mode Toggle */}
-            <div className="flex items-center space-x-2 mr-4">
-              <Sun size={16} className="text-white" />
-              <Switch 
-                checked={isDarkMode} 
-                onCheckedChange={setIsDarkMode}
-                className="data-[state=checked]:bg-white/20 data-[state=unchecked]:bg-white/10"
-              />
-              <Moon size={16} className="text-white" />
-            </div>
             {mainMenuItems.map((item) => (
               item.submenu ? (
                 <DropdownMenu key={item.name}>
