@@ -8,6 +8,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { HelmetProvider } from "react-helmet-async";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
+// Import content scheduler to auto-start real-time content fetching
+import "./services/contentScheduler";
+
 // Lazy load all page components
 const Home = React.lazy(() => import("./pages/Home"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
