@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import HeroSection from "@/components/HeroSection";
+import RealTimeHeroSection from "@/components/RealTimeHeroSection";
 import MarketMapsSection from "@/components/MarketMapsSection";
 import EventsSection from "@/components/EventsSection";
 import NewsletterCta from "@/components/NewsletterCta";
@@ -110,12 +110,7 @@ const Home = () => {
         </div>
 
         {/* Hero Section with News Slider and Funding Rounds */}
-        <HeroSection 
-          fundingRounds={fundingRounds} 
-          newsArticles={articles}
-          featuredArticle={featuredArticle}
-          isLoading={isLoading} 
-        />
+                      <RealTimeHeroSection />
         
         {/* Recent Stories Section */}
         <NewsSection

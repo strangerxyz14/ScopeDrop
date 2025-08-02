@@ -7,8 +7,8 @@
 
 @layer base {
   :root {
-    --background: 210 40% 96%; /* Light slate background */
-    --foreground: 220 84% 7%; /* Dark text */
+    --background: 210 40% 98%; /* Ultra-light slate background */
+    --foreground: 220 84% 7%; /* Rich dark text */
 
     --card: 0 0% 100%;
     --card-foreground: 220 84% 7%;
@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 84% 7%;
 
-    --primary: 221 51% 14%; /* Dark blue #0f172a */
+    --primary: 221 83% 53%; /* Vibrant blue #3b82f6 */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 94%;
@@ -25,7 +25,7 @@
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 142 76% 36%; /* Parrot green #22c55e */
+    --accent: 142 76% 36%; /* Vibrant green #22c55e */
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -33,17 +33,21 @@
 
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 142 76% 36%;
+    --ring: 221 83% 53%;
 
     --radius: 0.75rem;
     
-    /* Brand gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(221 51% 14%), hsl(262 83% 58%));
-    --gradient-accent: linear-gradient(90deg, hsl(142 76% 36%), hsl(166 76% 36%));
+    /* Enhanced Brand gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(262 83% 58%), hsl(300 76% 60%));
+    --gradient-accent: linear-gradient(90deg, hsl(142 76% 36%), hsl(166 76% 36%), hsl(190 76% 40%));
+    --gradient-hero: linear-gradient(135deg, hsl(221 83% 53%), hsl(262 83% 58%), hsl(300 76% 60%), hsl(340 76% 55%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(210 40% 98%));
     
-    /* Shadows */
+    /* Enhanced Shadows */
     --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --shadow-header: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-hero: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    --shadow-glow: 0 0 20px hsl(221 83% 53% / 0.3);
   }
 
   .dark {
@@ -85,8 +89,9 @@
   body {
     @apply bg-background text-foreground font-sans;
     background-image: 
-      radial-gradient(circle at 25% 25%, hsl(var(--accent) / 0.05) 0%, transparent 50%),
-      radial-gradient(circle at 75% 75%, hsl(var(--primary) / 0.05) 0%, transparent 50%);
+      radial-gradient(circle at 25% 25%, hsl(var(--accent) / 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, hsl(var(--primary) / 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, hsl(262 83% 58% / 0.03) 0%, transparent 70%);
   }
   
   html {
@@ -103,11 +108,55 @@
   
   /* Enhanced gradient backgrounds */
   .gradient-primary {
-    background: linear-gradient(135deg, hsl(var(--primary)), hsl(262 83% 58%));
+    background: var(--gradient-primary);
   }
   
   .gradient-accent {
-    background: linear-gradient(90deg, hsl(var(--accent)), hsl(166 76% 36%));
+    background: var(--gradient-accent);
+  }
+
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .gradient-card {
+    background: var(--gradient-card);
+  }
+
+  /* Enhanced shadow utilities */
+  .shadow-hero {
+    box-shadow: var(--shadow-hero);
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Vibrant button styles */
+  .btn-vibrant {
+    @apply bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white font-semibold px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300;
+  }
+
+  .btn-vibrant-outline {
+    @apply border-2 border-blue-500 text-blue-500 font-semibold px-6 py-3 rounded-lg hover:bg-blue-500 hover:text-white transition-all duration-300;
+  }
+
+  /* Text gradients */
+  .text-gradient-primary {
+    @apply bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent;
+  }
+
+  .text-gradient-accent {
+    @apply bg-gradient-to-r from-green-500 via-teal-500 to-blue-500 bg-clip-text text-transparent;
+  }
+
+  /* Enhanced hover effects */
+  .hover-lift {
+    @apply transition-transform duration-300 hover:-translate-y-2;
+  }
+
+  .hover-glow {
+    @apply transition-all duration-300 hover:shadow-glow;
   }
 
   /* Modern badge system */
