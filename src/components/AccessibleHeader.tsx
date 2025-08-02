@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
 
 interface MenuItem {
   name: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   path: string;
   submenu?: { name: string; path: string; description?: string }[];
 }
@@ -167,24 +167,27 @@ const AccessibleHeader = () => {
     );
     
     switch (e.key) {
-      case "ArrowDown":
+      case "ArrowDown": {
         e.preventDefault();
         const nextIndex = (currentIndex + 1) % submenuItems.length;
         const nextLink = document.querySelector(`a[href="${submenuItems[nextIndex].path}"]`) as HTMLElement;
         nextLink?.focus();
         break;
-      case "ArrowUp":
+      }
+      case "ArrowUp": {
         e.preventDefault();
         const prevIndex = currentIndex <= 0 ? submenuItems.length - 1 : currentIndex - 1;
         const prevLink = document.querySelector(`a[href="${submenuItems[prevIndex].path}"]`) as HTMLElement;
         prevLink?.focus();
         break;
-      case "Escape":
+      }
+      case "Escape": {
         e.preventDefault();
         setFocusedSubmenu(null);
         const menuButton = document.querySelector(`[aria-expanded="true"]`) as HTMLElement;
         menuButton?.focus();
         break;
+      }
     }
   };
 

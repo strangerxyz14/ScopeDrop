@@ -69,3 +69,20 @@ export type Sector =
   | "Enterprise" 
   | "Web3"
   | "Other";
+
+export interface CompanyProfile {
+  id: string;
+  name: string;
+  sector: string;
+  region: string;
+  description: string;
+  foundedYear: number;
+  employeeCount: string;
+  fundingStage: string;
+  totalFunding: string;
+  logoUrl: string;
+  website: string;
+  founders: string[];
+  investors: string[];
+  url: string;
+}
