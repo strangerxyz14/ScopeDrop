@@ -1,4 +1,4 @@
-import { NewsArticle, FundingRound, Event, MarketMap } from "@/types/news";
+import { NewsArticle, FundingRound, Event, MarketMap, CompanyProfile } from "@/types/news";
 
 // Realistic startup data pools
 const COMPANY_NAMES = [
@@ -94,7 +94,7 @@ class ContentGenerator {
     return this.getRandomItem(COMPANY_NAMES);
   }
 
-  private generateArticleContent(template: string, data: any): string {
+  private generateArticleContent(template: string, data: Record<string, string>): string {
     return template.replace(/\{(\w+)\}/g, (match, key) => {
       return data[key] || match;
     });
@@ -125,17 +125,19 @@ class ContentGenerator {
           template = this.getRandomItem(ARTICLE_TEMPLATES.launch);
           title = this.generateArticleContent(template, { company, sector });
           break;
-        case 'acquisition':
+        case 'acquisition': {
           template = this.getRandomItem(ARTICLE_TEMPLATES.acquisition);
           const target = this.generateCompanyName();
           const acquirer = this.generateCompanyName();
           title = this.generateArticleContent(template, { company, target, acquirer, amount, sector });
           break;
-        case 'partnership':
+        }
+        case 'partnership': {
           template = this.getRandomItem(ARTICLE_TEMPLATES.partnership);
           const partner = this.generateCompanyName();
           title = this.generateArticleContent(template, { company, partner, sector });
           break;
+        }
         default:
           title = `${company} makes significant breakthrough in ${sector} technology`;
       }
@@ -273,7 +275,7 @@ class ContentGenerator {
   }
 
   // Generate company profiles
-  generateCompanyProfiles(count: number = 10, sector?: string): any[] {
+  generateCompanyProfiles(count: number = 10, sector?: string): CompanyProfile[] {
     const profiles = [];
     
     for (let i = 0; i < count; i++) {
