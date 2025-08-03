@@ -31,14 +31,14 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if Supabase CLI is installed
+# Check if Supabase CLI is available
 check_supabase_cli() {
-    if ! command -v supabase &> /dev/null; then
-        print_error "Supabase CLI is not installed. Please install it first:"
+    if ! npx supabase --version &> /dev/null; then
+        print_error "Supabase CLI is not available. Please install it first:"
         echo "npm install -g supabase"
         exit 1
     fi
-    print_success "Supabase CLI is installed"
+    print_success "Supabase CLI is available via npx"
 }
 
 # Initialize Supabase project
@@ -46,7 +46,7 @@ init_supabase() {
     print_status "Initializing Supabase project..."
     
     if [ ! -f "supabase/config.toml" ]; then
-        supabase init
+        npx supabase init
         print_success "Supabase project initialized"
     else
         print_warning "Supabase project already initialized"
@@ -56,7 +56,7 @@ init_supabase() {
 # Start local Supabase
 start_local_supabase() {
     print_status "Starting local Supabase..."
-    supabase start
+    sudo npx supabase start
     print_success "Local Supabase started"
 }
 
@@ -65,7 +65,7 @@ run_migrations() {
     print_status "Running database migrations..."
     
     # Run initial schema migration
-    supabase db reset
+    npx supabase db reset
     print_success "Database migrations completed"
 }
 
@@ -74,7 +74,7 @@ deploy_edge_functions() {
     print_status "Deploying Edge Functions..."
     
     # Deploy content orchestrator
-    supabase functions deploy content-orchestrator-v2
+    npx supabase functions deploy content-orchestrator-v2
     print_success "Edge Functions deployed"
 }
 
@@ -95,7 +95,7 @@ test_setup() {
     print_status "Testing the setup..."
     
     # Test database connection
-    if supabase db ping &> /dev/null; then
+    if npx supabase db ping &> /dev/null; then
         print_success "Database connection successful"
     else
         print_error "Database connection failed"
@@ -115,7 +115,7 @@ create_initial_data() {
     print_status "Creating initial data..."
     
     # Insert sample content jobs
-    supabase db reset --linked
+    npx supabase db reset --linked
     print_success "Initial data created"
 }
 
@@ -140,13 +140,13 @@ main() {
     echo "   - VITE_SUPABASE_ANON_KEY"
     echo ""
     echo "2. Start local development:"
-    echo "   supabase start"
+    echo "   npx supabase start"
     echo ""
     echo "3. Run migrations:"
-    echo "   supabase db reset"
+    echo "   npx supabase db reset"
     echo ""
     echo "4. Deploy Edge Functions:"
-    echo "   supabase functions deploy content-orchestrator-v2"
+    echo "   npx supabase functions deploy content-orchestrator-v2"
     echo ""
     echo "5. Test the setup:"
     echo "   npm run dev"

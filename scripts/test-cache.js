@@ -5,7 +5,7 @@
  * Tests the enhanced cache manager functionality
  */
 
-import { enhancedCacheManager } from '../src/services/enhancedCacheManager.js';
+import { enhancedCacheManager } from '../src/services/enhancedCacheManager.ts';
 
 const testData = {
   news: [
