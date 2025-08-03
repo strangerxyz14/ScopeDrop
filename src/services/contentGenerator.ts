@@ -19,7 +19,7 @@ const REGIONS = [
   "Boston", "Seattle", "Los Angeles", "Tel Aviv", "Amsterdam", "Stockholm", "Paris", "Tokyo"
 ];
 
-const FUNDING_STAGES = ["Seed", "Series A", "Series B", "Series C+", "Growth", "IPO"] as const;
+const FUNDING_STAGES = ["Seed", "Series A", "Series B", "Series C+", "Growth", "IPO"];
 
 const INVESTORS = [
   "Sequoia Capital", "Andreessen Horowitz", "Kleiner Perkins", "Accel Partners", "Index Ventures",
@@ -189,7 +189,7 @@ class ContentGenerator {
         id: `funding-${i + 1}`,
         companyName: company,
         amount: `$${amount}`,
-        stage: fundingStage,
+        stage: fundingStage as any,
         investors: selectedInvestors,
         sector,
         region,
@@ -206,7 +206,7 @@ class ContentGenerator {
   // Generate Events
   generateEvents(count: number = 8): Event[] {
     const events: Event[] = [];
-    const eventTypes = ["Demo Day", "Conference", "Pitch Competition", "Hackathon", "Other"] as const;
+    const eventTypes = ["Demo Day", "Conference", "Pitch Competition", "Hackathon", "Other"];
     const eventNames = [
       "TechCrunch Disrupt", "Startup Grind", "Web Summit", "SXSW", "CES", "Y Combinator Demo Day",
       "Slush", "Rise Conference", "Collision", "TechStars Demo Day", "500 Startups Demo Day",
@@ -229,7 +229,7 @@ class ContentGenerator {
         organizer,
         date: futureDate.toISOString(),
         location: `${region}, ${this.getRandomItem(["Convention Center", "Tech Hub", "Innovation District", "Downtown Arena"])}`,
-        type,
+        type: type as any,
         url: `/events/event-${i + 1}`,
         description: `Join us for an exciting ${type.toLowerCase()} featuring the latest innovations in technology and startups. Network with entrepreneurs, investors, and industry leaders.`,
         imageUrl: `https://picsum.photos/600/300?random=${i + 200}`

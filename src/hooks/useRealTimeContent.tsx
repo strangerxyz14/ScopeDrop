@@ -40,10 +40,6 @@ export const useRealTimeContent = (contentType: 'all' | 'news' | 'trending' | 'e
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     throwOnError: false,
-    onSuccess: (data) => {
-      setLastRefresh(new Date());
-      console.log(`✅ Successfully loaded ${contentType} content`);
-    }
   });
 
   // Manual refresh function

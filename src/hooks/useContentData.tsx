@@ -187,9 +187,11 @@ export const useInfiniteContent = (contentType: 'articles' | 'funding' | 'compan
         case 'funding':
           newContent = await enhancedDataService.getFundingRounds(initialCount);
           break;
-        case 'companies':
-          newContent = await enhancedDataService.getCompanyProfiles(initialCount) || [];
+        case 'companies': {
+          const companyData = await enhancedDataService.getCompanyProfiles(initialCount);
+          newContent = Array.isArray(companyData) ? companyData : [];
           break;
+        }
       }
 
       if (newContent.length < initialCount) {
