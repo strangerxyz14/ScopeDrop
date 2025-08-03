@@ -186,7 +186,7 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         {isOpen && (
-          <div className="lg:hidden bg-oxford border-t border-oxford-400 animate-slide-in-right">
+          <div className="lg:hidden bg-oxford-600/95 border-t border-oxford-400/50 animate-slide-in-right relative z-10">
             <nav className="py-4 px-6 space-y-4">
               {mainMenuItems.map((item) => (
                 <div key={item.name} className="py-1">
