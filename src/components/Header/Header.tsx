@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { Navigation } from './Navigation';
-import { SearchBar } from './SearchBar';
+import { AISearchBar } from './AISearchBar';
 import { UserMenu } from './UserMenu';
 import { MobileMenu } from './MobileMenu';
 
@@ -53,7 +53,7 @@ export const Header: React.FC<HeaderProps> = ({ className }) => {
 
           {/* Right Section */}
           <div className="flex items-center space-x-4">
-            <SearchBar />
+            <AISearchBar />
             <UserMenu />
             
             {/* Mobile Menu Button */}
