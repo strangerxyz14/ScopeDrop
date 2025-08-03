@@ -38,11 +38,8 @@ export const Header: React.FC<HeaderProps> = ({ className }) => {
           
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-parrot rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">S</span>
-              </div>
-              <span className="text-xl font-bold text-white">ScopeDrop</span>
+            <Link to="/" className="flex items-center">
+              <span className="text-xl font-bold text-parrot hover:text-parrot-300 transition-colors">ScopeDrop</span>
             </Link>
           </div>
 
