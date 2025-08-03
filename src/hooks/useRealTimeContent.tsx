@@ -36,13 +36,10 @@ export const useRealTimeContent = (contentType: 'all' | 'news' | 'trending' | 'e
       }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime in v5)
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    onError: (error) => {
-      console.error(`Error loading ${contentType} content:`, error);
-      toast.error(`Failed to load ${contentType} content`);
-    },
+    throwOnError: false,
     onSuccess: (data) => {
       setLastRefresh(new Date());
       console.log(`✅ Successfully loaded ${contentType} content`);

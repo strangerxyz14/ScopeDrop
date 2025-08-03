@@ -55,10 +55,10 @@ const Home = () => {
   });
 
   // Use enhanced content or fallback
-  const fundingRounds = pageContent?.recentFunding || fallbackFunding || [];
-  const articles = pageContent?.featuredArticles || fallbackArticles || [];
-  const events = pageContent?.upcomingEvents || fallbackEvents || [];
-  const marketMaps = pageContent?.marketMaps || fallbackMarketMaps || [];
+  const fundingRounds = (pageContent as any)?.recentFunding || fallbackFunding || [];
+  const articles = (pageContent as any)?.featuredArticles || fallbackArticles || [];
+  const events = (pageContent as any)?.upcomingEvents || fallbackEvents || [];
+  const marketMaps = (pageContent as any)?.marketMaps || fallbackMarketMaps || [];
   
   // Select a featured article
   const featuredArticle = articles && articles.length > 0 ? articles[0] : undefined;

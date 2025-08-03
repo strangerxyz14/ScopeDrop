@@ -4,7 +4,7 @@ import { User, Session, AuthError } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
 interface AuthUser extends User {
-  user_metadata?: {
+  user_metadata: {
     full_name?: string;
     avatar_url?: string;
     company?: string;
@@ -102,7 +102,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, []);
 
-  const signUp = async (email: string, password: string, metadata = {}) => {
+  const signUp = async (email: string, password: string, metadata: any = {}) => {
     try {
       setLoading(true);
       const { data, error } = await supabase.auth.signUp({
@@ -110,9 +110,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         password,
         options: {
           data: {
-            full_name: metadata.fullName || "",
-            company: metadata.company || "",
-            role: metadata.role || "user",
+            full_name: metadata?.fullName || "",
+            company: metadata?.company || "",
+            role: metadata?.role || "user",
             ...metadata
           }
         }

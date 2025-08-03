@@ -16,12 +16,9 @@ export const usePageContent = (page: string, params?: any) => {
     queryKey: ['pageContent', page, params],
     queryFn: () => getPageContent(page, params),
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime in v5)
     retry: 2,
-    onError: (error) => {
-      console.error(`Error loading content for page ${page}:`, error);
-      toast.error(`Failed to load ${page} content`);
-    }
+    throwOnError: false,
   });
 };
 
@@ -36,10 +33,7 @@ export const useSearch = () => {
     queryFn: () => searchContent(query, filters),
     enabled: query.length > 2,
     staleTime: 2 * 60 * 1000, // 2 minutes for search results
-    onError: (error) => {
-      console.error('Search error:', error);
-      toast.error('Search failed. Please try again.');
-    }
+    throwOnError: false,
   });
 
   const loadSuggestions = useCallback(async (searchQuery: string) => {
@@ -84,11 +78,8 @@ export const useAnalytics = () => {
     queryKey: ['analytics'],
     queryFn: getAnalyticsData,
     staleTime: 10 * 60 * 1000, // 10 minutes
-    cacheTime: 30 * 60 * 1000, // 30 minutes
-    onError: (error) => {
-      console.error('Analytics error:', error);
-      toast.error('Failed to load analytics data');
-    }
+    gcTime: 30 * 60 * 1000, // 30 minutes (renamed from cacheTime in v5)
+    throwOnError: false,
   });
 };
 
@@ -98,10 +89,8 @@ export const useTrendingTopics = () => {
     queryKey: ['trendingTopics'],
     queryFn: getTrendingTopics,
     staleTime: 15 * 60 * 1000, // 15 minutes
-    cacheTime: 30 * 60 * 1000, // 30 minutes
-    onError: (error) => {
-      console.error('Trending topics error:', error);
-    }
+    gcTime: 30 * 60 * 1000, // 30 minutes (renamed from cacheTime in v5)
+    throwOnError: false,
   });
 };
 
@@ -112,10 +101,7 @@ export const useSectorContent = (sector: string, count: number = 10) => {
     queryFn: () => enhancedDataService.getSectorContent(sector, count),
     enabled: !!sector,
     staleTime: 5 * 60 * 1000,
-    onError: (error) => {
-      console.error(`Error loading ${sector} content:`, error);
-      toast.error(`Failed to load ${sector} content`);
-    }
+    throwOnError: false,
   });
 };
 
@@ -125,10 +111,7 @@ export const useCompanyProfiles = (count: number = 10, sector?: string) => {
     queryKey: ['companyProfiles', count, sector],
     queryFn: () => enhancedDataService.getCompanyProfiles(count, sector),
     staleTime: 5 * 60 * 1000,
-    onError: (error) => {
-      console.error('Error loading company profiles:', error);
-      toast.error('Failed to load company profiles');
-    }
+    throwOnError: false,
   });
 };
 
@@ -205,7 +188,7 @@ export const useInfiniteContent = (contentType: 'articles' | 'funding' | 'compan
           newContent = await enhancedDataService.getFundingRounds(initialCount);
           break;
         case 'companies':
-          newContent = await enhancedDataService.getCompanyProfiles(initialCount);
+          newContent = await enhancedDataService.getCompanyProfiles(initialCount) || [];
           break;
       }
 
