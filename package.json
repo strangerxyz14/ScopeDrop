@@ -8,7 +8,16 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup:supabase": "./scripts/setup-supabase.sh",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset",
+    "supabase:deploy": "supabase functions deploy content-orchestrator-v2",
+    "supabase:status": "supabase status",
+    "cache:clean": "node scripts/clean-cache.js",
+    "test:cache": "node scripts/test-cache.js",
+    "test:api": "node scripts/test-api.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

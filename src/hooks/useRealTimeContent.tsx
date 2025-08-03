@@ -1,124 +1,160 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { realTimeContentAggregator } from "@/services/realTimeContentAPIs";
-import { contentScheduler } from "@/services/contentScheduler";
+import { useEnhancedSmartContent } from "./useEnhancedSmartContent";
 import { toast } from "sonner";
 
-// Hook to get real-time content with automatic refresh
+// Hook to get real-time content with enhanced caching and Edge Function support
 export const useRealTimeContent = (contentType: 'all' | 'news' | 'trending' | 'events' | 'market' = 'all') => {
   const queryClient = useQueryClient();
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  // Main query for real-time content
+  // Enhanced content configuration based on type
+  const getContentConfig = () => {
+    const baseConfig = {
+      count: 20,
+      autoRefresh: true,
+      useEdgeFunction: true
+    };
+
+    switch (contentType) {
+      case 'news':
+        return {
+          ...baseConfig,
+          type: 'news' as const,
+          keywords: ['startup', 'tech', 'innovation'],
+          priority: 'high' as const,
+          refreshInterval: 4 * 60 * 60 * 1000 // 4 hours
+        };
+      case 'trending':
+        return {
+          ...baseConfig,
+          type: 'news' as const,
+          keywords: ['trending', 'viral', 'popular'],
+          priority: 'high' as const,
+          refreshInterval: 2 * 60 * 60 * 1000 // 2 hours
+        };
+      case 'events':
+        return {
+          ...baseConfig,
+          type: 'events' as const,
+          keywords: ['startup events', 'tech conferences'],
+          priority: 'medium' as const,
+          refreshInterval: 12 * 60 * 60 * 1000 // 12 hours
+        };
+      case 'market':
+        return {
+          ...baseConfig,
+          type: 'funding' as const,
+          keywords: ['funding', 'venture capital', 'investment'],
+          priority: 'high' as const,
+          refreshInterval: 2 * 60 * 60 * 1000 // 2 hours
+        };
+      default:
+        return {
+          ...baseConfig,
+          type: 'news' as const,
+          keywords: ['startup', 'tech'],
+          priority: 'medium' as const,
+          refreshInterval: 4 * 60 * 60 * 1000 // 4 hours
+        };
+    }
+  };
+
+  // Use enhanced smart content hook
   const {
     data,
     isLoading,
+    isRefreshing,
+    isStale,
+    lastUpdated,
     error,
-    refetch
-  } = useQuery({
-    queryKey: ['realTimeContent', contentType],
-    queryFn: async () => {
-      console.log(`🔄 Fetching real-time ${contentType} content...`);
-      
-      try {
-        if (contentType === 'all') {
-          const content = await realTimeContentAggregator.getEnhancedContent();
-          console.log(`✅ Fetched ${content.articles.length} articles, ${content.events.length} events`);
-          return content;
-        } else {
-          // Fetch specific content type
-          const content = await realTimeContentAggregator.aggregateAllContent();
-          return content;
-        }
-      } catch (error) {
-        console.error(`❌ Failed to fetch ${contentType} content:`, error);
-        throw error;
-      }
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    onError: (error) => {
+    cacheStatus,
+    refresh,
+    quotaInfo,
+    performanceMetrics
+  } = useEnhancedSmartContent(getContentConfig());
+
+  // Update last refresh when data changes
+  useEffect(() => {
+    if (data && !isLoading) {
+      setLastRefresh(new Date());
+    }
+  }, [data, isLoading]);
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
       console.error(`Error loading ${contentType} content:`, error);
       toast.error(`Failed to load ${contentType} content`);
-    },
-    onSuccess: (data) => {
-      setLastRefresh(new Date());
-      console.log(`✅ Successfully loaded ${contentType} content`);
     }
-  });
+  }, [error, contentType]);
 
   // Manual refresh function
   const refreshContent = async () => {
     try {
-      await contentScheduler.manualRefresh(contentType);
-      await refetch();
+      await refresh();
       toast.success(`${contentType} content refreshed!`);
     } catch (error) {
       toast.error(`Failed to refresh ${contentType} content`);
     }
   };
 
-  // Auto-refresh when scheduler updates content
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'freshContent' || e.key === `fresh${contentType}`) {
-        console.log(`📡 Detected fresh ${contentType} content, refreshing...`);
-        refetch();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [contentType, refetch]);
-
   return {
     data,
     isLoading,
+    isRefreshing,
     error,
     lastRefresh,
     refreshContent,
-    isStale: data ? Date.now() - lastRefresh.getTime() > 30 * 60 * 1000 : true // 30 minutes
+    isStale,
+    cacheStatus,
+    quotaInfo,
+    performanceMetrics
   };
 };
 
 // Hook specifically for news content
 export const useRealTimeNews = () => {
-  const { data, isLoading, error, refreshContent, lastRefresh } = useRealTimeContent('news');
+  const { data, isLoading, error, refreshContent, lastRefresh, cacheStatus, quotaInfo } = useRealTimeContent('news');
   
   return {
-    articles: data?.articles || [],
+    articles: data || [],
     isLoading,
     error,
     refreshNews: refreshContent,
-    lastRefresh
+    lastRefresh,
+    cacheStatus,
+    quotaInfo
   };
 };
 
 // Hook specifically for trending content
 export const useRealTimeTrending = () => {
-  const { data, isLoading, error, refreshContent, lastRefresh } = useRealTimeContent('trending');
+  const { data, isLoading, error, refreshContent, lastRefresh, cacheStatus, quotaInfo } = useRealTimeContent('trending');
   
   return {
-    trending: data?.trending || [],
+    trending: data || [],
     isLoading,
     error,
     refreshTrending: refreshContent,
-    lastRefresh
+    lastRefresh,
+    cacheStatus,
+    quotaInfo
   };
 };
 
 // Hook specifically for events
 export const useRealTimeEvents = () => {
-  const { data, isLoading, error, refreshContent, lastRefresh } = useRealTimeContent('events');
+  const { data, isLoading, error, refreshContent, lastRefresh, cacheStatus, quotaInfo } = useRealTimeContent('events');
   
   return {
-    events: data?.events || [],
+    events: data || [],
     isLoading,
     error,
     refreshEvents: refreshContent,
-    lastRefresh
+    lastRefresh,
+    cacheStatus,
+    quotaInfo
   };
 };
 
@@ -164,12 +200,10 @@ export const useContentSchedulerStatus = () => {
 // Hook to check if APIs are configured
 export const useAPIConfiguration = () => {
   const [configStatus, setConfigStatus] = useState({
-    newsapi: !!import.meta.env.VITE_NEWSAPI_KEY && import.meta.env.VITE_NEWSAPI_KEY !== 'your_newsapi_key_here',
-    github: !!import.meta.env.VITE_GITHUB_TOKEN && import.meta.env.VITE_GITHUB_TOKEN !== 'your_github_token_here',
-    huggingface: !!import.meta.env.VITE_HUGGINGFACE_TOKEN && import.meta.env.VITE_HUGGINGFACE_TOKEN !== 'your_huggingface_token_here',
-    producthunt: !!import.meta.env.VITE_PRODUCTHUNT_TOKEN && import.meta.env.VITE_PRODUCTHUNT_TOKEN !== 'your_producthunt_token_here',
-    alphavantage: !!import.meta.env.VITE_ALPHAVANTAGE_KEY && import.meta.env.VITE_ALPHAVANTAGE_KEY !== 'your_alphavantage_key_here',
-    eventbrite: !!import.meta.env.VITE_EVENTBRITE_TOKEN && import.meta.env.VITE_EVENTBRITE_TOKEN !== 'your_eventbrite_token_here'
+    gnews: !!import.meta.env.VITE_GNEWS_API_KEY && import.meta.env.VITE_GNEWS_API_KEY !== 'your-gnews-api-key-here',
+    gemini: !!import.meta.env.VITE_GEMINI_API_KEY && import.meta.env.VITE_GEMINI_API_KEY !== 'your-gemini-api-key-here',
+    supabase: !!import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
+    edgeFunctions: !!import.meta.env.VITE_USE_EDGE_FUNCTIONS
   });
 
   const configuredCount = Object.values(configStatus).filter(Boolean).length;

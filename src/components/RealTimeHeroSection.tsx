@@ -13,7 +13,7 @@ interface RealTimeHeroSectionProps {
 }
 
 const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) => {
-  const { data: realTimeData, isLoading, refreshContent } = useRealTimeContent('all');
+  const { data: realTimeData, isLoading, isRefreshing, refreshContent, cacheStatus, quotaInfo } = useRealTimeContent('all');
   const { hasMinimumConfig, configurationPercentage } = useAPIConfiguration();
   
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -26,9 +26,9 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
 
     const content = [];
     
-    // Add latest articles
-    if (realTimeData.articles?.length > 0) {
-      realTimeData.articles.slice(0, 3).forEach((article, index) => {
+    // Add latest articles (data is now directly an array)
+    if (Array.isArray(realTimeData) && realTimeData.length > 0) {
+      realTimeData.slice(0, 5).forEach((article, index) => {
         content.push({
           id: `article-${index}`,
           type: 'article',
@@ -40,41 +40,6 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
           image: article.image,
           publishedAt: article.publishedAt,
           gradient: 'from-blue-600 via-purple-600 to-indigo-700'
-        });
-      });
-    }
-
-    // Add trending repositories/products
-    if (realTimeData.trending?.length > 0) {
-      realTimeData.trending.slice(0, 2).forEach((item, index) => {
-        content.push({
-          id: `trending-${index}`,
-          type: 'trending',
-          title: item.name || item.title,
-          description: item.description || item.tagline,
-          category: 'Trending',
-          source: item.language || 'Product Hunt',
-          url: item.url || item.html_url,
-          stars: item.stars || item.votes,
-          gradient: 'from-emerald-500 via-teal-600 to-cyan-700'
-        });
-      });
-    }
-
-    // Add upcoming events
-    if (realTimeData.events?.length > 0) {
-      realTimeData.events.slice(0, 2).forEach((event, index) => {
-        content.push({
-          id: `event-${index}`,
-          type: 'event',
-          title: event.name,
-          description: event.description,
-          category: 'Event',
-          source: event.organizer || 'Tech Events',
-          url: event.url,
-          date: event.date,
-          location: event.location,
-          gradient: 'from-orange-500 via-red-500 to-pink-600'
         });
       });
     }
@@ -98,14 +63,10 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
   }, [slidingContent.length]);
 
   const handleRefresh = async () => {
-    setIsRefreshing(true);
     try {
       await refreshContent();
-      toast.success('Content refreshed!');
     } catch (error) {
       toast.error('Failed to refresh content');
-    } finally {
-      setIsRefreshing(false);
     }
   };
 
@@ -175,6 +136,16 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
                 <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
+              
+              {cacheStatus && (
+                <Badge 
+                  variant="secondary" 
+                  className="bg-blue-500/20 text-blue-100 border-blue-400/30 backdrop-blur-sm"
+                >
+                  <Clock className="w-3 h-3 mr-1" />
+                  {cacheStatus === 'hit' ? 'Cached' : 'Fresh'}
+                </Badge>
+              )}
             </div>
 
             {/* Main Heading */}
