@@ -213,7 +213,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 </div>
 
                 {/* Debug button (only in development) */}
-                {process.env.NODE_ENV === 'development' && (
+                {import.meta.env.NODE_ENV === 'development' && (
                   <Button
                     onClick={this.copyErrorDetails}
                     variant="ghost"

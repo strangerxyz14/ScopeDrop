@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { enhancedCacheManager } from '@/services/enhancedCacheManager';
 import { supabase } from '@/services/enhancedCacheManager';
+import { CONFIG } from '@/config';
 
 interface ContentConfig {
   type: 'news' | 'funding' | 'events' | 'ai_summary';
@@ -76,13 +77,13 @@ export function useEnhancedSmartContent(config: ContentConfig) {
   // 2. EDGE FUNCTION INTEGRATION
   const fetchViaEdgeFunction = async (forceRefresh: boolean): Promise<any> => {
     try {
-      const edgeFunctionUrl = `${process.env.VITE_EDGE_FUNCTION_URL}/content-orchestrator-v2`;
+      const edgeFunctionUrl = `${CONFIG.ENDPOINTS.SUPABASE_FUNCTIONS}/content-orchestrator-v2`;
       
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`
+          'Authorization': `Bearer ${CONFIG.SUPABASE.ANON_KEY}`
         },
         body: JSON.stringify({
           action: 'batch_fetch',
@@ -284,13 +285,13 @@ export function useEnhancedSmartContent(config: ContentConfig) {
     }
 
     try {
-      const edgeFunctionUrl = `${process.env.VITE_EDGE_FUNCTION_URL}/content-orchestrator-v2`;
+      const edgeFunctionUrl = `${CONFIG.ENDPOINTS.SUPABASE_FUNCTIONS}/content-orchestrator-v2`;
       
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`
+          'Authorization': `Bearer ${CONFIG.SUPABASE.ANON_KEY}`
         },
         body: JSON.stringify({
           action: 'batch_fetch',
@@ -374,7 +375,7 @@ async function fetchFreshContent(config: ContentConfig): Promise<any> {
 async function fetchNewsContent(keywords: string[], count: number): Promise<any[]> {
   try {
     const query = keywords.join(' OR ');
-    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=${count}&apikey=${process.env.VITE_GNEWS_API_KEY}`;
+    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&country=us&max=${count}&apikey=${CONFIG.API_KEYS.GNEWS}`;
     
     const response = await fetch(url);
     if (!response.ok) throw new Error(`GNews API error: ${response.status}`);
@@ -428,7 +429,7 @@ async function fetchEventsContent(keywords: string[], count: number): Promise<an
 
 async function generateAISummary(keywords: string[], count: number): Promise<string> {
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.VITE_GEMINI_API_KEY}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${CONFIG.API_KEYS.GEMINI}`;
     
     const prompt = `Summarize the latest startup news and trends in 2-3 sentences. Focus on: ${keywords.join(', ')}.`;
 

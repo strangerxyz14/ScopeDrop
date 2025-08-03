@@ -30,7 +30,7 @@ class ErrorBoundary extends Component<Props, State> {
     this.setState({ error, errorInfo });
     
     // Log error to console in development
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.NODE_ENV === 'development') {
       console.error('Error caught by ErrorBoundary:', error, errorInfo);
     }
     
@@ -40,7 +40,7 @@ class ErrorBoundary extends Component<Props, State> {
     }
     
     // In production, you might want to send error to logging service
-    if (process.env.NODE_ENV === 'production') {
+    if (import.meta.env.NODE_ENV === 'production') {
       // Example: logErrorToService(error, errorInfo);
     }
   }
@@ -91,7 +91,7 @@ class ErrorBoundary extends Component<Props, State> {
                 </Button>
               </div>
               
-              {process.env.NODE_ENV === 'development' && this.state.error && (
+              {import.meta.env.NODE_ENV === 'development' && this.state.error && (
                 <details className="mt-4 p-3 bg-muted rounded-md">
                   <summary className="cursor-pointer text-sm font-medium flex items-center">
                     <Bug className="w-4 h-4 mr-2" />

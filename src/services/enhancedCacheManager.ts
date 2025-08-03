@@ -1,10 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+import { CONFIG } from '@/config';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://kudoyccddmdilphlwann.supabase.co';
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Initialize Supabase client using centralized config
+export const supabase = createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY);
 
 // Enhanced cache configuration with staging/production support
 const CACHE_CONFIG = {
@@ -73,7 +71,7 @@ interface QuotaInfo {
 export class EnhancedCacheManager {
   private static instance: EnhancedCacheManager;
   private apiUsage: Map<string, { calls: number; resetTime: number }> = new Map();
-  private environment: 'staging' | 'production' = process.env.NODE_ENV === 'production' ? 'production' : 'staging';
+  private environment: 'staging' | 'production' = CONFIG.IS_PRODUCTION ? 'production' : 'staging';
   private lastCleanup: number = Date.now();
 
   static getInstance(): EnhancedCacheManager {
@@ -89,7 +87,7 @@ export class EnhancedCacheManager {
       // First, try browser cache
       const browserEntry = this.getBrowserCache(key);
       if (browserEntry && this.isValid(browserEntry)) {
-        if (process.env.VITE_ENABLE_CACHE_DEBUG === 'true') {
+        if (CONFIG.ENV === 'development') {
           console.log(`📦 Browser cache hit: ${key}`);
         }
         await this.recordCacheHit(key, 'browser');
@@ -99,9 +97,9 @@ export class EnhancedCacheManager {
       // Then, try database cache
       const dbEntry = await this.getDatabaseCache(key);
       if (dbEntry && this.isValid(dbEntry)) {
-        if (process.env.VITE_ENABLE_CACHE_DEBUG === 'true') {
-          console.log(`🗄️ Database cache hit: ${key}`);
-        }
+              if (CONFIG.ENV === 'development') {
+        console.log(`🗄️ Database cache hit: ${key}`);
+      }
         await this.recordCacheHit(key, 'database');
         
         // Store in browser cache for faster future access
@@ -110,7 +108,7 @@ export class EnhancedCacheManager {
       }
 
       // Cache miss
-      if (process.env.VITE_ENABLE_CACHE_DEBUG === 'true') {
+      if (CONFIG.ENV === 'development') {
         console.log(`❌ Cache miss: ${key}`);
       }
       await this.recordCacheMiss(key, source);
@@ -143,7 +141,7 @@ export class EnhancedCacheManager {
       this.setBrowserCache(key, data, CACHE_CONFIG.browser.ttl);
       await this.setDatabaseCache(entry);
 
-      if (process.env.VITE_ENABLE_CACHE_DEBUG === 'true') {
+      if (CONFIG.ENV === 'development') {
         console.log(`💾 Cache stored: ${key} (${priority} priority)`);
       }
 
@@ -203,7 +201,7 @@ export class EnhancedCacheManager {
 
       const shouldRefresh = age > refreshInterval;
       
-      if (process.env.VITE_ENABLE_CACHE_DEBUG === 'true' && shouldRefresh) {
+      if (CONFIG.ENV === 'development' && shouldRefresh) {
         console.log(`🔄 Content needs refresh: ${key} (${priority} priority)`);
       }
 
@@ -234,7 +232,7 @@ export class EnhancedCacheManager {
       }
       await query.ilike('cache_key', `%${pattern}%`);
 
-      if (process.env.VITE_ENABLE_CACHE_DEBUG === 'true') {
+      if (CONFIG.ENV === 'development') {
         console.log(`🗑️ Cache invalidated: ${pattern}`);
       }
 
@@ -285,7 +283,7 @@ export class EnhancedCacheManager {
 
       this.lastCleanup = now;
 
-      if (process.env.VITE_ENABLE_CACHE_DEBUG === 'true') {
+      if (CONFIG.ENV === 'development') {
         console.log('🧹 Cache cleanup completed');
       }
 

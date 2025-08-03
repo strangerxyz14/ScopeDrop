@@ -3,22 +3,22 @@
 
 export const CONFIG = {
   // Environment
-  ENV: process.env.NODE_ENV || 'development',
-  IS_PRODUCTION: process.env.NODE_ENV === 'production',
-  IS_STAGING: process.env.NODE_ENV === 'staging',
+  ENV: import.meta.env.NODE_ENV || 'development',
+  IS_PRODUCTION: import.meta.env.NODE_ENV === 'production',
+  IS_STAGING: import.meta.env.NODE_ENV === 'staging',
 
   // API Keys (TODO: Use environment variables in production)
   API_KEYS: {
-    GNEWS: process.env.VITE_GNEWS_API_KEY || 'your-gnews-api-key-here',
-    GEMINI: process.env.VITE_GEMINI_API_KEY || 'your-gemini-api-key-here',
-    SUPABASE_URL: process.env.VITE_SUPABASE_URL || 'https://kudoyccddmdilphlwann.supabase.co',
-    SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key-here',
+    GNEWS: import.meta.env.VITE_GNEWS_API_KEY || 'your-gnews-api-key-here',
+    GEMINI: import.meta.env.VITE_GEMINI_API_KEY || 'your-gemini-api-key-here',
+    SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || 'https://kudoyccddmdilphlwann.supabase.co',
+    SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key-here',
   },
 
   // Supabase Configuration
   SUPABASE: {
-    URL: process.env.VITE_SUPABASE_URL || 'https://kudoyccddmdilphlwann.supabase.co',
-    ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key-here',
+    URL: import.meta.env.VITE_SUPABASE_URL || 'https://kudoyccddmdilphlwann.supabase.co',
+    ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key-here',
     PROJECT_ID: 'scopedrop-optimized',
   },
 
