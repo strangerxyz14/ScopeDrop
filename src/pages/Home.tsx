@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Header } from "@/components/Header";
+import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
 import RealTimeHeroSection from "@/components/RealTimeHeroSection";
 import MarketMapsSection from "@/components/MarketMapsSection";
