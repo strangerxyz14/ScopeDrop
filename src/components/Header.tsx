@@ -102,24 +102,38 @@ const Header = () => {
 
   return (
     <header 
-      className="text-white sticky top-0 z-50 backdrop-blur-sm transition-all duration-300 ease-in-out gradient-primary"
+      className="text-white sticky top-0 z-50 backdrop-blur-sm transition-all duration-300 ease-in-out bg-oxford relative overflow-hidden"
       style={{
         boxShadow: 'var(--shadow-header)',
       }}
     >
-      <div className="container mx-auto">
+      {/* Background image with overlay - matching footer design */}
+      <div 
+        className="absolute inset-0 bg-oxford-500 opacity-10 z-0" 
+        style={{
+          backgroundImage: `url('https://images.unsplash.com/photo-1531297484001-80022131f5a1')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundBlendMode: 'multiply',
+          filter: 'blur(2px)'
+        }}
+      />
+      
+      {/* Content overlay */}
+      <div className="absolute inset-0 bg-oxford-500/90 z-0"></div>
+      
+      <div className="container mx-auto relative z-10">
         <div className="flex items-center justify-between py-4 px-4 md:px-6">
-          {/* Logo */}
+          {/* Logo - matching footer style */}
           <Link 
             to="/" 
-            className="font-display font-bold text-white tracking-tight transition-all duration-300 ease-in-out hover:scale-105"
-            style={{ fontSize: '1.75rem' }}
+            className="font-display text-3xl font-bold text-parrot hover:text-parrot-300 transition-colors relative z-10"
           >
             ScopeDrop
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-2">
+          <nav className="hidden lg:flex items-center space-x-2 relative z-10">
             {mainMenuItems.map((item) => (
               item.submenu ? (
                 <DropdownMenu key={item.name}>
@@ -160,7 +174,7 @@ const Header = () => {
           </nav>
 
           {/* Mobile menu button */}
-          <div className="lg:hidden flex items-center">
+          <div className="lg:hidden flex items-center relative z-10">
             <Link to="/search" className="mr-2 p-2 hover:text-parrot transition-colors">
               <Search size={20} />
             </Link>
@@ -176,7 +190,7 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         {isOpen && (
-          <div className="lg:hidden bg-oxford border-t border-oxford-400 animate-slide-in-right">
+          <div className="lg:hidden bg-oxford border-t border-oxford-400 animate-slide-in-right relative z-10">
             <nav className="py-4 px-6 space-y-4">
               {mainMenuItems.map((item) => (
                 <div key={item.name} className="py-1">
