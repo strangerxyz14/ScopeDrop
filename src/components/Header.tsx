@@ -101,19 +101,29 @@ const Header = () => {
   const closeMenu = () => setIsOpen(false);
 
   return (
-    <header 
-      className="text-white sticky top-0 z-50 backdrop-blur-sm transition-all duration-300 ease-in-out gradient-primary"
-      style={{
-        boxShadow: 'var(--shadow-header)',
-      }}
-    >
-      <div className="container mx-auto">
+    <header className="bg-oxford relative overflow-hidden sticky top-0 z-50">
+      {/* Background image with overlay - matching footer style */}
+      <div 
+        className="absolute inset-0 bg-oxford-500 opacity-10 z-0" 
+        style={{
+          backgroundImage: `url('https://images.unsplash.com/photo-1531297484001-80022131f5a1')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundBlendMode: 'multiply',
+          filter: 'blur(2px)'
+        }}
+      />
+      
+      {/* Content overlay */}
+      <div className="absolute inset-0 bg-oxford-500/90 z-0"></div>
+      
+      {/* Main header content */}
+      <div className="container mx-auto relative z-10">
         <div className="flex items-center justify-between py-4 px-4 md:px-6">
-          {/* Logo */}
+          {/* Logo - matching footer style */}
           <Link 
             to="/" 
-            className="font-display font-bold text-white tracking-tight transition-all duration-300 ease-in-out hover:scale-105"
-            style={{ fontSize: '1.75rem' }}
+            className="font-display text-3xl font-bold text-parrot hover:text-parrot-300 transition-colors"
           >
             ScopeDrop
           </Link>
@@ -166,7 +176,7 @@ const Header = () => {
             </Link>
             <button
               onClick={toggleMenu}
-              className="p-2 focus:outline-none"
+              className="p-2 focus:outline-none text-white hover:text-parrot transition-colors"
               aria-label="Toggle menu"
             >
               {isOpen ? <X size={24} /> : <Menu size={24} />}
