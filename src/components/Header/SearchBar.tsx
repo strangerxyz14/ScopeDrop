@@ -1,13 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, X, Mic } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
-
-interface SearchSuggestion {
-  id: string;
-  text: string;
-  type: 'funding' | 'ai' | 'acquisition' | 'founder' | 'tech';
-  relevance: number;
-}
+import { smartSearchService, SearchSuggestion } from '@/services/smartSearchService';
+import { headerPerformanceService } from '@/services/headerPerformanceService';
 
 export const SearchBar: React.FC = () => {
   const [query, setQuery] = useState('');
@@ -18,24 +13,16 @@ export const SearchBar: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const debouncedQuery = useDebounce(query, 300);
 
-  // Mock suggestions - replace with real API call
+  // Smart search suggestions with Supabase integration
   const fetchSuggestions = async (searchQuery: string): Promise<SearchSuggestion[]> => {
     if (searchQuery.length < 2) return [];
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    const mockSuggestions: SearchSuggestion[] = [
-      { id: '1', text: 'Series A funding rounds', type: 'funding', relevance: 0.9 },
-      { id: '2', text: 'AI startup acquisitions', type: 'acquisition', relevance: 0.8 },
-      { id: '3', text: 'Tech stack analysis', type: 'tech', relevance: 0.7 },
-      { id: '4', text: 'Founder interviews', type: 'founder', relevance: 0.6 },
-      { id: '5', text: 'AI market trends', type: 'ai', relevance: 0.8 },
-    ];
-    
-    return mockSuggestions.filter(suggestion => 
-      suggestion.text.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    try {
+      return await smartSearchService.getSearchSuggestions(searchQuery);
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      return [];
+    }
   };
 
   // Auto-suggestions
@@ -72,10 +59,19 @@ export const SearchBar: React.FC = () => {
     }
   };
 
-  const handleSuggestionClick = (suggestion: SearchSuggestion) => {
+  const handleSuggestionClick = async (suggestion: SearchSuggestion) => {
+    const startTime = performance.now();
     setQuery(suggestion.text);
     setIsExpanded(false);
     setSelectedIndex(-1);
+    
+    // Track search performance
+    await headerPerformanceService.trackSearchPerformance(
+      suggestion.text,
+      performance.now() - startTime,
+      suggestions.length
+    );
+    
     // Here you would navigate to search results
     console.log('Searching for:', suggestion.text);
   };

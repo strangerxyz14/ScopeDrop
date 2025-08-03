@@ -8,16 +8,11 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
+import { useDarkMode } from '@/hooks/useDarkMode';
 
 export const UserMenu: React.FC = () => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const { isDarkMode, isLoading, toggleDarkMode } = useDarkMode();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
-    // Here you would implement actual dark mode logic
-    document.documentElement.classList.toggle('dark');
-  };
 
   const handleLogin = () => {
     // Here you would implement authentication
@@ -33,13 +28,20 @@ export const UserMenu: React.FC = () => {
       {/* Dark Mode Toggle */}
       <button
         onClick={toggleDarkMode}
+        disabled={isLoading}
         className="
           p-2 rounded-lg text-white/90 hover:text-parrot hover:bg-parrot/10
-          transition-all duration-200 ease-in-out
+          transition-all duration-200 ease-in-out disabled:opacity-50
         "
         title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
       >
-        {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        {isLoading ? (
+          <div className="w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
+        ) : isDarkMode ? (
+          <Sun className="w-4 h-4" />
+        ) : (
+          <Moon className="w-4 h-4" />
+        )}
       </button>
 
       {/* User Menu */}
