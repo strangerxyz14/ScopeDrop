@@ -1,5 +1,5 @@
 
-import Header from "@/components/Header";
+import { Header } from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";

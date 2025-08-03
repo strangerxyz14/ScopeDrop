@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { CONFIG } from '@/config';
 
-// Initialize Supabase client using centralized config
+// Initialize Supabase client using centralized config (FIXED)
 export const supabase = createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY);
 
 // Enhanced cache configuration with staging/production support
