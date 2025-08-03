@@ -6,7 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HelmetProvider } from "react-helmet-async";
-import ErrorBoundary from "@/components/ErrorBoundary";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
+import { HealthCheck } from "@/components/common/HealthCheck";
 
 // Import content scheduler to auto-start real-time content fetching
 import "./services/contentScheduler";
@@ -124,11 +125,14 @@ const App = () => {
                 <Route path="/startup-submission" element={<StartupSubmission />} />
                 <Route path="/contact" element={<Contact />} />
                 
-                                                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                  <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
               </BrowserRouter>
+              
+              {/* Health Check Component */}
+              <HealthCheck />
             </TooltipProvider>
           </QueryClientProvider>
         </ErrorBoundary>
