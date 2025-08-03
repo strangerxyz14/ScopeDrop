@@ -2,12 +2,12 @@ import { NewsArticle, FundingRound, Event } from "@/types/news";
 
 // API Configuration
 const API_KEYS = {
-  newsapi: process.env.VITE_NEWSAPI_KEY || 'your_newsapi_key',
-  alphavantage: process.env.VITE_ALPHAVANTAGE_KEY || 'your_alphavantage_key',
-  crunchbase: process.env.VITE_CRUNCHBASE_KEY || 'your_crunchbase_key',
-  eventbrite: process.env.VITE_EVENTBRITE_TOKEN || 'your_eventbrite_token',
-  github: process.env.VITE_GITHUB_TOKEN || 'your_github_token',
-  producthunt: process.env.VITE_PRODUCTHUNT_TOKEN || 'your_producthunt_token'
+  newsapi: import.meta.env.VITE_NEWSAPI_KEY || 'your_newsapi_key',
+  alphavantage: import.meta.env.VITE_ALPHAVANTAGE_KEY || 'your_alphavantage_key',
+  crunchbase: import.meta.env.VITE_CRUNCHBASE_KEY || 'your_crunchbase_key',
+  eventbrite: import.meta.env.VITE_EVENTBRITE_TOKEN || 'your_eventbrite_token',
+  github: import.meta.env.VITE_GITHUB_TOKEN || 'your_github_token',
+  producthunt: import.meta.env.VITE_PRODUCTHUNT_TOKEN || 'your_producthunt_token'
 };
 
 // Rate limiting helper
@@ -359,12 +359,12 @@ export class AIContentEnhancer {
     {
       name: 'huggingface',
       endpoint: 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium',
-      headers: { 'Authorization': `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}` }
+      headers: { 'Authorization': `Bearer ${import.meta.env.VITE_HUGGINGFACE_TOKEN}` }
     },
     {
       name: 'cohere',
       endpoint: 'https://api.cohere.ai/v1/generate',
-      headers: { 'Authorization': `Bearer ${process.env.VITE_COHERE_KEY}` }
+      headers: { 'Authorization': `Bearer ${import.meta.env.VITE_COHERE_KEY}` }
     }
   ];
 
@@ -380,7 +380,7 @@ export class AIContentEnhancer {
       const response = await fetch('https://api-inference.huggingface.co/models/facebook/bart-large-cnn', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.VITE_HUGGINGFACE_TOKEN}`,
+          'Authorization': `Bearer ${import.meta.env.VITE_HUGGINGFACE_TOKEN}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
