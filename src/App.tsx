@@ -47,6 +47,11 @@ const ApiAccess = React.lazy(() => import("./pages/resources/ApiAccess"));
 const StartupSubmission = React.lazy(() => import("./pages/resources/StartupSubmission"));
 const Contact = React.lazy(() => import("./pages/resources/Contact"));
 
+// Legal Pages
+const PrivacyPolicy = React.lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfService = React.lazy(() => import("./pages/TermsOfService"));
+const Sitemap = React.lazy(() => import("./pages/Sitemap"));
+
 // Loading component for Suspense fallbacks
 const PageLoadingSkeleton = () => (
   <div className="min-h-screen bg-background">
@@ -124,6 +129,11 @@ const App = () => {
                 <Route path="/api-access" element={<ApiAccess />} />
                 <Route path="/startup-submission" element={<StartupSubmission />} />
                 <Route path="/contact" element={<Contact />} />
+                
+                {/* Legal Pages */}
+                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/sitemap" element={<Sitemap />} />
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
