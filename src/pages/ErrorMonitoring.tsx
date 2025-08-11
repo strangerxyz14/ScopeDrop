@@ -1,5 +1,5 @@
 
-import { Header } from "@/components/Header";
+import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
 import ErrorMonitoringDashboard from "@/components/ErrorMonitoringDashboard";
 
