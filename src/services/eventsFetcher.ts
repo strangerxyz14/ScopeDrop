@@ -55,19 +55,122 @@ abstract class EventSource {
   }
 }
 
-// Eventbrite API Integration
+// Cache Management System
+class CacheManager {
+  private static instance: CacheManager;
+  private cache: Map<string, { data: any; timestamp: number; }> = new Map();
+  private apiCallCounts: Map<string, { count: number; resetTime: number; }> = new Map();
+  
+  // API Rate Limits Configuration
+  private rateLimits = {
+    eventbrite: { limit: 1000, window: 3600000 }, // 1000 per hour
+    devto: { limit: 30, window: 1800000 }, // 30 per 30 minutes
+    serpapi: { limit: 100, window: 2592000000 }, // 100 per month
+  };
+  
+  static getInstance(): CacheManager {
+    if (!CacheManager.instance) {
+      CacheManager.instance = new CacheManager();
+    }
+    return CacheManager.instance;
+  }
+  
+  // Check if we can make an API call
+  canMakeApiCall(source: string): boolean {
+    const rateLimit = this.rateLimits[source.toLowerCase()];
+    if (!rateLimit) return true;
+    
+    const now = Date.now();
+    const apiCalls = this.apiCallCounts.get(source) || { count: 0, resetTime: now + rateLimit.window };
+    
+    // Reset counter if window has passed
+    if (now > apiCalls.resetTime) {
+      this.apiCallCounts.set(source, { count: 0, resetTime: now + rateLimit.window });
+      return true;
+    }
+    
+    // Check if we're under the limit
+    return apiCalls.count < rateLimit.limit;
+  }
+  
+  // Record an API call
+  recordApiCall(source: string): void {
+    const rateLimit = this.rateLimits[source.toLowerCase()];
+    if (!rateLimit) return;
+    
+    const now = Date.now();
+    const apiCalls = this.apiCallCounts.get(source) || { count: 0, resetTime: now + rateLimit.window };
+    
+    apiCalls.count++;
+    this.apiCallCounts.set(source, apiCalls);
+    
+    console.log(`API Call recorded for ${source}: ${apiCalls.count}/${rateLimit.limit} (resets in ${Math.round((apiCalls.resetTime - now) / 60000)} minutes)`);
+  }
+  
+  // Get cached data if fresh
+  getCached(key: string, maxAge: number = 3600000): any | null {
+    const cached = this.cache.get(key);
+    if (!cached) return null;
+    
+    const age = Date.now() - cached.timestamp;
+    if (age > maxAge) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    console.log(`Cache hit for ${key} (age: ${Math.round(age / 60000)} minutes)`);
+    return cached.data;
+  }
+  
+  // Store data in cache
+  setCache(key: string, data: any): void {
+    this.cache.set(key, { data, timestamp: Date.now() });
+    console.log(`Cached data for ${key}`);
+  }
+  
+  // Get remaining API calls
+  getRemainingCalls(source: string): number {
+    const rateLimit = this.rateLimits[source.toLowerCase()];
+    if (!rateLimit) return Infinity;
+    
+    const apiCalls = this.apiCallCounts.get(source) || { count: 0, resetTime: Date.now() };
+    return Math.max(0, rateLimit.limit - apiCalls.count);
+  }
+}
+
+// Enhanced Eventbrite Source with Rate Limiting
 class EventbriteSource extends EventSource {
   sourceName = 'eventbrite';
   private apiKey = import.meta.env.VITE_EVENTBRITE_API_KEY || 'HWBVHWYBTXYDEQYQ2LCI';
   private baseUrl = 'https://www.eventbriteapi.com/v3';
-
+  private cache = CacheManager.getInstance();
+  
   async fetchEvents(location: string, category?: string): Promise<TechEvent[]> {
+    const cacheKey = `eventbrite_${location}_${category || 'all'}`;
+    
+    // Check cache first (1 hour cache)
+    const cached = this.cache.getCached(cacheKey, 3600000);
+    if (cached) {
+      console.log('Using cached Eventbrite data');
+      return cached;
+    }
+    
+    // Check rate limit
+    if (!this.cache.canMakeApiCall('eventbrite')) {
+      console.warn(`Eventbrite rate limit approaching (${this.cache.getRemainingCalls('eventbrite')} calls remaining)`);
+      return this.getMockEventbriteEvents(location);
+    }
+    
     if (!this.apiKey) {
       console.warn('Eventbrite API key not configured');
       return this.getMockEventbriteEvents(location);
     }
 
     try {
+      // Record the API call
+      this.cache.recordApiCall('eventbrite');
+      
+      // Only fetch first page to conserve API calls
       const response = await axios.get(`${this.baseUrl}/events/search/`, {
         headers: { 'Authorization': `Bearer ${this.apiKey}` },
         params: {
@@ -76,10 +179,16 @@ class EventbriteSource extends EventSource {
           'categories': '102', // Science & Technology category
           'expand': 'venue,organizer',
           'sort_by': 'date',
+          'page_size': 20, // Limit results to conserve API
         }
       });
 
-      return response.data.events.map((event: any) => this.transformEvent(event));
+      const events = response.data.events.map((event: any) => this.transformEvent(event));
+      
+      // Cache the results
+      this.cache.setCache(cacheKey, events);
+      
+      return events;
     } catch (error) {
       console.error('Eventbrite API error:', error);
       return this.getMockEventbriteEvents(location);
@@ -341,14 +450,153 @@ class TechCrunchSource extends EventSource {
   }
 }
 
-// Main Events Aggregator
+// Dev.to Integration with Rate Limiting
+class DevToSource extends EventSource {
+  sourceName = 'devto';
+  private apiKey = import.meta.env.VITE_DEVTO_API_KEY || 'sQtfEuc1VmvbvDnyNvyBzyDn';
+  private baseUrl = 'https://dev.to/api';
+  private cache = CacheManager.getInstance();
+  
+  async fetchEvents(location: string, category?: string): Promise<TechEvent[]> {
+    const cacheKey = `devto_${location}_${category || 'all'}`;
+    
+    // Check cache first (2 hour cache for Dev.to)
+    const cached = this.cache.getCached(cacheKey, 7200000);
+    if (cached) {
+      console.log('Using cached Dev.to data');
+      return cached;
+    }
+    
+    // Check rate limit (30 per 30 minutes)
+    if (!this.cache.canMakeApiCall('devto')) {
+      console.warn(`Dev.to rate limit approaching (${this.cache.getRemainingCalls('devto')} calls remaining)`);
+      return this.getMockDevToEvents(location);
+    }
+    
+    try {
+      // Record the API call
+      this.cache.recordApiCall('devto');
+      
+      // Fetch articles about events (conserve API calls)
+      const response = await fetch(`${this.baseUrl}/articles?tag=events,hackathon,conference&per_page=10`, {
+        headers: {
+          'api-key': this.apiKey,
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Dev.to API error: ${response.status}`);
+      }
+      
+      const articles = await response.json();
+      const events: TechEvent[] = [];
+      
+      // Extract event information from articles
+      for (const article of articles) {
+        const eventInfo = this.extractEventFromArticle(article, location);
+        if (eventInfo) {
+          events.push(eventInfo);
+        }
+      }
+      
+      // Cache the results
+      this.cache.setCache(cacheKey, events);
+      
+      return events;
+    } catch (error) {
+      console.error('Dev.to API error:', error);
+      return this.getMockDevToEvents(location);
+    }
+  }
+  
+  private extractEventFromArticle(article: any, location: string): TechEvent | null {
+    const title = article.title;
+    const description = article.description || '';
+    
+    // Check if article is about an event
+    const eventKeywords = ['conference', 'meetup', 'hackathon', 'summit', 'workshop', 'demo day'];
+    const isEvent = eventKeywords.some(keyword => 
+      title.toLowerCase().includes(keyword) || description.toLowerCase().includes(keyword)
+    );
+    
+    if (!isEvent) return null;
+    
+    return {
+      id: this.generateId('devto', article.id.toString()),
+      title: title,
+      description: description,
+      organizer: article.user.name || 'Dev.to Community',
+      date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      time: 'TBA',
+      location: {
+        venue: 'Online',
+        address: '',
+        city: location,
+        country: '',
+        isOnline: true
+      },
+      eventType: this.detectEventType(title, description),
+      category: article.tag_list || ['technology'],
+      tags: article.tag_list || [],
+      imageUrl: article.cover_image || article.social_image,
+      registrationUrl: article.url,
+      price: { amount: 0, currency: 'USD', isFree: true },
+      source: 'devto',
+      fetchedAt: new Date().toISOString()
+    };
+  }
+  
+  private detectEventType(title: string, description: string): TechEvent['eventType'] {
+    const text = (title + ' ' + description).toLowerCase();
+    
+    if (text.includes('hackathon')) return 'hackathon';
+    if (text.includes('conference') || text.includes('summit')) return 'conference';
+    if (text.includes('workshop')) return 'workshop';
+    if (text.includes('demo day')) return 'demo-day';
+    if (text.includes('meetup')) return 'meetup';
+    if (text.includes('webinar')) return 'webinar';
+    
+    return 'meetup';
+  }
+  
+  private getMockDevToEvents(location: string): TechEvent[] {
+    return [
+      {
+        id: this.generateId('devto', 'mock1'),
+        title: 'Dev.to Virtual Hackathon 2025',
+        description: 'Join thousands of developers for a weekend of coding',
+        organizer: 'Dev.to Community',
+        date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+        time: '9:00 AM UTC',
+        location: {
+          venue: 'Online',
+          address: '',
+          city: 'Global',
+          country: '',
+          isOnline: true
+        },
+        eventType: 'hackathon',
+        category: ['development', 'community'],
+        tags: ['hackathon', 'coding', 'opensource'],
+        registrationUrl: 'https://dev.to/events',
+        price: { amount: 0, currency: 'USD', isFree: true },
+        source: 'devto',
+        fetchedAt: new Date().toISOString()
+      }
+    ];
+  }
+}
+
+// Main Events Aggregator with Smart Rate Limiting
 export class EventsAggregator {
   private sources: EventSource[] = [
     new EventbriteSource(),
     new MeetupSource(),
     new LumaSource(),
-    new TechCrunchSource()
+    new TechCrunchSource(),
+    new DevToSource()  // Added Dev.to source
   ];
+  private cache = CacheManager.getInstance();
 
   async fetchAllEvents(location: string, category?: string): Promise<TechEvent[]> {
     try {
