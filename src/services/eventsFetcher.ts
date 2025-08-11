@@ -58,7 +58,7 @@ abstract class EventSource {
 // Eventbrite API Integration
 class EventbriteSource extends EventSource {
   sourceName = 'eventbrite';
-  private apiKey = import.meta.env.VITE_EVENTBRITE_API_KEY || '';
+  private apiKey = import.meta.env.VITE_EVENTBRITE_API_KEY || 'HWBVHWYBTXYDEQYQ2LCI';
   private baseUrl = 'https://www.eventbriteapi.com/v3';
 
   async fetchEvents(location: string, category?: string): Promise<TechEvent[]> {
