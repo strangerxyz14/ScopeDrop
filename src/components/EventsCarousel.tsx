@@ -21,6 +21,7 @@ import { TechEvent, EventsAggregator } from '@/services/eventsFetcher';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import EventDetailsModal from './EventDetailsModal';
 
 interface EventsCarouselProps {
   location?: string;
@@ -39,6 +40,8 @@ export const EventsCarousel: React.FC<EventsCarouselProps> = ({
 }) => {
   const [isPaused, setIsPaused] = useState(false);
   const [selectedType, setSelectedType] = useState<string>('all');
+  const [selectedEvent, setSelectedEvent] = useState<TechEvent | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
@@ -113,6 +116,17 @@ export const EventsCarousel: React.FC<EventsCarouselProps> = ({
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollBy({ left: 400, behavior: 'smooth' });
     }
+  };
+
+  // Event click handler
+  const handleEventClick = (event: TechEvent) => {
+    setSelectedEvent(event);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedEvent(null);
   };
 
   // Event type badges with colors
@@ -247,11 +261,19 @@ export const EventsCarousel: React.FC<EventsCarouselProps> = ({
                 event={event}
                 getEventTypeBadge={getEventTypeBadge}
                 formatDate={formatDate}
+                onClick={() => handleEventClick(event)}
               />
             ))
           )}
         </div>
       </div>
+
+      {/* Event Details Modal */}
+      <EventDetailsModal 
+        event={selectedEvent}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 };
@@ -261,13 +283,17 @@ interface EventCardProps {
   event: TechEvent;
   getEventTypeBadge: (type: string) => { label: string; className: string };
   formatDate: (date: string) => string;
+  onClick?: () => void;
 }
 
-const EventCard: React.FC<EventCardProps> = ({ event, getEventTypeBadge, formatDate }) => {
+const EventCard: React.FC<EventCardProps> = ({ event, getEventTypeBadge, formatDate, onClick }) => {
   const typeBadge = getEventTypeBadge(event.eventType);
   
   return (
-    <Card className="min-w-[350px] max-w-[350px] hover:shadow-lg transition-all duration-300 group cursor-pointer">
+    <Card 
+      className="min-w-[350px] max-w-[350px] hover:shadow-lg transition-all duration-300 group cursor-pointer"
+      onClick={onClick}
+    >
       {/* Event Image or Gradient Background */}
       <div className="relative h-32 overflow-hidden rounded-t-lg">
         {event.imageUrl ? (
