@@ -4,7 +4,6 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
@@ -26,12 +25,13 @@ const ArticleView = () => {
 
   const article = dbRow ? mapDbArticleToNewsArticle(dbRow as any) : null;
   const contentHtml = (dbRow as any)?.content_html;
-  const primarySourceUrl = Array.isArray((dbRow as any)?.source_urls) && typeof (dbRow as any).source_urls[0] === "string"
-    ? (dbRow as any).source_urls[0]
-    : null;
+  const primarySourceUrl =
+    Array.isArray((dbRow as any)?.source_urls) && typeof (dbRow as any).source_urls[0] === "string"
+      ? (dbRow as any).source_urls[0]
+      : null;
   
   const { data: processedContent, isLoading: isProcessingContent } = useQuery({
-    queryKey: ['articleContent', id, article?.title],
+    queryKey: ["articleContent", id, article?.title],
     queryFn: async () => {
       if (!article) return "";
       return processArticleWithGemini(article);

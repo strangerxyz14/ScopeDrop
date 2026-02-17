@@ -23,7 +23,7 @@ const MarketMapsSection = ({ marketMaps = [], isLoading = false }: MarketMapsSec
               Visualize the landscape of emerging sectors and technologies
             </p>
           </div>
-          <Link to="/market-insights/maps">
+          <Link to="/market-maps">
             <Button variant="ghost" className="text-oxford hover:text-oxford-400">
               View All
               <ArrowRight size={16} className="ml-2" />
@@ -47,7 +47,7 @@ const MarketMapsSection = ({ marketMaps = [], isLoading = false }: MarketMapsSec
           <div className="text-center py-12 bg-white rounded-lg shadow">
             <p className="text-gray-500">No market maps available.</p>
             <Button variant="outline" className="mt-4">
-              <Link to="/market-insights/maps">Browse Market Maps</Link>
+              <Link to="/market-maps">Browse Market Maps</Link>
             </Button>
           </div>
         )}

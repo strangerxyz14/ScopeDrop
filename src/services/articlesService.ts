@@ -48,6 +48,7 @@ export function mapDbArticleToNewsArticle(row: DbArticleRow): NewsArticle {
 
   return {
     id: row.id,
+    slug: row.slug,
     title: isNonEmptyString(row.title) ? row.title : "Untitled",
     description: isNonEmptyString(row.summary) ? row.summary : "",
     content: hasHtml ? row.content_html : undefined,
@@ -75,25 +76,12 @@ export async function fetchArticleByIdOrSlug(idOrSlug: string): Promise<DbArticl
   if (!trimmed) return null;
 
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trimmed);
-  const isNumericIndex = /^\d+$/.test(trimmed);
 
   if (isUuid) {
     const { data, error } = await supabase
       .from("articles")
       .select("*")
       .eq("id", trimmed)
-      .maybeSingle();
-    if (error) throw error;
-    return (data ?? null) as unknown as DbArticleRow | null;
-  }
-
-  if (isNumericIndex) {
-    const idx = Number(trimmed);
-    const { data, error } = await supabase
-      .from("articles")
-      .select("*")
-      .order("published_at", { ascending: false })
-      .range(idx, idx)
       .maybeSingle();
     if (error) throw error;
     return (data ?? null) as unknown as DbArticleRow | null;

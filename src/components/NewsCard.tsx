@@ -7,7 +7,8 @@ import { Link } from "react-router-dom";
 
 interface NewsCardProps {
   article: NewsArticle;
-  articleId: number;
+  // UUID or slug from Supabase (never an array index).
+  articleId: string;
   className?: string;
 }
 
@@ -55,7 +56,7 @@ const NewsCard = ({ article, articleId, className = "" }: NewsCardProps) => {
   };
 
   return (
-    <Link to={`/article/${articleId}`}>
+    <Link to={`/article/${encodeURIComponent(articleId)}`}>
       <Card className={`insight-card group cursor-pointer ${className}`}>
         {article.image && (
           <div className="relative overflow-hidden aspect-video">

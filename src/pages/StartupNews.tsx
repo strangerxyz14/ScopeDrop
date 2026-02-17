@@ -1,11 +1,11 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
 import FilterBar from "@/components/FilterBar";
 import NewsCard from "@/components/NewsCard";
-import { NewsArticle, Sector, Region, FundingStage, NewsType } from "@/types/news";
+import type { Sector, Region, FundingStage, NewsType } from "@/types/news";
 import ErrorMonitor from "@/components/ErrorMonitor";
 import { supabase } from "@/integrations/supabase/client";
 import { mapDbArticleToNewsArticle } from "@/services/articlesService";
@@ -26,20 +26,19 @@ const StartupNews = () => {
   });
 
   const { data: articles, isLoading } = useQuery({
-    queryKey: ['articles', filters], // Add filters to queryKey to trigger refetch
+    queryKey: ["articles", filters],
     queryFn: async () => {
       let query = supabase
         .from("articles")
         .select("*")
         .order("published_at", { ascending: false });
-      // Apply Category/Type Filter
+
+      // Apply Category/Type filter (server-side)
       if (filters.types.length > 0) {
-        // Or logic for multiple selected types
-        const typeFilters = filters.types.map(t => `category.ilike.%${t}%`).join(',');
+        const typeFilters = filters.types.map((t) => `category.ilike.%${t}%`).join(",");
         query = query.or(typeFilters);
       }
-      
-      // Apply Limit
+
       const { data, error } = await query.limit(30);
       if (error) throw error;
       return (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
@@ -48,11 +47,8 @@ const StartupNews = () => {
 
   const handleFilterChange = (newFilters: Filters) => {
     setFilters(newFilters);
-    // In a real app, we would re-fetch data with these filters
-    console.log("Filters changed:", newFilters);
   };
 
-  // Remove the 'filteredArticles' variable and direct 'articles' to the view
   const displayArticles = articles || [];
 
   return (
@@ -85,7 +81,11 @@ const StartupNews = () => {
           ) : displayArticles.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {displayArticles.map((article, index) => (
-                <NewsCard key={index} article={article} articleId={index} />
+                <NewsCard
+                  key={article.id ?? article.slug ?? index}
+                  article={article}
+                  articleId={(article.slug ?? article.id ?? "").toString()}
+                />
               ))}
             </div>
           ) : (

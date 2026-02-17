@@ -6,7 +6,6 @@ import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { NewsArticle } from "@/types/news";
 import NewsCard from "@/components/NewsCard";
 import { Search as SearchIcon, Loader } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -141,7 +140,11 @@ const Search = () => {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {displayArticles.map((article, index) => (
-                      <NewsCard key={index} article={article} articleId={index} />
+                      <NewsCard
+                        key={article.id ?? article.slug ?? index}
+                        article={article}
+                        articleId={(article.slug ?? article.id ?? "").toString()}
+                      />
                     ))}
                   </div>
                 </>
