@@ -1,4 +1,4 @@
-import { supabase } from '@/services/enhancedCacheManager';
+import { supabase } from '@/lib/supabase';
 
 export interface SearchSuggestion {
   id: string;
