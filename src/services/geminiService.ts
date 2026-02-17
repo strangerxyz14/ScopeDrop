@@ -2,7 +2,7 @@
 import { toast } from "@/components/ui/use-toast";
 import { NewsArticle } from "@/types/news";
 
-const API_KEY = "AIzaSyDfPJvFdqt8nQvPnCXHqvQ4wyMynV4FkfM"; // Google Gemini API key
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 
 interface GeminiResponse {
   candidates: Array<{
@@ -28,6 +28,10 @@ interface GeminiResponse {
 // Process an article with Gemini API
 export async function processArticleWithGemini(article: NewsArticle): Promise<string> {
   try {
+    if (!API_KEY || API_KEY.trim().length === 0) {
+      throw new Error("Missing VITE_GEMINI_API_KEY in .env.local");
+    }
+
     // Build the prompt
     const prompt = `
 Rewrite the following article into a professional, plagiarism-free summary suitable for an elite startup business publication.
