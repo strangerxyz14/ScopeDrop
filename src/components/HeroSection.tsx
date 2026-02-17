@@ -120,7 +120,16 @@ const HeroSection = ({
                             index === activeSlide ? "opacity-100 z-10" : "opacity-0 z-0"
                           )}
                         >
-                          <Link to={`/article/${index}`} className="block">
+                          <Link
+                            to={
+                              article.slug
+                                ? `/article/${encodeURIComponent(article.slug)}`
+                                : article.id
+                                  ? `/article/${encodeURIComponent(article.id)}`
+                                  : article.url
+                            }
+                            className="block"
+                          >
                             <div className="relative">
                               <AspectRatio ratio={16/9}>
                                 <img 
@@ -254,7 +263,7 @@ const HeroSection = ({
                     <p className="text-muted line-clamp-3 mb-4">{featuredArticle.description}</p>
                     <div className="mt-4">
                       <Link 
-                        to={`/article/${featuredArticle.id}`}
+                        to={`/article/${encodeURIComponent((featuredArticle.slug ?? featuredArticle.id ?? "").toString())}`}
                         className="inline-flex items-center text-accent hover:text-accent/80 font-semibold transition-colors"
                       >
                         Read Full Article 

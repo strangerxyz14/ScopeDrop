@@ -109,7 +109,15 @@ const NewsSection = ({
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <Link 
-                        to={articleUrl ? articleUrl : `/article/${index}`}
+                        to={
+                          articleUrl?.trim()
+                            ? articleUrl
+                            : article.slug
+                              ? `/article/${encodeURIComponent(article.slug)}`
+                              : article.id
+                                ? `/article/${encodeURIComponent(article.id)}`
+                                : "#"
+                        }
                         className="block"
                         target={articleUrl?.startsWith('http') ? '_blank' : undefined}
                       >

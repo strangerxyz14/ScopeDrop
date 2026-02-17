@@ -58,6 +58,7 @@ export const mockFundingRounds: FundingRound[] = [
 // Mock market maps data
 export const mockMarketMaps: MarketMap[] = [
   {
+    id: "ai-healthcare-2025",
     title: "50 AI Startups in Healthcare (2025)",
     sector: "Health Tech",
     companyCount: 50,
@@ -65,6 +66,7 @@ export const mockMarketMaps: MarketMap[] = [
     description: "Mapping the companies using artificial intelligence to transform healthcare delivery, diagnostics, and treatment."
   },
   {
+    id: "europe-climate-tech",
     title: "Europe's Top Climate Tech Companies",
     sector: "Climate Tech",
     companyCount: 37,
@@ -72,6 +74,7 @@ export const mockMarketMaps: MarketMap[] = [
     description: "The most promising European startups tackling climate change through innovative technology solutions."
   },
   {
+    id: "fintech-infrastructure",
     title: "Fintech Infrastructure Landscape",
     sector: "Fintech",
     companyCount: 64,
@@ -79,6 +82,7 @@ export const mockMarketMaps: MarketMap[] = [
     description: "Mapping the companies building the backbone of modern financial services."
   },
   {
+    id: "saas-growth-stack",
     title: "The SaaS Growth Stack",
     sector: "SaaS",
     companyCount: 42,
@@ -86,6 +90,7 @@ export const mockMarketMaps: MarketMap[] = [
     description: "Tools and technologies powering the next generation of software companies."
   },
   {
+    id: "web3-crypto-infrastructure",
     title: "Web3 & Crypto Infrastructure",
     sector: "Crypto",
     companyCount: 78,

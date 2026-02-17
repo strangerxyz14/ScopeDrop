@@ -4,31 +4,39 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
-import { getNewsArticles } from "@/services/mockDataService";
 import { processArticleWithGemini } from "@/services/geminiService";
 import { sanitizeHtml } from "@/utils/sanitize";
+import { fetchArticleByIdOrSlug, mapDbArticleToNewsArticle } from "@/services/articlesService";
 
 const ArticleView = () => {
   const { id } = useParams<{ id: string }>();
   
-  const { data: articles, isLoading: isLoadingArticles } = useQuery({
-    queryKey: ['articles'],
-    queryFn: () => getNewsArticles(20),
+  const { data: dbRow, isLoading: isLoadingArticle } = useQuery({
+    queryKey: ["article", id],
+    queryFn: async () => {
+      if (!id) return null;
+      return fetchArticleByIdOrSlug(id);
+    },
+    enabled: Boolean(id),
   });
   
-  const article = articles?.find((_, index) => index.toString() === id);
+  const article = dbRow ? mapDbArticleToNewsArticle(dbRow as any) : null;
+  const contentHtml = (dbRow as any)?.content_html;
+  const primarySourceUrl =
+    Array.isArray((dbRow as any)?.source_urls) && typeof (dbRow as any).source_urls[0] === "string"
+      ? (dbRow as any).source_urls[0]
+      : null;
   
   const { data: processedContent, isLoading: isProcessingContent } = useQuery({
-    queryKey: ['articleContent', id, article?.title],
+    queryKey: ["articleContent", id, article?.title],
     queryFn: async () => {
       if (!article) return "";
       return processArticleWithGemini(article);
     },
-    enabled: !!article && !article.processedByAI,
+    enabled: !!article && !(typeof contentHtml === "string" && contentHtml.trim().length > 0),
     staleTime: 1000 * 60 * 60, // Cache for 1 hour
   });
 
@@ -67,7 +75,7 @@ const ArticleView = () => {
             </Button>
           </div>
           
-          {isLoadingArticles ? (
+          {isLoadingArticle ? (
             <div className="space-y-4">
               <Skeleton className="h-10 w-3/4" />
               <Skeleton className="h-6 w-1/4" />
@@ -114,17 +122,21 @@ const ArticleView = () => {
                 ) : (
                   <div 
                     dangerouslySetInnerHTML={{ 
-                      __html: sanitizeHtml((article.processedByAI ? article.content : processedContent) || article.description || "") 
+                      __html: sanitizeHtml(
+                        (typeof contentHtml === "string" && contentHtml.trim().length > 0
+                          ? contentHtml
+                          : processedContent) || article.description || ""
+                      ) 
                     }} 
                   />
                 )}
                 
-                {article.url && (
+                {primarySourceUrl && (
                   <div className="mt-8 pt-4 border-t">
                     <p className="text-gray-700">
                       <strong>Read the original article: </strong>
                       <a 
-                        href={article.url} 
+                        href={primarySourceUrl} 
                         target="_blank" 
                         rel="noopener noreferrer" 
                         className="text-oxford hover:underline"

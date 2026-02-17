@@ -1,13 +1,19 @@
 
 import { MarketMap } from "@/types/news";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Link } from "react-router-dom";
 
 interface MarketMapCardProps {
   marketMap: MarketMap;
 }
 
 const MarketMapCard = ({ marketMap }: MarketMapCardProps) => {
-  return (
+  const internalPath =
+    typeof marketMap.id === "string" && marketMap.id.trim().length > 0
+      ? `/market-maps/${encodeURIComponent(marketMap.id)}`
+      : null;
+
+  const card = (
     <Card className="group hover:shadow-lg transition-shadow duration-300 overflow-hidden">
       <div className="aspect-video w-full relative">
         <img 
@@ -35,7 +41,13 @@ const MarketMapCard = ({ marketMap }: MarketMapCardProps) => {
         </CardContent>
       )}
       
-      {marketMap.url && (
+      {internalPath ? (
+        <CardFooter className="py-2 border-t">
+          <span className="text-oxford hover:underline transition-colors text-sm">
+            View Market Map
+          </span>
+        </CardFooter>
+      ) : marketMap.url ? (
         <CardFooter className="py-2 border-t">
           <a 
             href={marketMap.url} 
@@ -46,8 +58,16 @@ const MarketMapCard = ({ marketMap }: MarketMapCardProps) => {
             View Full Market Map
           </a>
         </CardFooter>
-      )}
+      ) : null}
     </Card>
+  );
+
+  return internalPath ? (
+    <Link to={internalPath} className="block">
+      {card}
+    </Link>
+  ) : (
+    card
   );
 };
 

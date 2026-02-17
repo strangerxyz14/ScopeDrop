@@ -24,6 +24,8 @@ const Events = React.lazy(() => import("./pages/Events"));
 const ErrorMonitoring = React.lazy(() => import("./pages/ErrorMonitoring"));
 const ArticleView = React.lazy(() => import("./pages/ArticleView"));
 const FundingRounds = React.lazy(() => import("./pages/FundingRounds"));
+const MarketMaps = React.lazy(() => import("./pages/MarketMaps"));
+const MarketMapView = React.lazy(() => import("./pages/MarketMapView"));
 
 // Account Pages
 const Dashboard = React.lazy(() => import("./pages/account/Dashboard"));
@@ -100,6 +102,8 @@ const App = () => {
                 
                 {/* Existing Routes */}
                 <Route path="/startups/news" element={<StartupNews />} />
+                <Route path="/market-maps" element={<MarketMaps />} />
+                <Route path="/market-maps/:id" element={<MarketMapView />} />
                 <Route path="/funding/rounds" element={<FundingRounds />} />
                 <Route path="/tech/tech-stacks" element={<TechStacks />} />
                 <Route path="/tech/growth-hacking" element={<GrowthHacking />} />
