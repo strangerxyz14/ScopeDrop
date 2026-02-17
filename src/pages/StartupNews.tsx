@@ -26,13 +26,21 @@ const StartupNews = () => {
   });
 
   const { data: articles, isLoading } = useQuery({
-    queryKey: ['articles', 'all'],
+    queryKey: ['articles', filters], // Add filters to queryKey to trigger refetch
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("articles")
         .select("*")
-        .order("published_at", { ascending: false })
-        .limit(30);
+        .order("published_at", { ascending: false });
+      // Apply Category/Type Filter
+      if (filters.types.length > 0) {
+        // Or logic for multiple selected types
+        const typeFilters = filters.types.map(t => `category.ilike.%${t}%`).join(',');
+        query = query.or(typeFilters);
+      }
+      
+      // Apply Limit
+      const { data, error } = await query.limit(30);
       if (error) throw error;
       return (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
     },
@@ -44,20 +52,8 @@ const StartupNews = () => {
     console.log("Filters changed:", newFilters);
   };
 
-  // Filter function - in a real app, this would be handled on the server
-  const filteredArticles = articles ? articles.filter(article => {
-    // This is simplified - in a real app category mapping would be more sophisticated
-    if (filters.types.length > 0) {
-      const type = article.category?.toLowerCase() || "";
-      if (!filters.types.some(t => type.includes(t.toLowerCase()))) {
-        return false;
-      }
-    }
-    
-    // We'd need metadata on articles for these filters
-    // This is just a placeholder for the mockup
-    return true;
-  }) : [];
+  // Remove the 'filteredArticles' variable and direct 'articles' to the view
+  const displayArticles = articles || [];
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -86,9 +82,9 @@ const StartupNews = () => {
                 <div key={i} className="bg-white animate-pulse h-80 rounded-lg shadow"></div>
               ))}
             </div>
-          ) : filteredArticles.length > 0 ? (
+          ) : displayArticles.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredArticles.map((article, index) => (
+              {displayArticles.map((article, index) => (
                 <NewsCard key={index} article={article} articleId={index} />
               ))}
             </div>

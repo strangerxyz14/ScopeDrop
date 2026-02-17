@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchLatestArticles, mapDbArticleToNewsArticle } from "@/services/articlesService";
+import { mapDbArticleToNewsArticle } from "@/services/articlesService";
 import type { NewsArticle } from "@/types/news";
 
 // Hook for page-specific content
@@ -10,32 +10,37 @@ export const usePageContent = (page: string, params?: any) => {
   return useQuery({
     queryKey: ['pageContent', page, params],
     queryFn: async () => {
+      // Base query
+      let query = supabase
+        .from("articles")
+        .select("*")
+        .order("published_at", { ascending: false });
+      // If not home, filter by the page name (treating it as a category)
       if (page !== "home") {
-        return { featuredArticles: [], trendingTopics: [] };
+        // Capitalize first letter to match DB categories usually (e.g. 'tech' -> 'Tech')
+        const categoryFilter = page.charAt(0).toUpperCase() + page.slice(1);
+        query = query.ilike("category", `%${categoryFilter}%`);
       }
-
-      const rows = await fetchLatestArticles(params?.limit ?? 20);
-      const articles = rows.map(mapDbArticleToNewsArticle);
-
-      const categories = rows
+      const { data: rows, error } = await query.limit(params?.limit ?? 20);
+      if (error) throw error;
+      const articles = (rows ?? []).map(mapDbArticleToNewsArticle);
+      // Calculate trending topics from the fetched articles
+      const categories = (rows ?? [])
         .map((r: any) => (typeof r.category === "string" ? r.category : null))
         .filter((c): c is string => Boolean(c && c.trim().length > 0));
+      
       const trendingTopics = Array.from(
         categories.reduce((acc, c) => acc.set(c, (acc.get(c) ?? 0) + 1), new Map<string, number>()),
       )
         .sort((a, b) => b[1] - a[1])
         .slice(0, 6)
         .map(([c]) => c);
-
       return {
         featuredArticles: articles,
         trendingTopics,
       };
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime in v5)
-    retry: 2,
-    throwOnError: false,
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -181,10 +186,23 @@ export const useTrendingTopics = () => {
 export const useSectorContent = (sector: string, count: number = 10) => {
   return useQuery({
     queryKey: ['sectorContent', sector, count],
-    queryFn: async () => ({ sector, items: [] }),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("articles")
+        .select("*")
+        .ilike("category", `%${sector}%`) // Fuzzy match sector to category
+        .order("published_at", { ascending: false })
+        .limit(count);
+
+      if (error) throw error;
+      
+      return { 
+        sector, 
+        items: (data ?? []).map(mapDbArticleToNewsArticle) 
+      };
+    },
     enabled: !!sector,
     staleTime: 5 * 60 * 1000,
-    throwOnError: false,
   });
 };
 
@@ -254,23 +272,16 @@ export const useInfiniteContent = (contentType: 'articles' | 'funding' | 'compan
 
     setIsLoading(true);
     try {
-      let newContent: any[] = [];
-      
-      switch (contentType) {
-        case 'articles': {
-          const rows = await fetchLatestArticles(initialCount * page);
-          const mapped = rows.map(mapDbArticleToNewsArticle);
-          newContent = mapped.slice((page - 1) * initialCount, page * initialCount);
-          break;
-        }
-        case 'funding':
-          newContent = [];
-          break;
-        case 'companies': {
-          newContent = [];
-          break;
-        }
-      }
+      // Calculate range for Supabase pagination
+      const from = (page - 1) * initialCount;
+      const to = from + initialCount - 1;
+      const { data, error } = await supabase
+        .from("articles")
+        .select("*")
+        .order("published_at", { ascending: false })
+        .range(from, to);
+      if (error) throw error;
+      const newContent = (data ?? []).map(mapDbArticleToNewsArticle);
 
       if (newContent.length < initialCount) {
         setHasMore(false);
