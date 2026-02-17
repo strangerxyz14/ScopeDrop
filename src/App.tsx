@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { HelmetProvider } from "react-helmet-async";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { HealthCheck } from "@/components/common/HealthCheck";
+import { supabaseConfig } from "@/integrations/supabase/client";
 
 // Import content scheduler to auto-start real-time content fetching
 import "./services/contentScheduler";
@@ -95,6 +96,22 @@ const App = () => {
             <TooltipProvider>
               <Toaster />
               <Sonner />
+              {!supabaseConfig.isConfigured && (
+                <div className="fixed bottom-4 left-4 z-50 max-w-sm rounded-lg border bg-background/95 backdrop-blur-sm p-3 shadow-lg">
+                  <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
+                    Supabase not configured
+                  </div>
+                  <div className="mt-1 text-sm text-foreground">
+                    Set <code className="px-1">VITE_SUPABASE_URL</code> and{" "}
+                    <code className="px-1">VITE_SUPABASE_ANON_KEY</code> in your deployment env and redeploy.
+                  </div>
+                  {supabaseConfig.problems.length > 0 && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      {supabaseConfig.problems.join(" • ")}
+                    </div>
+                  )}
+                </div>
+              )}
               <BrowserRouter>
               <Suspense fallback={<PageLoadingSkeleton />}>
                 <Routes>

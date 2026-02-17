@@ -1,14 +1,8 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    "Missing Supabase env variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local.",
-  );
-}
 
 function decodeJwtRole(token: string): string | null {
   const parts = token.split(".");
@@ -24,9 +18,29 @@ function decodeJwtRole(token: string): string | null {
   }
 }
 
-const tokenRole = decodeJwtRole(supabaseAnonKey);
-if (tokenRole === "service_role") {
-  throw new Error("Refusing to initialize Supabase client with service_role key in frontend.");
-}
+const tokenRole = supabaseAnonKey ? decodeJwtRole(supabaseAnonKey) : null;
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabaseConfig = {
+  url: supabaseUrl ?? null,
+  anonKeyPresent: Boolean(supabaseAnonKey),
+  tokenRole,
+  isServiceRoleKey: tokenRole === "service_role",
+  isConfigured: Boolean(supabaseUrl && supabaseAnonKey && tokenRole !== "service_role"),
+  problems: [
+    ...(supabaseUrl ? [] : ["Missing VITE_SUPABASE_URL"]),
+    ...(supabaseAnonKey ? [] : ["Missing VITE_SUPABASE_ANON_KEY"]),
+    ...(tokenRole === "service_role"
+      ? ["VITE_SUPABASE_ANON_KEY is a service_role key (frontend must use anon)."]
+      : []),
+  ],
+} as const;
+
+// Avoid throwing at module-import time (white-screen failure in production builds).
+// When not configured, create a safe fallback client; call sites should render a visible empty state.
+const FALLBACK_URL = "http://localhost:54321";
+const FALLBACK_KEY = "anon-fallback-key";
+
+export const supabase: SupabaseClient<Database> = createClient<Database>(
+  supabaseConfig.isConfigured ? (supabaseUrl as string) : FALLBACK_URL,
+  supabaseConfig.isConfigured ? (supabaseAnonKey as string) : FALLBACK_KEY,
+);
