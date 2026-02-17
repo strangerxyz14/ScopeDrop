@@ -208,21 +208,20 @@ export abstract class BaseApiService {
     return this.createError('HTTP_ERROR', message);
   }
 
-  private createError(type: string, message: string, originalError?: Error): AppError {
-    return {
-      id: `api_error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      type: 'API_ERROR',
-      message,
-      code: type,
-      timestamp: new Date(),
-      context: {
-        service: this.serviceName,
-        originalError: originalError?.message,
-        stack: originalError?.stack,
-      },
-      userAgent: navigator.userAgent,
-      sessionId: sessionStorage.getItem('scopedrop_session_id') || 'unknown',
+  private createError(type: string, message: string, originalError?: Error): AppError & Error {
+    const error = new Error(message) as AppError & Error;
+    error.id = `api_error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    error.type = 'API_ERROR';
+    error.code = type;
+    error.timestamp = new Date();
+    error.context = {
+      service: this.serviceName,
+      originalError: originalError?.message,
+      stack: originalError?.stack,
     };
+    error.userAgent = navigator.userAgent;
+    error.sessionId = sessionStorage.getItem('scopedrop_session_id') || 'unknown';
+    return error;
   }
 
   protected getApiKey(): string | null {

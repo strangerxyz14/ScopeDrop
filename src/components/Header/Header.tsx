@@ -39,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({ className }) => {
           {/* Logo */}
           <div className="flex-shrink-0">
             <Link to="/" className="flex items-center">
-              <span className="text-xl font-bold text-parrot hover:text-parrot-300 transition-colors">ScopeDrop</span>
+              <span className="text-2xl font-serif text-parrot hover:text-parrot-300 transition-colors tracking-tight">ScopeDrop</span>
             </Link>
           </div>
 
