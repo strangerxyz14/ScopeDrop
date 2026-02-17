@@ -20,14 +20,19 @@ const Search = () => {
   const { data: articles, isLoading } = useQuery({
     queryKey: ['articles', 'search'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("articles")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      const mapped = (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
-      if (mapped.length > 0) return mapped;
+      try {
+        const { data, error } = await supabase
+          .from("articles")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        const mapped = (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
+        if (mapped.length > 0) return mapped;
+      } catch (e) {
+        console.warn("Supabase search preload failed; falling back to live web feed.", e);
+      }
+
       const rt = await realTimeContentAggregator.aggregateAllContent();
       return rt.articles.slice(0, 50);
     },

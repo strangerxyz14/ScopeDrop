@@ -29,21 +29,25 @@ const StartupNews = () => {
   const { data: articles, isLoading } = useQuery({
     queryKey: ["articles", filters],
     queryFn: async () => {
-      let query = supabase
-        .from("articles")
-        .select("*")
-        .order("created_at", { ascending: false });
+      try {
+        let query = supabase
+          .from("articles")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      // Apply Category/Type filter (server-side)
-      if (filters.types.length > 0) {
-        const typeFilters = filters.types.map((t) => `category.ilike.%${t}%`).join(",");
-        query = query.or(typeFilters);
+        // Apply Category/Type filter (server-side)
+        if (filters.types.length > 0) {
+          const typeFilters = filters.types.map((t) => `category.ilike.%${t}%`).join(",");
+          query = query.or(typeFilters);
+        }
+
+        const { data, error } = await query.limit(30);
+        if (error) throw error;
+        const mapped = (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
+        if (mapped.length > 0) return mapped;
+      } catch (e) {
+        console.warn("Supabase articles fetch failed; falling back to live web feed.", e);
       }
-
-      const { data, error } = await query.limit(30);
-      if (error) throw error;
-      const mapped = (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
-      if (mapped.length > 0) return mapped;
 
       // Fallback: realtime web feed (external URLs)
       const rt = await realTimeContentAggregator.aggregateAllContent();
