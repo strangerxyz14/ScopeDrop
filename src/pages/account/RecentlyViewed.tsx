@@ -2,15 +2,24 @@
 import React from "react";
 import AccountPageTemplate from "@/components/AccountPageTemplate";
 import { useQuery } from "@tanstack/react-query";
-import { getNewsArticles } from "@/services/mockDataService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { mapDbArticleToNewsArticle } from "@/services/articlesService";
 
 const RecentlyViewed = () => {
   const { data: articles, isLoading } = useQuery({
     queryKey: ['recentArticles'],
-    queryFn: () => getNewsArticles(8),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("articles")
+        .select("*")
+        .order("published_at", { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      return (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
+    },
   });
 
   return (
@@ -32,8 +41,11 @@ const RecentlyViewed = () => {
             randomDate.setDate(randomDate.getDate() - Math.floor(Math.random() * 7));
             
             return (
-              <div key={index} className="border-b pb-4 last:border-b-0">
-                <Link to={`/article/${index}`} className="block hover:bg-gray-50 -mx-6 px-6 py-2 rounded-md transition-colors">
+              <div key={article.id ?? article.slug ?? index} className="border-b pb-4 last:border-b-0">
+                <Link
+                  to={`/article/${encodeURIComponent((article.slug ?? article.id ?? "").toString())}`}
+                  className="block hover:bg-gray-50 -mx-6 px-6 py-2 rounded-md transition-colors"
+                >
                   <h3 className="font-bold text-lg mb-1">{article.title}</h3>
                   <p className="text-sm text-gray-600 mb-2 line-clamp-2">{article.description}</p>
                   <div className="flex justify-between items-center">
