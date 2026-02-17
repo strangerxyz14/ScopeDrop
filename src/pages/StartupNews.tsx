@@ -6,8 +6,9 @@ import Footer from "@/components/Footer";
 import FilterBar from "@/components/FilterBar";
 import NewsCard from "@/components/NewsCard";
 import { NewsArticle, Sector, Region, FundingStage, NewsType } from "@/types/news";
-import { getNewsArticles } from "@/services/mockDataService";
 import ErrorMonitor from "@/components/ErrorMonitor";
+import { supabase } from "@/integrations/supabase/client";
+import { mapDbArticleToNewsArticle } from "@/services/articlesService";
 
 interface Filters {
   stages: FundingStage[];
@@ -26,7 +27,15 @@ const StartupNews = () => {
 
   const { data: articles, isLoading } = useQuery({
     queryKey: ['articles', 'all'],
-    queryFn: () => getNewsArticles(12),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("articles")
+        .select("*")
+        .order("published_at", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
+    },
   });
 
   const handleFilterChange = (newFilters: Filters) => {

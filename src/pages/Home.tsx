@@ -1,18 +1,14 @@
 
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React from "react";
 import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
 import RealTimeHeroSection from "@/components/RealTimeHeroSection";
 import MarketMapsSection from "@/components/MarketMapsSection";
 import EventsSection from "@/components/EventsSection";
 import NewsletterCta from "@/components/NewsletterCta";
-import { FundingRound, Event, MarketMap, NewsArticle } from "@/types/news";
-import NewsCard from "@/components/NewsCard";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getFundingRounds, getMarketMaps, getEvents, getNewsArticles } from "@/services/mockDataService";
 import NewsSection from "@/components/NewsSection";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { usePageContent, useTrendingTopics, useContentRefresh, useRealTimeUpdates } from "@/hooks/useContentData";
@@ -29,42 +25,16 @@ const Home = () => {
   const { refreshPage, isRefreshing } = useContentRefresh();
   const { lastUpdate } = useRealTimeUpdates(60000); // Update every minute
 
-  // Fallback to original data if enhanced content fails
-  const { data: fallbackFunding } = useQuery({
-    queryKey: ['fallbackFunding'],
-    queryFn: () => getFundingRounds(5),
-    enabled: !!error,
-  });
-
-  const { data: fallbackArticles } = useQuery({
-    queryKey: ['fallbackArticles'],
-    queryFn: () => getNewsArticles(10),
-    enabled: !!error,
-  });
-
-  const { data: fallbackEvents } = useQuery({
-    queryKey: ['fallbackEvents'],
-    queryFn: () => getEvents(4),
-    enabled: !!error,
-  });
-
-  const { data: fallbackMarketMaps } = useQuery({
-    queryKey: ['fallbackMarketMaps'],
-    queryFn: () => getMarketMaps(3),
-    enabled: !!error,
-  });
-
-  // Use enhanced content or fallback
-  const fundingRounds = (pageContent as any)?.recentFunding || fallbackFunding || [];
-  const articles = (pageContent as any)?.featuredArticles || fallbackArticles || [];
-  const events = (pageContent as any)?.upcomingEvents || fallbackEvents || [];
-  const marketMaps = (pageContent as any)?.marketMaps || fallbackMarketMaps || [];
+  const articles = (pageContent as any)?.featuredArticles || [];
+  const marketMaps: any[] = [];
+  const events: any[] = [];
   
   // Select a featured article
   const featuredArticle = articles && articles.length > 0 ? articles[0] : undefined;
   const remainingArticles = articles && articles.length > 1 ? articles.slice(1) : [];
 
   const isLoading = isLoadingContent || isLoadingTopics;
+  const isDbEmpty = !isLoading && !error && Array.isArray(articles) && articles.length === 0;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -113,13 +83,29 @@ const Home = () => {
                       <RealTimeHeroSection />
         
         {/* Recent Stories Section */}
-        <NewsSection
-          title="Recent Stories"
-          subtitle="The latest from the startup ecosystem"
-          articles={remainingArticles?.slice(0, 6) || []}
-          isLoading={isLoading}
-          viewAllLink="/startups/news"
-        />
+        {isDbEmpty ? (
+          <section className="py-16 bg-background">
+            <div className="container mx-auto px-4">
+              <div className="border border-border rounded-lg bg-card p-10 text-center">
+                <p className="text-sm font-mono text-muted-foreground uppercase tracking-widest mb-3">
+                  Securing Intelligence...
+                </p>
+                <p className="text-muted-foreground max-w-2xl mx-auto">
+                  Your newsroom is live, but the database has no published articles yet.
+                  Once Scout inserts signals into <code className="px-1">articles</code>, stories will appear here automatically.
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <NewsSection
+            title="Recent Stories"
+            subtitle="The latest from the startup ecosystem"
+            articles={remainingArticles?.slice(0, 6) || []}
+            isLoading={isLoading}
+            viewAllLink="/startups/news"
+          />
+        )}
         
         {/* Market Maps Section */}
         <MarketMapsSection 

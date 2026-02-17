@@ -1,5 +1,4 @@
 import { realTimeContentAggregator } from './realTimeContentAPIs';
-import { enhancedDataService } from './enhancedDataService';
 import { toast } from 'sonner';
 
 interface ScheduledJob {
@@ -172,9 +171,6 @@ class ContentScheduler {
     try {
       const freshContent = await realTimeContentAggregator.getEnhancedContent();
       
-      // Update the enhanced data service cache
-      enhancedDataService.clearCache();
-      
       // Store fresh content (you might want to save to database here)
       localStorage.setItem('freshContent', JSON.stringify({
         ...freshContent,
@@ -196,8 +192,6 @@ class ContentScheduler {
       const content = await realTimeContentAggregator.aggregateAllContent();
       
       // Update news cache
-      enhancedDataService.clearCache('news');
-      
       localStorage.setItem('freshNews', JSON.stringify({
         articles: content.articles,
         timestamp: Date.now()
@@ -217,8 +211,6 @@ class ContentScheduler {
       const content = await realTimeContentAggregator.aggregateAllContent();
       
       // Update trending cache
-      enhancedDataService.clearCache('trending');
-      
       localStorage.setItem('trendingContent', JSON.stringify({
         trending: content.trending,
         timestamp: Date.now()
@@ -238,8 +230,6 @@ class ContentScheduler {
       const content = await realTimeContentAggregator.aggregateAllContent();
       
       // Update events cache
-      enhancedDataService.clearCache('events');
-      
       localStorage.setItem('freshEvents', JSON.stringify({
         events: content.events,
         timestamp: Date.now()
@@ -268,8 +258,6 @@ class ContentScheduler {
       const content = await realTimeContentAggregator.aggregateAllContent();
       
       // Update market data cache
-      enhancedDataService.clearCache('market');
-      
       localStorage.setItem('marketData', JSON.stringify({
         funding: content.funding,
         timestamp: Date.now()

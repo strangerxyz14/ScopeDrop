@@ -1,20 +1,37 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { 
-  enhancedDataService,
-  getPageContent,
-  searchContent,
-  getAnalyticsData,
-  getTrendingTopics,
-  getSearchSuggestions
-} from "@/services/enhancedDataService";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { fetchLatestArticles, mapDbArticleToNewsArticle } from "@/services/articlesService";
+import type { NewsArticle } from "@/types/news";
 
 // Hook for page-specific content
 export const usePageContent = (page: string, params?: any) => {
   return useQuery({
     queryKey: ['pageContent', page, params],
-    queryFn: () => getPageContent(page, params),
+    queryFn: async () => {
+      if (page !== "home") {
+        return { featuredArticles: [], trendingTopics: [] };
+      }
+
+      const rows = await fetchLatestArticles(params?.limit ?? 20);
+      const articles = rows.map(mapDbArticleToNewsArticle);
+
+      const categories = rows
+        .map((r: any) => (typeof r.category === "string" ? r.category : null))
+        .filter((c): c is string => Boolean(c && c.trim().length > 0));
+      const trendingTopics = Array.from(
+        categories.reduce((acc, c) => acc.set(c, (acc.get(c) ?? 0) + 1), new Map<string, number>()),
+      )
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([c]) => c);
+
+      return {
+        featuredArticles: articles,
+        trendingTopics,
+      };
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime in v5)
     retry: 2,
@@ -30,7 +47,21 @@ export const useSearch = () => {
 
   const searchQuery = useQuery({
     queryKey: ['search', query, filters],
-    queryFn: () => searchContent(query, filters),
+    queryFn: async () => {
+      const term = query.trim();
+      if (term.length < 3) return { articles: [] as NewsArticle[] };
+
+      const { data, error } = await supabase
+        .from("articles")
+        .select("*")
+        .or(`title.ilike.%${term}%,summary.ilike.%${term}%`)
+        .order("published_at", { ascending: false })
+        .limit(30);
+
+      if (error) throw error;
+      const rows = (data ?? []) as any[];
+      return { articles: rows.map(mapDbArticleToNewsArticle) };
+    },
     enabled: query.length > 2,
     staleTime: 2 * 60 * 1000, // 2 minutes for search results
     throwOnError: false,
@@ -38,8 +69,22 @@ export const useSearch = () => {
 
   const loadSuggestions = useCallback(async (searchQuery: string) => {
     try {
-      const newSuggestions = await getSearchSuggestions(searchQuery);
-      setSuggestions(newSuggestions);
+      const term = searchQuery.trim();
+      if (term.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("articles")
+        .select("title")
+        .ilike("title", `%${term}%`)
+        .order("published_at", { ascending: false })
+        .limit(8);
+
+      if (error) throw error;
+      const titles = (data ?? []).map((r: any) => r.title).filter((t: any) => typeof t === "string");
+      setSuggestions(titles);
     } catch (error) {
       console.error('Failed to load suggestions:', error);
     }
@@ -76,7 +121,24 @@ export const useSearch = () => {
 export const useAnalytics = () => {
   return useQuery({
     queryKey: ['analytics'],
-    queryFn: getAnalyticsData,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("articles")
+        .select("category, id", { count: "exact" });
+      if (error) throw error;
+
+      const rows = (data ?? []) as any[];
+      const byCategory = rows.reduce((acc: Record<string, number>, r: any) => {
+        const c = typeof r.category === "string" && r.category.trim() ? r.category : "Uncategorized";
+        acc[c] = (acc[c] ?? 0) + 1;
+        return acc;
+      }, {});
+
+      return {
+        totalArticles: rows.length,
+        categories: Object.entries(byCategory).map(([category, count]) => ({ category, count })),
+      };
+    },
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes (renamed from cacheTime in v5)
     throwOnError: false,
@@ -87,7 +149,28 @@ export const useAnalytics = () => {
 export const useTrendingTopics = () => {
   return useQuery({
     queryKey: ['trendingTopics'],
-    queryFn: getTrendingTopics,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("articles")
+        .select("category")
+        .order("published_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      const categories = (data ?? [])
+        .map((r: any) => (typeof r.category === "string" ? r.category.trim() : ""))
+        .filter(Boolean);
+
+      const counts = categories.reduce((acc: Record<string, number>, c: string) => {
+        acc[c] = (acc[c] ?? 0) + 1;
+        return acc;
+      }, {});
+
+      return Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([c]) => c);
+    },
     staleTime: 15 * 60 * 1000, // 15 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes (renamed from cacheTime in v5)
     throwOnError: false,
@@ -98,7 +181,7 @@ export const useTrendingTopics = () => {
 export const useSectorContent = (sector: string, count: number = 10) => {
   return useQuery({
     queryKey: ['sectorContent', sector, count],
-    queryFn: () => enhancedDataService.getSectorContent(sector, count),
+    queryFn: async () => ({ sector, items: [] }),
     enabled: !!sector,
     staleTime: 5 * 60 * 1000,
     throwOnError: false,
@@ -109,7 +192,7 @@ export const useSectorContent = (sector: string, count: number = 10) => {
 export const useCompanyProfiles = (count: number = 10, sector?: string) => {
   return useQuery({
     queryKey: ['companyProfiles', count, sector],
-    queryFn: () => enhancedDataService.getCompanyProfiles(count, sector),
+    queryFn: async () => [],
     staleTime: 5 * 60 * 1000,
     throwOnError: false,
   });
@@ -123,19 +206,13 @@ export const useContentRefresh = () => {
   const refreshContent = useCallback(async (pattern?: string) => {
     setIsRefreshing(true);
     try {
-      // Clear service cache
-      enhancedDataService.clearCache(pattern);
-      
       // Clear React Query cache
       if (pattern) {
         queryClient.invalidateQueries({ queryKey: [pattern] });
       } else {
-        queryClient.clear();
+        queryClient.invalidateQueries();
       }
-      
-      // Pre-load fresh content
-      await enhancedDataService.refreshContent();
-      
+
       toast.success('Content refreshed successfully!');
     } catch (error) {
       console.error('Content refresh error:', error);
@@ -148,7 +225,6 @@ export const useContentRefresh = () => {
   const refreshPage = useCallback(async (page: string) => {
     setIsRefreshing(true);
     try {
-      enhancedDataService.clearCache(`page-${page}`);
       queryClient.invalidateQueries({ queryKey: ['pageContent', page] });
       toast.success(`${page} content refreshed!`);
     } catch (error) {
@@ -181,15 +257,17 @@ export const useInfiniteContent = (contentType: 'articles' | 'funding' | 'compan
       let newContent: any[] = [];
       
       switch (contentType) {
-        case 'articles':
-          newContent = await enhancedDataService.getNewsArticles(initialCount);
+        case 'articles': {
+          const rows = await fetchLatestArticles(initialCount * page);
+          const mapped = rows.map(mapDbArticleToNewsArticle);
+          newContent = mapped.slice((page - 1) * initialCount, page * initialCount);
           break;
+        }
         case 'funding':
-          newContent = await enhancedDataService.getFundingRounds(initialCount);
+          newContent = [];
           break;
         case 'companies': {
-          const companyData = await enhancedDataService.getCompanyProfiles(initialCount);
-          newContent = Array.isArray(companyData) ? companyData : [];
+          newContent = [];
           break;
         }
       }
@@ -258,12 +336,7 @@ export const usePersonalizedContent = (userPreferences?: any) => {
   const personalizedQuery = useQuery({
     queryKey: ['personalizedContent', personalizedSectors],
     queryFn: async () => {
-      const content = await Promise.all(
-        personalizedSectors.map(sector => 
-          enhancedDataService.getSectorContent(sector, 5)
-        )
-      );
-      return content.flat();
+      return [];
     },
     staleTime: 10 * 60 * 1000,
     enabled: personalizedSectors.length > 0

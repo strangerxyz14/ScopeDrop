@@ -6,12 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
-import { getNewsArticles } from "@/services/mockDataService";
+import { fetchLatestArticles, mapDbArticleToNewsArticle } from "@/services/articlesService";
 
 const SavedArticles = () => {
   const { data: articles, isLoading } = useQuery({
     queryKey: ['savedArticles'],
-    queryFn: () => getNewsArticles(5),
+    queryFn: async () => {
+      const rows = await fetchLatestArticles(5);
+      return rows.map(mapDbArticleToNewsArticle);
+    },
   });
 
   return (

@@ -4,11 +4,11 @@ import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
 import { processArticleWithGemini } from "@/services/geminiService";
 import { useQuery } from "@tanstack/react-query";
-import { getNewsArticles } from "@/services/mockDataService";
 import { NewsArticle } from "@/types/news";
 import { Skeleton } from "@/components/ui/skeleton";
 import NewsCard from "@/components/NewsCard";
 import { sanitizeHtml } from "@/utils/sanitize";
+import { fetchLatestArticles, mapDbArticleToNewsArticle } from "@/services/articlesService";
 
 interface ContentPageTemplateProps {
   title: string;
@@ -20,7 +20,10 @@ interface ContentPageTemplateProps {
 const ContentPageTemplate = ({ title, description, topic, heroImage }: ContentPageTemplateProps) => {
   const { data: articles, isLoading } = useQuery({
     queryKey: ['articles', topic],
-    queryFn: () => getNewsArticles(8),
+    queryFn: async () => {
+      const rows = await fetchLatestArticles(8);
+      return rows.map(mapDbArticleToNewsArticle);
+    },
   });
 
   // Get AI-generated content about this topic

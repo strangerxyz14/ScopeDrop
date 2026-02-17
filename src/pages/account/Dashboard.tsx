@@ -8,13 +8,16 @@ import { processArticleWithGemini } from "@/services/geminiService";
 import { NewsArticle } from "@/types/news";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
-import { getNewsArticles } from "@/services/mockDataService";
 import { sanitizeHtml } from "@/utils/sanitize";
+import { fetchLatestArticles, mapDbArticleToNewsArticle } from "@/services/articlesService";
 
 const Dashboard = () => {
   const { data: articles, isLoading } = useQuery({
     queryKey: ['dashboardArticles'],
-    queryFn: () => getNewsArticles(3),
+    queryFn: async () => {
+      const rows = await fetchLatestArticles(3);
+      return rows.map(mapDbArticleToNewsArticle);
+    },
   });
 
   // Get personalized recommendations using Gemini
