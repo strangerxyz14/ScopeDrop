@@ -43,10 +43,10 @@ export class SmartSearchService {
     try {
       // Query Supabase for relevant content
       const { data: articles, error } = await supabase
-        .from('news_articles')
-        .select('title, description, category, tags, published_at')
-        .or(`title.ilike.%${query}%,description.ilike.%${query}%,tags.cs.{${query}}`)
-        .order('published_at', { ascending: false })
+        .from('articles')
+        .select('id, title, summary, category, created_at')
+        .or(`title.ilike.%${query}%,summary.ilike.%${query}%`)
+        .order('created_at', { ascending: false })
         .limit(10);
 
       if (error) {
@@ -55,12 +55,12 @@ export class SmartSearchService {
       }
 
       const suggestions: SearchSuggestion[] = articles?.map((article, index) => ({
-        id: `article_${index}`,
+        id: article.id ?? `article_${index}`,
         text: article.title,
-        type: this.categorizeContent(article.category, article.tags),
+        type: this.categorizeContent(article.category, article.summary),
         relevance: 0.8 - (index * 0.1),
         source: 'database',
-        timestamp: new Date(article.published_at)
+        timestamp: new Date(article.created_at)
       })) || [];
 
       // Add trending topics if query matches
@@ -99,9 +99,9 @@ export class SmartSearchService {
   async getTrendingTopics(): Promise<TrendingTopic[]> {
     try {
       const { data: topics, error } = await supabase
-        .from('trending_topics')
-        .select('*')
-        .order('momentum', { ascending: false })
+        .from('raw_signals')
+        .select('id, headline, category, signal_score, scouted_at')
+        .order('signal_score', { ascending: false })
         .limit(10);
 
       if (error) {
@@ -111,11 +111,11 @@ export class SmartSearchService {
 
       this.trendingCache = topics?.map(topic => ({
         id: topic.id,
-        topic: topic.topic,
+        topic: topic.headline,
         category: topic.category,
-        momentum: topic.momentum,
-        mentions: topic.mentions,
-        lastUpdated: new Date(topic.updated_at)
+        momentum: topic.signal_score ?? 0,
+        mentions: Math.round((topic.signal_score ?? 0) * 100),
+        lastUpdated: new Date(topic.scouted_at)
       })) || [];
 
       return this.trendingCache;
@@ -132,10 +132,10 @@ export class SmartSearchService {
 
       // Check for recent funding activity
       const { data: recentFunding } = await supabase
-        .from('news_articles')
-        .select('published_at')
-        .eq('category', 'Funding')
-        .gte('published_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .from('raw_signals')
+        .select('scouted_at')
+        .ilike('summary', '%funding%')
+        .gte('scouted_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .limit(1);
 
       if (recentFunding && recentFunding.length > 0) {
@@ -144,10 +144,10 @@ export class SmartSearchService {
 
       // Check for AI momentum
       const { data: aiTopics } = await supabase
-        .from('trending_topics')
-        .select('momentum')
-        .eq('category', 'AI')
-        .gte('momentum', 0.7)
+        .from('raw_signals')
+        .select('signal_score')
+        .eq('category', 'Tech')
+        .gte('signal_score', 0.7)
         .limit(1);
 
       if (aiTopics && aiTopics.length > 0) {
@@ -156,10 +156,10 @@ export class SmartSearchService {
 
       // Check for recent acquisitions
       const { data: recentAcquisitions } = await supabase
-        .from('news_articles')
-        .select('published_at')
-        .eq('category', 'Acquisitions')
-        .gte('published_at', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString())
+        .from('raw_signals')
+        .select('scouted_at')
+        .ilike('summary', '%acquisition%')
+        .gte('scouted_at', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString())
         .limit(1);
 
       if (recentAcquisitions && recentAcquisitions.length > 0) {
@@ -174,20 +174,20 @@ export class SmartSearchService {
   }
 
   // Categorize content based on category and tags
-  private categorizeContent(category: string, tags: string[]): 'funding' | 'ai' | 'acquisition' | 'founder' | 'tech' {
-    const categoryLower = category.toLowerCase();
-    const tagsLower = tags?.map(tag => tag.toLowerCase()) || [];
+  private categorizeContent(category: string | null, summary: string | null): 'funding' | 'ai' | 'acquisition' | 'founder' | 'tech' {
+    const categoryLower = (category || '').toLowerCase();
+    const summaryLower = (summary || '').toLowerCase();
 
-    if (categoryLower.includes('funding') || tagsLower.some(tag => tag.includes('funding'))) {
+    if (summaryLower.includes('funding') || categoryLower.includes('startup')) {
       return 'funding';
     }
-    if (categoryLower.includes('ai') || tagsLower.some(tag => tag.includes('ai'))) {
+    if (summaryLower.includes('ai') || categoryLower.includes('tech')) {
       return 'ai';
     }
-    if (categoryLower.includes('acquisition') || tagsLower.some(tag => tag.includes('acquisition'))) {
+    if (summaryLower.includes('acquisition') || summaryLower.includes('merger')) {
       return 'acquisition';
     }
-    if (categoryLower.includes('founder') || tagsLower.some(tag => tag.includes('founder'))) {
+    if (summaryLower.includes('founder')) {
       return 'founder';
     }
     return 'tech';

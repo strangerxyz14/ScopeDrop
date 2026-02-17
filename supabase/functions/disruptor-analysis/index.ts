@@ -7,6 +7,7 @@ import type {
   GeminiDisruptorOutput,
   SupabaseWebhookInsertPayload,
 } from "../_shared/types.ts";
+import { requireSupabaseJwt } from "../_shared/auth.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -70,6 +71,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
     if (!supabaseUrl || !serviceRoleKey || !geminiApiKey) {
       return new Response(
@@ -78,6 +80,16 @@ serve(async (req) => {
         }),
         { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
       );
+    }
+
+    const authContext = await requireSupabaseJwt(req, {
+      supabaseUrl,
+      serviceRoleKey,
+      anonKey,
+      corsHeaders: CORS_HEADERS,
+    });
+    if (authContext instanceof Response) {
+      return authContext;
     }
 
     const rawPayload = await req.json();
@@ -96,11 +108,20 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    const primarySourceUrl = Array.isArray(record.source_urls) && typeof record.source_urls[0] === "string"
+      ? record.source_urls[0]
+      : null;
 
     await supabase
       .from("articles")
       .update({ status: "analyzing" })
       .eq("id", record.id);
+    if (primarySourceUrl) {
+      await supabase
+        .from("raw_signals")
+        .update({ status: "analyzing" })
+        .eq("source_url", primarySourceUrl);
+    }
 
     const aiClient = new GoogleGenerativeAI(geminiApiKey);
     const model = aiClient.getGenerativeModel({
@@ -157,6 +178,27 @@ serve(async (req) => {
         { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
       );
     }
+    if (primarySourceUrl) {
+      await supabase
+        .from("raw_signals")
+        .update({
+          status: nextStatus,
+          signal_score: confidenceScore,
+        })
+        .eq("source_url", primarySourceUrl);
+    }
+
+    await supabase.from("agent_logs").insert({
+      agent_name: "disruptor-analysis",
+      action: "analyze_article",
+      status: nextStatus,
+      article_id: record.id,
+      payload: {
+        confidence_score: confidenceScore,
+        category: nextCategory,
+        role: authContext.role,
+      },
+    });
 
     return new Response(
       JSON.stringify({

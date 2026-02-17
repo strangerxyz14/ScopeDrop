@@ -30,7 +30,7 @@ const NewsSection = ({
       const { data, error } = await supabase
         .from('articles')
         .select('*')
-        .order('published_at', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(20);
       if (error) throw error;
       return data;
@@ -84,13 +84,17 @@ const NewsSection = ({
           ) : displayArticles.length > 0 ? (
             <div className="divide-y divide-border">
               {displayArticles.map((article: any, index: number) => {
-                const isDbArticle = article.image_url !== undefined;
+                const isDbArticle = typeof article.id === 'string';
                 const articleTitle = article.title;
-                const articleCategory = article.category || 'General';
-                const articleSource = isDbArticle ? (article.source_name || 'ScopeDrop') : (article.source?.name || 'Feed');
-                const articleDate = isDbArticle ? article.published_at : article.publishedAt;
-                const articleUrl = article.url;
-                const articleDescription = article.description;
+                const articleCategory = article.category || 'Business';
+                const articleSource = isDbArticle
+                  ? (Array.isArray(article.source_urls) ? 'ScopeDrop Signal' : (article.source_name || 'ScopeDrop'))
+                  : (article.source?.name || 'Feed');
+                const articleDate = isDbArticle ? (article.created_at || article.published_at) : article.publishedAt;
+                const articleUrl = isDbArticle
+                  ? (Array.isArray(article.source_urls) ? article.source_urls[0] : article.url)
+                  : article.url;
+                const articleDescription = isDbArticle ? (article.summary || article.description) : article.description;
 
                 return (
                   <div

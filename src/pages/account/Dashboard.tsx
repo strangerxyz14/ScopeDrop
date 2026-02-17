@@ -9,6 +9,7 @@ import { NewsArticle } from "@/types/news";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { getNewsArticles } from "@/services/mockDataService";
+import { sanitizeHtml } from "@/utils/sanitize";
 
 const Dashboard = () => {
   const { data: articles, isLoading } = useQuery({
@@ -138,7 +139,7 @@ const Dashboard = () => {
                       <Skeleton className="h-4 w-5/6" />
                     </div>
                   ) : (
-                    <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: recommendations || "" }} />
+                    <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(recommendations || "") }} />
                   )}
                 </CardContent>
               </Card>

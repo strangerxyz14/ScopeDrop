@@ -25,7 +25,7 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
       const { data, error } = await supabase
         .from('articles')
         .select('*')
-        .order('published_at', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(5);
       if (error) throw error;
       return data;
@@ -136,7 +136,9 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-xs text-parrot/60 font-mono">{article.category}</span>
                               <span className="text-xs text-white/30">·</span>
-                              <span className="text-xs text-white/30">{article.source_name || 'ScopeDrop'}</span>
+                              <span className="text-xs text-white/30">
+                                {Array.isArray(article.source_urls) ? 'ScopeDrop Signal' : (article.source_name || 'ScopeDrop')}
+                              </span>
                             </div>
                           </div>
                           <Clock className="w-3 h-3 text-white/20 mt-1 flex-shrink-0" />

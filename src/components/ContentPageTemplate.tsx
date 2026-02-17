@@ -8,6 +8,7 @@ import { getNewsArticles } from "@/services/mockDataService";
 import { NewsArticle } from "@/types/news";
 import { Skeleton } from "@/components/ui/skeleton";
 import NewsCard from "@/components/NewsCard";
+import { sanitizeHtml } from "@/utils/sanitize";
 
 interface ContentPageTemplateProps {
   title: string;
@@ -72,7 +73,7 @@ const ContentPageTemplate = ({ title, description, topic, heroImage }: ContentPa
             </div>
           ) : (
             <div className="max-w-3xl mx-auto prose prose-lg">
-              <div dangerouslySetInnerHTML={{ __html: introContent || "" }} />
+              <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(introContent || "") }} />
             </div>
           )}
         </div>

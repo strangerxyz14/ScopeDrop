@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import type { BusinessCategory, ScoutNewsCandidate } from "../_shared/types.ts";
+import { requireSupabaseJwt } from "../_shared/auth.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -158,12 +159,23 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
     if (!supabaseUrl || !serviceRoleKey) {
       return new Response(
         JSON.stringify({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY." }),
         { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
       );
+    }
+
+    const authContext = await requireSupabaseJwt(req, {
+      supabaseUrl,
+      serviceRoleKey,
+      anonKey,
+      corsHeaders: CORS_HEADERS,
+    });
+    if (authContext instanceof Response) {
+      return authContext;
     }
 
     const apiUrl = Deno.env.get("SCOUT_NEWS_API_URL") ?? DEFAULT_NEWS_API_URL;
@@ -210,10 +222,33 @@ serve(async (req) => {
         },
       },
     }));
+    const rawSignalRows = highSignal.map((candidate) => ({
+      headline: candidate.title,
+      summary: candidate.summary.slice(0, 600),
+      source_url: canonicalUrl(candidate.sourceUrl),
+      category: classifyCategory(candidate),
+      signal_score: scoreSignal(candidate),
+      status: "scouted",
+      payload: {
+        published_at: candidate.publishedAt,
+        source: "placeholder-news-api",
+      },
+      scouted_at: now,
+    }));
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+
+    const { error: rawSignalError } = await supabase
+      .from("raw_signals")
+      .upsert(rawSignalRows, { onConflict: "source_url" });
+    if (rawSignalError) {
+      return new Response(
+        JSON.stringify({ error: rawSignalError.message }),
+        { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      );
+    }
 
     const { data, error } = await supabase
       .from("articles")
@@ -227,9 +262,22 @@ serve(async (req) => {
       );
     }
 
+    await supabase.from("agent_logs").insert({
+      agent_name: "scout-engine",
+      action: "scout_batch",
+      status: "success",
+      article_id: null,
+      payload: {
+        scanned_count: normalized.length,
+        inserted_count: data?.length ?? 0,
+        authenticated_role: authContext.role,
+      },
+    });
+
     return new Response(
       JSON.stringify({
         scanned_count: normalized.length,
+        raw_signal_count: rawSignalRows.length,
         inserted_count: data?.length ?? 0,
         records: data ?? [],
       }),

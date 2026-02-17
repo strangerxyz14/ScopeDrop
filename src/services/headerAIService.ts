@@ -264,9 +264,10 @@ export class HeaderAIService {
 
     try {
       const { data, error } = await supabase
-        .from('content_analytics')
-        .select('*')
-        .eq('session_id', userId)
+        .from('agent_logs')
+        .select('payload, created_at')
+        .eq('agent_name', 'header-ai')
+        .eq('payload->>session_id', userId)
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -275,7 +276,10 @@ export class HeaderAIService {
         return [];
       }
 
-      return data || [];
+      return (data || []).map((entry: any) => ({
+        path: entry.payload?.path || '/',
+        created_at: entry.created_at
+      }));
     } catch (error) {
       console.error('Error in getUserBehavior:', error);
       return [];
@@ -286,21 +290,21 @@ export class HeaderAIService {
   private async getMarketContext(): Promise<any> {
     try {
       const { data: fundingTrend, error: fundingError } = await supabase
-        .from('news_articles')
-        .select('category, published_at')
-        .eq('category', 'Funding')
-        .gte('published_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .from('raw_signals')
+        .select('signal_score, scouted_at')
+        .ilike('summary', '%funding%')
+        .gte('scouted_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .limit(10);
 
       const { data: aiTrend, error: aiError } = await supabase
-        .from('trending_topics')
-        .select('momentum')
-        .eq('category', 'AI')
+        .from('raw_signals')
+        .select('signal_score')
+        .eq('category', 'Tech')
         .limit(5);
 
       return {
         fundingTrend: fundingTrend && fundingTrend.length > 5 ? 'rising' : 'stable',
-        aiTrend: aiTrend && aiTrend.some(t => t.momentum > 0.7) ? 'rising' : 'stable'
+        aiTrend: aiTrend && aiTrend.some((t: any) => (t.signal_score ?? 0) > 0.7) ? 'rising' : 'stable'
       };
     } catch (error) {
       console.error('Error getting market context:', error);
@@ -312,14 +316,21 @@ export class HeaderAIService {
   private async storeSearchInsight(insight: AISearchInsight): Promise<void> {
     try {
       await supabase
-        .from('content_analytics')
+        .from('agent_logs')
         .insert({
-          content_type: 'ai_insight',
-          query: insight.query,
-          category: insight.category,
-          confidence: insight.confidence,
-          market_trend: insight.marketTrend,
-          created_at: insight.timestamp.toISOString()
+          agent_name: 'header-ai',
+          action: 'search_insight',
+          status: 'success',
+          article_id: null,
+          payload: {
+            query: insight.query,
+            category: insight.category,
+            confidence: insight.confidence,
+            market_trend: insight.marketTrend,
+            related_topics: insight.relatedTopics,
+            suggested_filters: insight.suggestedFilters,
+            created_at: insight.timestamp.toISOString()
+          }
         });
     } catch (error) {
       console.error('Error storing search insight:', error);
@@ -330,15 +341,21 @@ export class HeaderAIService {
   private async storeContentCategorization(categorization: AIContentCategorization): Promise<void> {
     try {
       await supabase
-        .from('content_analytics')
+        .from('agent_logs')
         .insert({
-          content_type: 'ai_categorization',
-          category: categorization.category,
-          subcategory: categorization.subcategory,
-          sentiment: categorization.sentiment,
-          relevance: categorization.relevance,
-          ai_confidence: categorization.aiConfidence,
-          created_at: new Date().toISOString()
+          agent_name: 'header-ai',
+          action: 'content_categorization',
+          status: 'success',
+          article_id: null,
+          payload: {
+            category: categorization.category,
+            subcategory: categorization.subcategory,
+            sentiment: categorization.sentiment,
+            relevance: categorization.relevance,
+            ai_confidence: categorization.aiConfidence,
+            tags: categorization.tags,
+            created_at: new Date().toISOString()
+          }
         });
     } catch (error) {
       console.error('Error storing content categorization:', error);

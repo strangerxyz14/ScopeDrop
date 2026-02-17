@@ -10,6 +10,7 @@ import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
 import { getNewsArticles } from "@/services/mockDataService";
 import { processArticleWithGemini } from "@/services/geminiService";
+import { sanitizeHtml } from "@/utils/sanitize";
 
 const ArticleView = () => {
   const { id } = useParams<{ id: string }>();
@@ -113,7 +114,7 @@ const ArticleView = () => {
                 ) : (
                   <div 
                     dangerouslySetInnerHTML={{ 
-                      __html: (article.processedByAI ? article.content : processedContent) || article.description 
+                      __html: sanitizeHtml((article.processedByAI ? article.content : processedContent) || article.description || "") 
                     }} 
                   />
                 )}

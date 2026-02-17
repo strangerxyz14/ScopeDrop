@@ -1,24 +1,29 @@
 // Centralized Configuration for ScopeDrop
 // TODO: Replace placeholder values with actual API keys in production
 
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').trim().replace(/\/+$/, '');
+const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
+const GNEWS_API_KEY = (import.meta.env.VITE_GNEWS_API_KEY || '').trim();
+
 export const CONFIG = {
   // Environment
   ENV: import.meta.env.NODE_ENV || 'development',
   IS_PRODUCTION: import.meta.env.NODE_ENV === 'production',
   IS_STAGING: import.meta.env.NODE_ENV === 'staging',
 
-  // API Keys (TODO: Use environment variables in production)
+  // API keys
   API_KEYS: {
-    GNEWS: import.meta.env.VITE_GNEWS_API_KEY || 'your-gnews-api-key-here',
-    GEMINI: import.meta.env.VITE_GEMINI_API_KEY || 'your-gemini-api-key-here',
-    SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || 'https://kudoyccddmdilphlwann.supabase.co',
-    SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key-here',
+    GNEWS: GNEWS_API_KEY,
+    GEMINI: GEMINI_API_KEY,
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY,
   },
 
   // Supabase Configuration
   SUPABASE: {
-    URL: import.meta.env.VITE_SUPABASE_URL || 'https://kudoyccddmdilphlwann.supabase.co',
-    ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key-here',
+    URL: SUPABASE_URL,
+    ANON_KEY: SUPABASE_ANON_KEY,
     PROJECT_ID: 'scopedrop-optimized',
   },
 
@@ -26,7 +31,7 @@ export const CONFIG = {
   ENDPOINTS: {
     GNEWS_BASE: 'https://gnews.io/api/v4',
     GEMINI_BASE: 'https://generativelanguage.googleapis.com/v1beta/models',
-    SUPABASE_FUNCTIONS: 'https://kudoyccddmdilphlwann.supabase.co/functions/v1',
+    SUPABASE_FUNCTIONS: SUPABASE_URL ? `${SUPABASE_URL}/functions/v1` : '',
   },
 
   // API Rate Limits (Staging has reduced limits)
@@ -131,8 +136,8 @@ export const isFeatureEnabled = (feature: keyof typeof CONFIG.FEATURES) => {
 // Helper function to get API key safely
 export const getApiKey = (service: keyof typeof CONFIG.API_KEYS) => {
   const key = CONFIG.API_KEYS[service];
-  if (key === 'your-gnews-api-key-here' || key === 'your-gemini-api-key-here' || key === 'your-anon-key-here') {
-    console.warn(`⚠️ ${service} API key not configured. Using fallback mode.`);
+  if (!key) {
+    console.warn(`⚠️ ${service} API key not configured.`);
     return null;
   }
   return key;

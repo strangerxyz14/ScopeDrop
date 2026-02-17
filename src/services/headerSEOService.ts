@@ -71,9 +71,9 @@ export class HeaderSEOService {
   async updateNavigationSEO(): Promise<void> {
     try {
       const { data: articles, error } = await supabase
-        .from('news_articles')
-        .select('category, title, description, tags, published_at')
-        .order('published_at', { ascending: false })
+        .from('articles')
+        .select('category, title, summary, created_at')
+        .order('created_at', { ascending: false })
         .limit(100);
 
       if (error) {
@@ -226,7 +226,7 @@ export class HeaderSEOService {
         stats[category] = {
           count: 0,
           recentTitles: [],
-          tags: new Set()
+          keywords: new Set()
         };
       }
 
@@ -235,8 +235,13 @@ export class HeaderSEOService {
         stats[category].recentTitles.push(article.title);
       }
 
-      if (article.tags) {
-        article.tags.forEach((tag: string) => stats[category].tags.add(tag));
+      if (article.summary) {
+        article.summary
+          .toLowerCase()
+          .split(/\W+/)
+          .filter((keyword: string) => keyword.length > 4)
+          .slice(0, 12)
+          .forEach((keyword: string) => stats[category].keywords.add(keyword));
       }
     });
 
@@ -257,7 +262,7 @@ export class HeaderSEOService {
         this.navigationSEO.set(path, {
           ...existingSEO,
           description: updatedDescription,
-          keywords: [...existingSEO.keywords, ...Array.from(stats.tags as Set<string>)],
+          keywords: [...existingSEO.keywords, ...Array.from(stats.keywords as Set<string>)],
           lastModified: new Date()
         });
       }

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { processArticleWithGemini } from "@/services/geminiService";
 import { NewsArticle } from "@/types/news";
 import { useQuery } from "@tanstack/react-query";
+import { sanitizeHtml } from "@/utils/sanitize";
 
 const Blog = () => {
   // Get AI-generated blog posts
@@ -95,7 +96,7 @@ const Blog = () => {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="prose max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: post.content || "" }} />
+                      <div className="prose max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content || "") }} />
                     </CardContent>
                     <CardFooter className="flex justify-between border-t pt-4">
                       <div className="flex items-center space-x-2">

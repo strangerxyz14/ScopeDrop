@@ -6,6 +6,7 @@ import { processArticleWithGemini } from "@/services/geminiService";
 import { NewsArticle } from "@/types/news";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
+import { sanitizeHtml } from "@/utils/sanitize";
 
 interface ResourcePageTemplateProps {
   title: string;
@@ -58,7 +59,7 @@ const ResourcePageTemplate = ({ title, description, topic, children }: ResourceP
                   <Skeleton className="h-6 w-2/3" />
                 </div>
               ) : (
-                <div className="prose prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: content || "" }} />
+                <div className="prose prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(content || "") }} />
               )
             )}
           </div>
