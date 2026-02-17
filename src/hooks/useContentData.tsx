@@ -310,19 +310,15 @@ export const useInfiniteContent = (contentType: 'articles' | 'funding' | 'compan
 
 // Hook for real-time content updates (simulated)
 export const useRealTimeUpdates = (interval: number = 30000) => {
-  const queryClient = useQueryClient();
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   useEffect(() => {
     const timer = setInterval(() => {
-      // Simulate real-time updates by invalidating some queries
-      queryClient.invalidateQueries({ queryKey: ['pageContent', 'home'] });
-      queryClient.invalidateQueries({ queryKey: ['trendingTopics'] });
       setLastUpdate(new Date());
     }, interval);
 
     return () => clearInterval(timer);
-  }, [interval, queryClient]);
+  }, [interval]);
 
   return { lastUpdate };
 };

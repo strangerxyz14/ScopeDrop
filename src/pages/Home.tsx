@@ -11,7 +11,7 @@ import { ArrowRight, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import NewsSection from "@/components/NewsSection";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
-import { usePageContent, useTrendingTopics, useContentRefresh, useRealTimeUpdates } from "@/hooks/useContentData";
+import { usePageContent, useContentRefresh, useRealTimeUpdates } from "@/hooks/useContentData";
 import { Badge } from "@/components/ui/badge";
 import SEO from "@/components/SEO";
 
@@ -21,11 +21,11 @@ const Home = () => {
 
   // Use enhanced content system
   const { data: pageContent, isLoading: isLoadingContent, error } = usePageContent('home');
-  const { data: trendingTopics, isLoading: isLoadingTopics } = useTrendingTopics();
   const { refreshPage, isRefreshing } = useContentRefresh();
   const { lastUpdate } = useRealTimeUpdates(60000); // Update every minute
 
   const articles = (pageContent as any)?.featuredArticles || [];
+  const trendingTopics = (pageContent as any)?.trendingTopics || [];
   const marketMaps: any[] = [];
   const events: any[] = [];
   
@@ -33,7 +33,7 @@ const Home = () => {
   const featuredArticle = articles && articles.length > 0 ? articles[0] : undefined;
   const remainingArticles = articles && articles.length > 1 ? articles.slice(1) : [];
 
-  const isLoading = isLoadingContent || isLoadingTopics;
+  const isLoading = isLoadingContent;
   const isDbEmpty = !isLoading && !error && Array.isArray(articles) && articles.length === 0;
 
   return (

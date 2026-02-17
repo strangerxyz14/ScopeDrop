@@ -5,8 +5,6 @@ import { ArrowRight, Clock, ExternalLink } from "lucide-react";
 import NewsCardSkeleton from "./NewsCardSkeleton";
 import { NewsArticle } from "@/types/news";
 import { formatDistanceToNow } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
 
 interface NewsSectionProps {
   title: string;
@@ -23,26 +21,8 @@ const NewsSection = ({
   isLoading,
   viewAllLink,
 }: NewsSectionProps) => {
-  // Fetch from Supabase as primary source
-  const { data: dbArticles, isLoading: isDbLoading } = useQuery({
-    queryKey: ['supabase-articles-feed'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('articles')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Use Supabase data if available, otherwise fallback to props
-  const displayArticles = (dbArticles && dbArticles.length > 0) 
-    ? dbArticles 
-    : articles;
-
-  const loading = isLoading && isDbLoading;
+  const displayArticles = articles;
+  const loading = isLoading;
 
   const formatDate = (dateString: string) => {
     try {
@@ -83,22 +63,17 @@ const NewsSection = ({
             </div>
           ) : displayArticles.length > 0 ? (
             <div className="divide-y divide-border">
-              {displayArticles.map((article: any, index: number) => {
-                const isDbArticle = typeof article.id === 'string';
+              {displayArticles.map((article: NewsArticle, index: number) => {
                 const articleTitle = article.title;
-                const articleCategory = article.category || 'Business';
-                const articleSource = isDbArticle
-                  ? (Array.isArray(article.source_urls) ? 'ScopeDrop Signal' : (article.source_name || 'ScopeDrop'))
-                  : (article.source?.name || 'Feed');
-                const articleDate = isDbArticle ? (article.created_at || article.published_at) : article.publishedAt;
-                const articleUrl = isDbArticle
-                  ? (Array.isArray(article.source_urls) ? article.source_urls[0] : article.url)
-                  : article.url;
-                const articleDescription = isDbArticle ? (article.summary || article.description) : article.description;
+                const articleCategory = article.category || "Business";
+                const articleSource = article.source?.name || "ScopeDrop";
+                const articleDate = article.publishedAt;
+                const articleUrl = article.url;
+                const articleDescription = article.description;
 
                 return (
                   <div
-                    key={isDbArticle ? article.id : index}
+                    key={article.id ?? index}
                     className="px-6 py-4 hover:bg-muted/50 transition-colors group flex items-start gap-4"
                   >
                     {/* Category tag */}
