@@ -1,5 +1,3 @@
-import { supabase } from '@/lib/supabase';
-
 export interface AISearchInsight {
   id: string;
   query: string;
@@ -55,9 +53,6 @@ export class HeaderAIService {
       // Analyze query using local AI processing
       const insight = await this.analyzeQuery(query);
       
-      // Store in Supabase for learning
-      await this.storeSearchInsight(insight);
-      
       // Cache the result
       this.insightsCache.set(cacheKey, insight);
       
@@ -71,11 +66,9 @@ export class HeaderAIService {
   // Generate AI-powered navigation suggestions
   async generateNavigationSuggestions(userId?: string): Promise<AINavigationSuggestion[]> {
     try {
-      // Get user behavior from Supabase
-      const userBehavior = await this.getUserBehavior(userId);
-      
-      // Get market context
-      const marketContext = await this.getMarketContext();
+      // Frontend is read-only; backend agents handle persistence/learning.
+      const userBehavior: any[] = [];
+      const marketContext: any = { fundingTrend: 'stable', aiTrend: 'stable' };
       
       // Generate suggestions based on behavior and context
       const suggestions = await this.analyzeNavigationPatterns(userBehavior, marketContext);
@@ -92,9 +85,6 @@ export class HeaderAIService {
     try {
       // Use local AI processing for categorization
       const categorization = await this.performContentCategorization(content);
-      
-      // Store categorization in Supabase
-      await this.storeContentCategorization(categorization);
       
       return categorization;
     } catch (error) {
@@ -256,110 +246,6 @@ export class HeaderAIService {
       relevance,
       aiConfidence
     };
-  }
-
-  // Get user behavior from Supabase
-  private async getUserBehavior(userId?: string): Promise<any[]> {
-    if (!userId) return [];
-
-    try {
-      const { data, error } = await supabase
-        .from('agent_logs')
-        .select('payload, created_at')
-        .eq('agent_name', 'header-ai')
-        .eq('payload->>session_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) {
-        console.error('Error fetching user behavior:', error);
-        return [];
-      }
-
-      return (data || []).map((entry: any) => ({
-        path: entry.payload?.path || '/',
-        created_at: entry.created_at
-      }));
-    } catch (error) {
-      console.error('Error in getUserBehavior:', error);
-      return [];
-    }
-  }
-
-  // Get market context from Supabase
-  private async getMarketContext(): Promise<any> {
-    try {
-      const { data: fundingTrend, error: fundingError } = await supabase
-        .from('raw_signals')
-        .select('signal_score, scouted_at')
-        .ilike('summary', '%funding%')
-        .gte('scouted_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-        .limit(10);
-
-      const { data: aiTrend, error: aiError } = await supabase
-        .from('raw_signals')
-        .select('signal_score')
-        .eq('category', 'Tech')
-        .limit(5);
-
-      return {
-        fundingTrend: fundingTrend && fundingTrend.length > 5 ? 'rising' : 'stable',
-        aiTrend: aiTrend && aiTrend.some((t: any) => (t.signal_score ?? 0) > 0.7) ? 'rising' : 'stable'
-      };
-    } catch (error) {
-      console.error('Error getting market context:', error);
-      return { fundingTrend: 'stable', aiTrend: 'stable' };
-    }
-  }
-
-  // Store search insight in Supabase
-  private async storeSearchInsight(insight: AISearchInsight): Promise<void> {
-    try {
-      await supabase
-        .from('agent_logs')
-        .insert({
-          agent_name: 'header-ai',
-          action: 'search_insight',
-          status: 'success',
-          article_id: null,
-          payload: {
-            query: insight.query,
-            category: insight.category,
-            confidence: insight.confidence,
-            market_trend: insight.marketTrend,
-            related_topics: insight.relatedTopics,
-            suggested_filters: insight.suggestedFilters,
-            created_at: insight.timestamp.toISOString()
-          }
-        });
-    } catch (error) {
-      console.error('Error storing search insight:', error);
-    }
-  }
-
-  // Store content categorization in Supabase
-  private async storeContentCategorization(categorization: AIContentCategorization): Promise<void> {
-    try {
-      await supabase
-        .from('agent_logs')
-        .insert({
-          agent_name: 'header-ai',
-          action: 'content_categorization',
-          status: 'success',
-          article_id: null,
-          payload: {
-            category: categorization.category,
-            subcategory: categorization.subcategory,
-            sentiment: categorization.sentiment,
-            relevance: categorization.relevance,
-            ai_confidence: categorization.aiConfidence,
-            tags: categorization.tags,
-            created_at: new Date().toISOString()
-          }
-        });
-    } catch (error) {
-      console.error('Error storing content categorization:', error);
-    }
   }
 
   // Helper methods

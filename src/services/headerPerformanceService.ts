@@ -1,5 +1,3 @@
-import { supabase } from '@/lib/supabase';
-
 export interface HeaderInteraction {
   id: string;
   type: 'navigation' | 'search' | 'dark_mode' | 'user_menu';
@@ -61,101 +59,51 @@ export class HeaderPerformanceService {
     };
 
     this.interactions.push(interaction);
-
-    // Send to Supabase in batches
-    if (this.interactions.length >= 10) {
-      await this.flushInteractions();
-    }
-
-    // Also send immediately for important interactions
-    if (type === 'search' || type === 'navigation') {
-      await this.sendInteraction(interaction);
+    // Keep memory bounded
+    if (this.interactions.length > 200) {
+      this.interactions.splice(0, this.interactions.length - 200);
     }
   }
 
   // Track search performance
   async trackSearchPerformance(query: string, loadTime: number, resultCount: number) {
     await this.trackInteraction('search', query, loadTime);
-    
-    try {
-      await supabase
-        .from('content_analytics')
-        .insert({
-          content_type: 'search',
-          query: query,
-          result_count: resultCount,
-          load_time: loadTime,
-          session_id: this.sessionId,
-          created_at: new Date().toISOString()
-        });
-    } catch (error) {
-      console.error('Error tracking search performance:', error);
-    }
+    void resultCount; // reserved for future backend-side analytics
   }
 
   // Track navigation performance
   async trackNavigationPerformance(path: string, loadTime: number) {
     await this.trackInteraction('navigation', path, loadTime);
-    
-    try {
-      await supabase
-        .from('content_analytics')
-        .insert({
-          content_type: 'navigation',
-          path: path,
-          load_time: loadTime,
-          session_id: this.sessionId,
-          created_at: new Date().toISOString()
-        });
-    } catch (error) {
-      console.error('Error tracking navigation performance:', error);
-    }
   }
 
   // Get header analytics
   async getHeaderAnalytics(): Promise<HeaderAnalytics> {
-    try {
-      const { data: interactions, error } = await supabase
-        .from('content_analytics')
-        .select('*')
-        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-        .order('created_at', { ascending: false });
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const recent = this.interactions.filter((i) => i.timestamp.getTime() >= cutoff);
 
-      if (error) {
-        console.error('Error fetching header analytics:', error);
-        return this.getFallbackAnalytics();
-      }
+    const totalInteractions = recent.length;
+    const searchUsage = recent.filter((i) => i.type === "search").length;
+    const navigationUsage = recent.filter((i) => i.type === "navigation").length;
+    const darkModeUsage = recent.filter((i) => i.type === "dark_mode").length;
+    const averageLoadTime =
+      totalInteractions > 0
+        ? recent.reduce((sum, i) => sum + (i.performance.loadTime || 0), 0) / totalInteractions
+        : 0;
 
-      const totalInteractions = interactions?.length || 0;
-      const searchUsage = interactions?.filter(i => i.content_type === 'search').length || 0;
-      const navigationUsage = interactions?.filter(i => i.content_type === 'navigation').length || 0;
-      const averageLoadTime = interactions?.reduce((sum, i) => sum + (i.load_time || 0), 0) / totalInteractions || 0;
+    const topSearches = this.getTopItems(recent.filter((i) => i.type === "search").map((i) => i.target));
+    const topNavigationItems = this.getTopItems(
+      recent.filter((i) => i.type === "navigation").map((i) => i.target),
+    );
 
-      // Get top searches
-      const searchQueries = interactions
-        ?.filter(i => i.content_type === 'search' && i.query)
-        .map(i => i.query) || [];
-      const topSearches = this.getTopItems(searchQueries);
-
-      // Get top navigation items
-      const navigationPaths = interactions
-        ?.filter(i => i.content_type === 'navigation' && i.path)
-        .map(i => i.path) || [];
-      const topNavigationItems = this.getTopItems(navigationPaths);
-
-      return {
-        totalInteractions,
-        searchUsage,
-        navigationUsage,
-        darkModeUsage: 0, // Would need separate tracking
-        averageLoadTime,
-        topSearches,
-        topNavigationItems
-      };
-    } catch (error) {
-      console.error('Error getting header analytics:', error);
-      return this.getFallbackAnalytics();
-    }
+    return {
+      totalInteractions,
+      searchUsage,
+      navigationUsage,
+      darkModeUsage,
+      averageLoadTime,
+      topSearches,
+      topNavigationItems,
+    };
   }
 
   // Initialize performance monitoring
@@ -169,47 +117,7 @@ export class HeaderPerformanceService {
     }
   }
 
-  // Flush interactions to Supabase
-  private async flushInteractions() {
-    if (this.interactions.length === 0) return;
-
-    try {
-      const interactionsToSend = this.interactions.map(interaction => ({
-        content_type: interaction.type,
-        target: interaction.target,
-        session_id: interaction.sessionId,
-        load_time: interaction.performance.loadTime,
-        interaction_time: interaction.performance.interactionTime,
-        created_at: interaction.timestamp.toISOString()
-      }));
-
-      await supabase
-        .from('content_analytics')
-        .insert(interactionsToSend);
-
-      this.interactions = [];
-    } catch (error) {
-      console.error('Error flushing interactions:', error);
-    }
-  }
-
-  // Send single interaction
-  private async sendInteraction(interaction: HeaderInteraction) {
-    try {
-      await supabase
-        .from('content_analytics')
-        .insert({
-          content_type: interaction.type,
-          target: interaction.target,
-          session_id: interaction.sessionId,
-          load_time: interaction.performance.loadTime,
-          interaction_time: interaction.performance.interactionTime,
-          created_at: interaction.timestamp.toISOString()
-        });
-    } catch (error) {
-      console.error('Error sending interaction:', error);
-    }
-  }
+  // (Backend-only) analytics persistence removed from frontend.
 
   // Generate unique IDs
   private generateId(): string {

@@ -98,27 +98,37 @@ export class SmartSearchService {
   // Get trending topics from Supabase
   async getTrendingTopics(): Promise<TrendingTopic[]> {
     try {
-      const { data: topics, error } = await supabase
-        .from('raw_signals')
-        .select('id, headline, category, signal_score, scouted_at')
-        .order('signal_score', { ascending: false })
-        .limit(10);
+      const { data: rows, error } = await supabase
+        .from("articles")
+        .select("id, category, created_at")
+        .order("created_at", { ascending: false })
+        .limit(100);
 
-      if (error) {
-        console.error('Error fetching trending topics:', error);
-        return this.getFallbackTrendingTopics();
-      }
+      if (error) throw error;
 
-      this.trendingCache = topics?.map(topic => ({
-        id: topic.id,
-        topic: topic.headline,
-        category: topic.category,
-        momentum: topic.signal_score ?? 0,
-        mentions: Math.round((topic.signal_score ?? 0) * 100),
-        lastUpdated: new Date(topic.scouted_at)
-      })) || [];
+      const categories = (rows ?? [])
+        .map((r: any) => (typeof r.category === "string" ? r.category.trim() : ""))
+        .filter(Boolean);
 
-      return this.trendingCache;
+      const counts = categories.reduce((acc: Record<string, number>, c: string) => {
+        acc[c] = (acc[c] ?? 0) + 1;
+        return acc;
+      }, {});
+
+      const top = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([category, mentions]) => ({
+          id: category,
+          topic: category,
+          category,
+          momentum: Math.min(1, mentions / 10),
+          mentions,
+          lastUpdated: new Date(),
+        }));
+
+      this.trendingCache = top;
+      return top;
     } catch (error) {
       console.error('Error in trending topics:', error);
       return this.getFallbackTrendingTopics();
@@ -130,41 +140,45 @@ export class SmartSearchService {
     try {
       const badges: Record<string, string | null> = {};
 
-      // Check for recent funding activity
-      const { data: recentFunding } = await supabase
-        .from('raw_signals')
-        .select('scouted_at')
-        .ilike('summary', '%funding%')
-        .gte('scouted_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-        .limit(1);
+      const now = Date.now();
 
-      if (recentFunding && recentFunding.length > 0) {
-        badges.funding = 'Hot';
+      // Recent funding activity (funding_rounds table)
+      try {
+        const { data: latestFunding, error } = await supabase
+          .from("funding_rounds" as any)
+          .select("announced_at, created_at")
+          .order("announced_at" as any, { ascending: false })
+          .limit(1);
+        if (!error && latestFunding && latestFunding.length > 0) {
+          const ts = String((latestFunding[0] as any).announced_at ?? (latestFunding[0] as any).created_at ?? "");
+          const t = new Date(ts).getTime();
+          if (Number.isFinite(t) && now - t <= 24 * 60 * 60 * 1000) badges.funding = "Hot";
+        }
+      } catch {
+        // ignore missing table
       }
 
-      // Check for AI momentum
-      const { data: aiTopics } = await supabase
-        .from('raw_signals')
-        .select('signal_score')
-        .eq('category', 'Tech')
-        .gte('signal_score', 0.7)
-        .limit(1);
+      // AI momentum (recent articles containing "AI" in title)
+      const { data: aiRows } = await supabase
+        .from("articles")
+        .select("id, title, created_at")
+        .order("created_at", { ascending: false })
+        .limit(30);
+      const recentAi = (aiRows ?? []).some((r: any) => {
+        const title = String(r.title ?? "").toLowerCase();
+        const t = new Date(String(r.created_at ?? "")).getTime();
+        return title.includes("ai") && Number.isFinite(t) && now - t <= 24 * 60 * 60 * 1000;
+      });
+      if (recentAi) badges.aiTrends = "Live";
 
-      if (aiTopics && aiTopics.length > 0) {
-        badges.aiTrends = 'Live';
-      }
-
-      // Check for recent acquisitions
-      const { data: recentAcquisitions } = await supabase
-        .from('raw_signals')
-        .select('scouted_at')
-        .ilike('summary', '%acquisition%')
-        .gte('scouted_at', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString())
-        .limit(1);
-
-      if (recentAcquisitions && recentAcquisitions.length > 0) {
-        badges.acquisitions = 'New';
-      }
+      // Recent acquisitions (title match)
+      const recentAcq = (aiRows ?? []).some((r: any) => {
+        const title = String(r.title ?? "").toLowerCase();
+        const t = new Date(String(r.created_at ?? "")).getTime();
+        return (title.includes("acquisition") || title.includes("acquire") || title.includes("merger")) &&
+          Number.isFinite(t) && now - t <= 24 * 60 * 60 * 1000;
+      });
+      if (recentAcq) badges.acquisitions = "New";
 
       return badges;
     } catch (error) {
