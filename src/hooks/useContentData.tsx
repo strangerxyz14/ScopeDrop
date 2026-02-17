@@ -352,12 +352,12 @@ export const usePersonalizedContent = (userPreferences?: any) => {
   const updatePreferences = useCallback((sectors: string[]) => {
     setPersonalizedSectors(sectors);
     // In a real app, this would save to user profile
-    localStorage.setItem('userSectorPreferences', JSON.stringify(sectors));
+    sessionStorage.setItem('userSectorPreferences', JSON.stringify(sectors));
   }, []);
 
-  // Load preferences from localStorage
+  // Load preferences from sessionStorage
   useEffect(() => {
-    const saved = localStorage.getItem('userSectorPreferences');
+    const saved = sessionStorage.getItem('userSectorPreferences');
     if (saved) {
       try {
         setPersonalizedSectors(JSON.parse(saved));

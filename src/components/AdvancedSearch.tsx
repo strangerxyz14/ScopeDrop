@@ -63,21 +63,27 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
   const [activeFilters, setActiveFilters] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load search history from localStorage
+  // Load search history from sessionStorage (avoid persistent localStorage)
   useEffect(() => {
-    const saved = localStorage.getItem("searchHistory");
-    if (saved) {
-      setSearchHistory(JSON.parse(saved));
+    try {
+      const saved = sessionStorage.getItem("searchHistory");
+      if (saved) setSearchHistory(JSON.parse(saved));
+    } catch {
+      // ignore
     }
   }, []);
 
-  // Save search history to localStorage
+  // Save search history to sessionStorage
   const saveToHistory = (searchQuery: string) => {
     if (!searchQuery.trim()) return;
     
     const newHistory = [searchQuery, ...searchHistory.filter(h => h !== searchQuery)].slice(0, 10);
     setSearchHistory(newHistory);
-    localStorage.setItem("searchHistory", JSON.stringify(newHistory));
+    try {
+      sessionStorage.setItem("searchHistory", JSON.stringify(newHistory));
+    } catch {
+      // ignore
+    }
   };
 
   // Count active filters

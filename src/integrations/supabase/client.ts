@@ -4,6 +4,18 @@ import type { Database } from "./types";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
+// Avoid storing auth sessions in localStorage (tokens are sensitive).
+// sessionStorage is still client-side storage, but it is non-persistent and reduces exposure.
+const authStorage = {
+  getItem: (key: string) => (typeof window !== "undefined" ? window.sessionStorage.getItem(key) : null),
+  setItem: (key: string, value: string) => {
+    if (typeof window !== "undefined") window.sessionStorage.setItem(key, value);
+  },
+  removeItem: (key: string) => {
+    if (typeof window !== "undefined") window.sessionStorage.removeItem(key);
+  },
+};
+
 function decodeJwtRole(token: string): string | null {
   const parts = token.split(".");
   if (parts.length < 2) return null;
@@ -43,4 +55,12 @@ const FALLBACK_KEY = "anon-fallback-key";
 export const supabase: SupabaseClient<Database> = createClient<Database>(
   supabaseConfig.isConfigured ? (supabaseUrl as string) : FALLBACK_URL,
   supabaseConfig.isConfigured ? (supabaseAnonKey as string) : FALLBACK_KEY,
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: authStorage as any,
+    },
+  },
 );

@@ -11,7 +11,7 @@ export class CacheService {
   constructor() {
     this.localStoragePrefix = CONFIG.CACHE.PREFIX;
     this.maxMemorySize = CONFIG.CACHE.MAX_SIZE;
-    this.maxLocalStorageSize = 5 * 1024 * 1024; // 5MB for localStorage
+    this.maxLocalStorageSize = 5 * 1024 * 1024; // 5MB for sessionStorage
   }
 
   static getInstance(): CacheService {
@@ -22,7 +22,7 @@ export class CacheService {
   }
 
   /**
-   * Set cache entry in memory and localStorage
+   * Set cache entry in memory and sessionStorage
    */
   async set(key: string, data: any, ttl: number = CONFIG.CACHE.BROWSER_TTL, metadata?: CacheEntry['metadata']): Promise<void> {
     const entry: CacheEntry = {
@@ -37,13 +37,13 @@ export class CacheService {
     // Set in memory cache
     this.memoryCache.set(key, entry);
 
-    // Set in localStorage
+    // Set in sessionStorage
     try {
       const localStorageKey = `${this.localStoragePrefix}${key}`;
-      localStorage.setItem(localStorageKey, JSON.stringify(entry));
+      sessionStorage.setItem(localStorageKey, JSON.stringify(entry));
     } catch (error) {
-      console.warn('Failed to set cache in localStorage:', error);
-      // If localStorage is full, clear old entries
+      console.warn('Failed to set cache in sessionStorage:', error);
+      // If storage is full, clear old entries
       this.cleanupLocalStorage();
     }
 
@@ -52,7 +52,7 @@ export class CacheService {
   }
 
   /**
-   * Get cache entry from memory first, then localStorage
+   * Get cache entry from memory first, then sessionStorage
    */
   async get<T = any>(key: string): Promise<T | null> {
     // Try memory cache first
@@ -61,10 +61,10 @@ export class CacheService {
       return memoryEntry.data as T;
     }
 
-    // Try localStorage
+    // Try sessionStorage
     try {
       const localStorageKey = `${this.localStoragePrefix}${key}`;
-      const stored = localStorage.getItem(localStorageKey);
+      const stored = sessionStorage.getItem(localStorageKey);
       
       if (stored) {
         const entry: CacheEntry = JSON.parse(stored);
@@ -79,25 +79,25 @@ export class CacheService {
         }
       }
     } catch (error) {
-      console.warn('Failed to get cache from localStorage:', error);
+      console.warn('Failed to get cache from sessionStorage:', error);
     }
 
     return null;
   }
 
   /**
-   * Remove cache entry from both memory and localStorage
+   * Remove cache entry from both memory and sessionStorage
    */
   async remove(key: string): Promise<void> {
     // Remove from memory cache
     this.memoryCache.delete(key);
 
-    // Remove from localStorage
+    // Remove from sessionStorage
     try {
       const localStorageKey = `${this.localStoragePrefix}${key}`;
-      localStorage.removeItem(localStorageKey);
+      sessionStorage.removeItem(localStorageKey);
     } catch (error) {
-      console.warn('Failed to remove cache from localStorage:', error);
+      console.warn('Failed to remove cache from sessionStorage:', error);
     }
   }
 
@@ -108,16 +108,16 @@ export class CacheService {
     // Clear memory cache
     this.memoryCache.clear();
 
-    // Clear localStorage cache
+    // Clear sessionStorage cache
     try {
-      const keys = Object.keys(localStorage);
+      const keys = Object.keys(sessionStorage);
       keys.forEach(key => {
         if (key.startsWith(this.localStoragePrefix)) {
-          localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
         }
       });
     } catch (error) {
-      console.warn('Failed to clear localStorage cache:', error);
+      console.warn('Failed to clear sessionStorage cache:', error);
     }
   }
 
@@ -143,7 +143,7 @@ export class CacheService {
 
     try {
       const localStorageKey = `${this.localStoragePrefix}${key}`;
-      const stored = localStorage.getItem(localStorageKey);
+      const stored = sessionStorage.getItem(localStorageKey);
       
       if (stored) {
         const entry: CacheEntry = JSON.parse(stored);
@@ -159,7 +159,7 @@ export class CacheService {
         }
       }
     } catch (error) {
-      console.warn('Failed to get cache metadata from localStorage:', error);
+      console.warn('Failed to get cache metadata from sessionStorage:', error);
     }
 
     return { data: null };
@@ -179,15 +179,15 @@ export class CacheService {
     const memorySize = this.calculateMemorySize();
     const memoryEntries = this.memoryCache.size;
 
-    // Calculate localStorage cache size
+    // Calculate sessionStorage cache size
     let localStorageSize = 0;
     let localStorageEntries = 0;
 
     try {
-      const keys = Object.keys(localStorage);
+      const keys = Object.keys(sessionStorage);
       keys.forEach(key => {
         if (key.startsWith(this.localStoragePrefix)) {
-          const value = localStorage.getItem(key);
+          const value = sessionStorage.getItem(key);
           if (value) {
             localStorageSize += new Blob([value]).size;
             localStorageEntries++;
@@ -195,7 +195,7 @@ export class CacheService {
         }
       });
     } catch (error) {
-      console.warn('Failed to calculate localStorage stats:', error);
+      console.warn('Failed to calculate sessionStorage stats:', error);
     }
 
     return {
@@ -218,27 +218,27 @@ export class CacheService {
       }
     }
 
-    // Cleanup localStorage
+    // Cleanup sessionStorage
     try {
-      const keys = Object.keys(localStorage);
+      const keys = Object.keys(sessionStorage);
       keys.forEach(key => {
         if (key.startsWith(this.localStoragePrefix)) {
-          const stored = localStorage.getItem(key);
+          const stored = sessionStorage.getItem(key);
           if (stored) {
             try {
               const entry: CacheEntry = JSON.parse(stored);
               if (this.isExpired(entry)) {
-                localStorage.removeItem(key);
+                sessionStorage.removeItem(key);
               }
             } catch (error) {
               // Remove invalid entries
-              localStorage.removeItem(key);
+              sessionStorage.removeItem(key);
             }
           }
         }
       });
     } catch (error) {
-      console.warn('Failed to cleanup localStorage:', error);
+      console.warn('Failed to cleanup sessionStorage:', error);
     }
   }
 
@@ -274,9 +274,9 @@ export class CacheService {
       }
     }
 
-    // Get localStorage keys
+    // Get sessionStorage keys
     try {
-      const localStorageKeys = Object.keys(localStorage);
+      const localStorageKeys = Object.keys(sessionStorage);
       localStorageKeys.forEach(key => {
         if (key.startsWith(this.localStoragePrefix)) {
           const cacheKey = key.replace(this.localStoragePrefix, '');
@@ -286,7 +286,7 @@ export class CacheService {
         }
       });
     } catch (error) {
-      console.warn('Failed to get localStorage keys:', error);
+      console.warn('Failed to get sessionStorage keys:', error);
     }
 
     return [...new Set(keys)]; // Remove duplicates
@@ -345,10 +345,10 @@ export class CacheService {
     try {
       const entries: Array<{ key: string; size: number; timestamp: number }> = [];
       
-      const keys = Object.keys(localStorage);
+      const keys = Object.keys(sessionStorage);
       keys.forEach(key => {
         if (key.startsWith(this.localStoragePrefix)) {
-          const value = localStorage.getItem(key);
+          const value = sessionStorage.getItem(key);
           if (value) {
             try {
               const entry: CacheEntry = JSON.parse(value);
@@ -359,7 +359,7 @@ export class CacheService {
               });
             } catch (error) {
               // Remove invalid entries
-              localStorage.removeItem(key);
+              sessionStorage.removeItem(key);
             }
           }
         }
@@ -377,12 +377,12 @@ export class CacheService {
         
         for (const entry of entries) {
           if (removedSize >= targetRemoval) break;
-          localStorage.removeItem(entry.key);
+          sessionStorage.removeItem(entry.key);
           removedSize += entry.size;
         }
       }
     } catch (error) {
-      console.warn('Failed to cleanup localStorage:', error);
+      console.warn('Failed to cleanup sessionStorage:', error);
     }
   }
 

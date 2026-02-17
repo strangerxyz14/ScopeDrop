@@ -9,6 +9,8 @@ import { HelmetProvider } from "react-helmet-async";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { HealthCheck } from "@/components/common/HealthCheck";
 import { supabaseConfig } from "@/integrations/supabase/client";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { RequireAuth } from "@/components/auth/RequireAuth";
 
 // Lazy load all page components
 const Home = React.lazy(() => import("./pages/Home"));
@@ -25,6 +27,8 @@ const FundingRounds = React.lazy(() => import("./pages/FundingRounds"));
 const MarketMaps = React.lazy(() => import("./pages/MarketMaps"));
 const MarketMapView = React.lazy(() => import("./pages/MarketMapView"));
 const TopicFeedPage = React.lazy(() => import("./pages/TopicFeedPage"));
+const Login = React.lazy(() => import("./pages/Login"));
+const ForgotPassword = React.lazy(() => import("./pages/ForgotPassword"));
 
 // Account Pages
 const Dashboard = React.lazy(() => import("./pages/account/Dashboard"));
@@ -90,28 +94,29 @@ const App = () => {
       <HelmetProvider>
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              {!supabaseConfig.isConfigured && (
-                <div className="fixed bottom-4 left-4 z-50 max-w-sm rounded-lg border bg-background/95 backdrop-blur-sm p-3 shadow-lg">
-                  <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
-                    Supabase not configured
-                  </div>
-                  <div className="mt-1 text-sm text-foreground">
-                    Set <code className="px-1">VITE_SUPABASE_URL</code> and{" "}
-                    <code className="px-1">VITE_SUPABASE_ANON_KEY</code> in your deployment env and redeploy.
-                  </div>
-                  {supabaseConfig.problems.length > 0 && (
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      {supabaseConfig.problems.join(" • ")}
+            <AuthProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                {!supabaseConfig.isConfigured && (
+                  <div className="fixed bottom-4 left-4 z-50 max-w-sm rounded-lg border bg-background/95 backdrop-blur-sm p-3 shadow-lg">
+                    <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
+                      Supabase not configured
                     </div>
-                  )}
-                </div>
-              )}
-              <BrowserRouter>
-              <Suspense fallback={<PageLoadingSkeleton />}>
-                <Routes>
+                    <div className="mt-1 text-sm text-foreground">
+                      Set <code className="px-1">VITE_SUPABASE_URL</code> and{" "}
+                      <code className="px-1">VITE_SUPABASE_ANON_KEY</code> in your deployment env and redeploy.
+                    </div>
+                    {supabaseConfig.problems.length > 0 && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        {supabaseConfig.problems.join(" • ")}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <BrowserRouter>
+                <Suspense fallback={<PageLoadingSkeleton />}>
+                  <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/article/:id" element={<ArticleView />} />
                 
@@ -149,17 +154,19 @@ const App = () => {
                 <Route path="/tech/tech-stacks" element={<TechStacks />} />
                 <Route path="/tech/growth-hacking" element={<GrowthHacking />} />
                 <Route path="/search" element={<Search />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/newsletter" element={<Newsletter />} />
                 <Route path="/events" element={<Events />} />
                 <Route path="/admin/monitoring" element={<ErrorMonitoring />} />
                 
                 {/* Account Pages */}
-                <Route path="/account/dashboard" element={<Dashboard />} />
-                <Route path="/account/saves" element={<SavedArticles />} />
-                <Route path="/account/emails" element={<EmailPreferences />} />
-                <Route path="/account/recent" element={<RecentlyViewed />} />
-                <Route path="/account/settings" element={<Settings />} />
-                <Route path="/signout" element={<SignOut />} />
+                <Route path="/account/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+                <Route path="/account/saves" element={<RequireAuth><SavedArticles /></RequireAuth>} />
+                <Route path="/account/emails" element={<RequireAuth><EmailPreferences /></RequireAuth>} />
+                <Route path="/account/recent" element={<RequireAuth><RecentlyViewed /></RequireAuth>} />
+                <Route path="/account/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+                <Route path="/signout" element={<RequireAuth><SignOut /></RequireAuth>} />
                 <Route path="/settings" element={<Navigate to="/account/settings" replace />} />
                 <Route path="/profile" element={<Navigate to="/account/dashboard" replace />} />
                 
@@ -204,13 +211,14 @@ const App = () => {
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-              </BrowserRouter>
-              
-              {/* Health Check Component */}
-              <HealthCheck />
-            </TooltipProvider>
+                  </Routes>
+                </Suspense>
+                </BrowserRouter>
+                
+                {/* Health Check Component */}
+                <HealthCheck />
+              </TooltipProvider>
+            </AuthProvider>
           </QueryClientProvider>
         </ErrorBoundary>
       </HelmetProvider>

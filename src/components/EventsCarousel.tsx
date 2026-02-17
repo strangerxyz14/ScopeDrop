@@ -83,21 +83,44 @@ export const EventsCarousel: React.FC<EventsCarouselProps> = ({
     const dateIso = toIsoString(row.date ?? row.starts_at ?? row.start_at ?? row.start_time ?? row.created_at);
     const endIso = row.end_date ?? row.ends_at ?? row.end_at ?? row.end_time ?? null;
 
-    const isOnline = Boolean(row.is_online ?? row.online ?? row.isOnline);
-    const venue = (row.venue ?? row.location_venue ?? row.location_name ?? (isOnline ? "Online" : "TBA")) as string;
-    const address = (row.address ?? row.location_address ?? "") as string;
-    const city = (row.city ?? row.location_city ?? location) as string;
-    const country = (row.country ?? row.location_country ?? "") as string;
+    const locationObj =
+      typeof row.location === "object" && row.location !== null ? (row.location as Record<string, unknown>) : null;
+
+    const isOnline = Boolean(
+      row.is_online ??
+        row.online ??
+        row.isOnline ??
+        (locationObj ? (locationObj.isOnline ?? locationObj.is_online ?? locationObj.online) : false),
+    );
+    const venue = (row.venue ??
+      row.location_venue ??
+      row.location_name ??
+      (locationObj ? (locationObj.venue ?? locationObj.location_name) : null) ??
+      (isOnline ? "Online" : "TBA")) as string;
+    const address = (row.address ??
+      row.location_address ??
+      (locationObj ? locationObj.address : null) ??
+      "") as string;
+    const city = (row.city ?? row.location_city ?? (locationObj ? locationObj.city : null) ?? location) as string;
+    const country = (row.country ?? row.location_country ?? (locationObj ? locationObj.country : null) ?? "") as string;
 
     const registrationUrl = (row.registration_url ?? row.url ?? row.link ?? "") as string;
 
-    const amountRaw = row.price_amount ?? row.price ?? 0;
+    const priceObj = typeof row.price === "object" && row.price !== null ? (row.price as Record<string, unknown>) : null;
+    const amountRaw = row.price_amount ?? (priceObj ? priceObj.amount : null) ?? 0;
     const amount = typeof amountRaw === "number" ? amountRaw : Number(amountRaw) || 0;
-    const currency = (row.currency ?? row.price_currency ?? "USD") as string;
+    const currency = (row.currency ??
+      row.price_currency ??
+      (priceObj ? priceObj.currency : null) ??
+      "USD") as string;
     const isFree = Boolean(row.is_free ?? row.free ?? amount === 0);
 
     const tags = Array.isArray(row.tags) ? row.tags.filter((t: any) => typeof t === "string") : [];
-    const categoryArr = Array.isArray(row.category) ? row.category.filter((c: any) => typeof c === "string") : [];
+    const categoryArr = Array.isArray(row.category)
+      ? row.category.filter((c: any) => typeof c === "string")
+      : typeof row.category === "string" && row.category.trim().length > 0
+        ? [row.category.trim()]
+        : [];
 
     return {
       id: String(row.id ?? `event_${dateIso}`),

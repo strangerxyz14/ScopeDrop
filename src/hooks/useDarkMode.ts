@@ -4,10 +4,10 @@ export const useDarkMode = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize dark mode from localStorage (frontend is read-only for Supabase)
+  // Initialize dark mode from sessionStorage (avoid persistent localStorage)
   useEffect(() => {
     try {
-      const savedMode = localStorage.getItem('darkMode');
+      const savedMode = sessionStorage.getItem('darkMode');
       if (savedMode !== null) {
         setIsDarkMode(savedMode === 'true');
       } else {
@@ -34,8 +34,8 @@ export const useDarkMode = () => {
     const newMode = !isDarkMode;
     setIsDarkMode(newMode);
     
-    // Save to localStorage
-    localStorage.setItem('darkMode', newMode.toString());
+    // Save to sessionStorage
+    sessionStorage.setItem('darkMode', newMode.toString());
   };
 
   return {

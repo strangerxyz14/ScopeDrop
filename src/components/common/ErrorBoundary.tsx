@@ -85,13 +85,13 @@ export class ErrorBoundary extends Component<Props, State> {
     // TODO: Send to error monitoring service (Sentry, LogRocket, etc.)
     console.error('📊 Error logged:', appError);
 
-    // Store error in localStorage for debugging
+    // Store error in sessionStorage for debugging (avoid persistent localStorage)
     try {
-      const errors = JSON.parse(localStorage.getItem('scopedrop_errors') || '[]');
+      const errors = JSON.parse(sessionStorage.getItem('scopedrop_errors') || '[]');
       errors.push(appError);
-      localStorage.setItem('scopedrop_errors', JSON.stringify(errors.slice(-10))); // Keep last 10 errors
+      sessionStorage.setItem('scopedrop_errors', JSON.stringify(errors.slice(-10))); // Keep last 10 errors
     } catch (e) {
-      console.warn('Failed to store error in localStorage:', e);
+      console.warn('Failed to store error in sessionStorage:', e);
     }
   };
 
