@@ -55,8 +55,10 @@ export async function requireSupabaseJwt(
   if (options.serviceRoleKey && token === options.serviceRoleKey) {
     return { token, userId: null, role: "service_role" };
   }
-  if (options.anonKey && token === options.anonKey) {
-    return { token, userId: null, role: "anon" };
+  // The anon key is *not* a JWT. Do not accept it as a bearer token.
+  // Use it only as the client key to verify real user JWTs via auth.getUser(token).
+  if (!token.includes(".")) {
+    return unauthorized("Expected a Supabase JWT (or service role key).", options.corsHeaders);
   }
 
   if (!options.supabaseUrl || (!options.serviceRoleKey && !options.anonKey)) {

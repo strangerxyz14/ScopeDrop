@@ -3,10 +3,27 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import type { BusinessCategory, ScoutNewsCandidate } from "../_shared/types.ts";
 import { requireSupabaseJwt } from "../_shared/auth.ts";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = [
+  "https://scopedrop.com",
+  "https://www.scopedrop.com",
+  "https://scopedrop.lovable.app",
+  "https://id-preview--4acd3d99-4555-4448-bee8-897d547c57c0.lovable.app",
+  ...(Deno.env.get("ENVIRONMENT") === "development"
+    ? ["http://localhost:5173", "http://localhost:8080"]
+    : []),
+];
+
+function getCorsHeaders(origin: string | null): HeadersInit {
+  const allowedOrigin = origin && ALLOWED_ORIGINS.some((o) => origin === o || origin.endsWith(".lovable.app"))
+    ? origin
+    : ALLOWED_ORIGINS[0];
+
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
 
 const DEFAULT_NEWS_API_URL =
   "https://api.spaceflightnewsapi.net/v4/articles/?limit=40&has_event=false&has_launch=false";
@@ -152,8 +169,9 @@ function dedupe(candidates: ScoutNewsCandidate[]): ScoutNewsCandidate[] {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("origin"));
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: CORS_HEADERS });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -164,7 +182,7 @@ serve(async (req) => {
     if (!supabaseUrl || !serviceRoleKey) {
       return new Response(
         JSON.stringify({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY." }),
-        { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -172,10 +190,16 @@ serve(async (req) => {
       supabaseUrl,
       serviceRoleKey,
       anonKey,
-      corsHeaders: CORS_HEADERS,
+      corsHeaders,
     });
     if (authContext instanceof Response) {
       return authContext;
+    }
+    if (authContext.role !== "service_role") {
+      return new Response(
+        JSON.stringify({ error: "Forbidden" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const apiUrl = Deno.env.get("SCOUT_NEWS_API_URL") ?? DEFAULT_NEWS_API_URL;
@@ -185,7 +209,7 @@ serve(async (req) => {
     if (!response.ok) {
       return new Response(
         JSON.stringify({ error: `News source failed with status ${response.status}.` }),
-        { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -200,7 +224,7 @@ serve(async (req) => {
           inserted_count: 0,
           message: "No high-signal stories passed Scout filters.",
         }),
-        { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -246,7 +270,7 @@ serve(async (req) => {
     if (rawSignalError) {
       return new Response(
         JSON.stringify({ error: rawSignalError.message }),
-        { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -258,7 +282,7 @@ serve(async (req) => {
     if (error) {
       return new Response(
         JSON.stringify({ error: error.message }),
-        { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -281,14 +305,14 @@ serve(async (req) => {
         inserted_count: data?.length ?? 0,
         records: data ?? [],
       }),
-      { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unexpected scout-engine failure.",
       }),
-      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

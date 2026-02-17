@@ -1,7 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireSupabaseJwt } from "../_shared/auth.ts";
 
 const ALLOWED_ORIGINS = [
+  'https://scopedrop.com',
+  'https://www.scopedrop.com',
   'https://scopedrop.lovable.app',
   'https://id-preview--4acd3d99-4555-4448-bee8-897d547c57c0.lovable.app',
   ...(Deno.env.get('ENVIRONMENT') === 'development' ? ['http://localhost:5173', 'http://localhost:8080'] : [])
@@ -15,6 +18,8 @@ function getCorsHeaders(origin: string | null): HeadersInit {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Max-Age': '86400',
   };
 }
 
@@ -47,12 +52,37 @@ serve(async (req) => {
   }
 
   try {
-    const { action, data } = await req.json()
-    
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? null
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? null
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? null
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      )
+    }
+
+    const authContext = await requireSupabaseJwt(req, {
+      supabaseUrl,
+      serviceRoleKey: supabaseServiceKey,
+      anonKey: supabaseAnonKey,
+      corsHeaders,
+    })
+    if (authContext instanceof Response) return authContext
+    if (authContext.role !== 'service_role') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Forbidden' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+      )
+    }
+
+    const { action, data } = await req.json()
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    })
 
     let result: any = { success: false }
 

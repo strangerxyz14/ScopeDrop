@@ -3,6 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireSupabaseJwt } from '../_shared/auth.ts'
 
 const ALLOWED_ORIGINS = [
+  'https://scopedrop.com',
+  'https://www.scopedrop.com',
   'https://scopedrop.lovable.app',
   'https://id-preview--4acd3d99-4555-4448-bee8-897d547c57c0.lovable.app',
   ...(Deno.env.get('ENVIRONMENT') === 'development' ? ['http://localhost:5173', 'http://localhost:8080'] : [])
@@ -16,6 +18,8 @@ function getCorsHeaders(origin: string | null): HeadersInit {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Max-Age': '86400',
   };
 }
 
@@ -52,7 +56,6 @@ const EVENT_SOURCES: EventSource[] = [
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Fetch from Eventbrite
 async function fetchEventbriteEvents(location: string, category: string = 'technology') {
@@ -335,36 +338,28 @@ serve(async (req) => {
   if (authContext instanceof Response) {
     return authContext
   }
+  if (authContext.role !== 'service_role') {
+    return new Response(
+      JSON.stringify({ error: 'Forbidden' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+    )
+  }
 
   try {
     const url = new URL(req.url)
     const location = url.searchParams.get('location') || 'San Francisco'
     const forceRefresh = url.searchParams.get('refresh') === 'true'
     
-    // Check cache first (unless force refresh)
-    if (!forceRefresh) {
-      const { data: cachedEvents, error: cacheError } = await supabase
-        .from('event_cache')
-        .select('*')
-        .eq('location', location)
-        .gte('expires_at', new Date().toISOString())
-        .single()
-
-      if (cachedEvents && !cacheError) {
-        console.log('Returning cached events')
-        return new Response(
-          JSON.stringify({ 
-            events: cachedEvents.events,
-            cached: true,
-            cachedAt: cachedEvents.created_at
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200 
-          }
-        )
-      }
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      return new Response(
+        JSON.stringify({ error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      )
     }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
 
     // Fetch fresh events from all sources
     console.log(`Fetching fresh events for ${location}`)
@@ -399,26 +394,42 @@ serve(async (req) => {
       return new Date(a.date).getTime() - new Date(b.date).getTime()
     })
 
-    // Cache the results (1 hour expiry)
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
-    
-    await supabase
-      .from('event_cache')
-      .upsert({
-        location,
-        events: uniqueEvents,
-        expires_at: expiresAt,
-        created_at: new Date().toISOString()
-      }, {
-        onConflict: 'location'
-      })
+    // Upsert into `public.events` (frontend reads only from Supabase).
+    const eventRows = uniqueEvents.map((event: any) => ({
+      external_id: event.id,
+      title: event.title,
+      description: event.description,
+      organizer: event.organizer,
+      starts_at: event.date,
+      ends_at: event.endDate ?? null,
+      location: event.location ?? {},
+      event_type: event.category ?? 'meetup',
+      category: event.category ?? 'technology',
+      tags: Array.isArray(event.tags) ? event.tags : [],
+      image_url: event.imageUrl ?? null,
+      registration_url: event.registrationUrl ?? null,
+      price: event.price ?? {},
+      source: event.source ?? 'unknown',
+      relevance_score: event.relevanceScore ?? null,
+      fetched_at: event.fetchedAt ?? new Date().toISOString(),
+    }))
+
+    const { error: upsertError } = await supabaseAdmin
+      .from('events')
+      .upsert(eventRows, { onConflict: 'external_id' })
+
+    if (upsertError) {
+      throw upsertError
+    }
 
     return new Response(
       JSON.stringify({ 
         events: uniqueEvents,
         cached: false,
         totalEvents: uniqueEvents.length,
-        sources: ['eventbrite', 'predicthq']
+        sources: ['eventbrite', 'predicthq'],
+        upserted: eventRows.length,
+        refresh: forceRefresh
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -428,22 +439,15 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in fetch-events function:', error)
-    
-    // Return mock data on error
-    const mockEvents = [
-      ...getMockEventbriteData('San Francisco'),
-      ...getMockPredictHQData('San Francisco')
-    ]
-    
+
     return new Response(
       JSON.stringify({ 
-        events: mockEvents,
         error: true,
-        message: 'Using mock data due to error'
+        message: (error as any)?.message ?? 'fetch-events failed'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
+        status: 500
       }
     )
   }

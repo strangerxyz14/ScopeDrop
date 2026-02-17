@@ -9,10 +9,27 @@ import type {
 } from "../_shared/types.ts";
 import { requireSupabaseJwt } from "../_shared/auth.ts";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = [
+  "https://scopedrop.com",
+  "https://www.scopedrop.com",
+  "https://scopedrop.lovable.app",
+  "https://id-preview--4acd3d99-4555-4448-bee8-897d547c57c0.lovable.app",
+  ...(Deno.env.get("ENVIRONMENT") === "development"
+    ? ["http://localhost:5173", "http://localhost:8080"]
+    : []),
+];
+
+function getCorsHeaders(origin: string | null): HeadersInit {
+  const allowedOrigin = origin && ALLOWED_ORIGINS.some((o) => origin === o || origin.endsWith(".lovable.app"))
+    ? origin
+    : ALLOWED_ORIGINS[0];
+
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
 
 const DISRUPTOR_SYSTEM_PROMPT =
   "You are a contrarian VC. Analyze the news for asymmetric risk and founder playbooks. Do not summarize. Output valid JSON only.";
@@ -63,8 +80,9 @@ function buildPrompt(article: Partial<Article>): string {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get("origin"));
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: CORS_HEADERS });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -78,7 +96,7 @@ serve(async (req) => {
         JSON.stringify({
           error: "Missing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, or GEMINI_API_KEY.",
         }),
-        { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -86,10 +104,16 @@ serve(async (req) => {
       supabaseUrl,
       serviceRoleKey,
       anonKey,
-      corsHeaders: CORS_HEADERS,
+      corsHeaders,
     });
     if (authContext instanceof Response) {
       return authContext;
+    }
+    if (authContext.role !== "service_role") {
+      return new Response(
+        JSON.stringify({ error: "Forbidden" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const rawPayload = await req.json();
@@ -101,7 +125,7 @@ serve(async (req) => {
     if (!record?.id || !record.title) {
       return new Response(
         JSON.stringify({ ignored: true, reason: "No record payload found." }),
-        { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -175,7 +199,7 @@ serve(async (req) => {
     if (updateError) {
       return new Response(
         JSON.stringify({ error: updateError.message }),
-        { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
     if (primarySourceUrl) {
@@ -206,14 +230,14 @@ serve(async (req) => {
         status: nextStatus,
         confidence_score: confidenceScore,
       }),
-      { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unexpected disruptor-analysis failure.",
       }),
-      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
