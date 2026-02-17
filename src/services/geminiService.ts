@@ -34,16 +34,26 @@ export async function processArticleWithGemini(article: NewsArticle): Promise<st
 
     // Build the prompt
     const prompt = `
-Rewrite the following article into a professional, plagiarism-free summary suitable for an elite startup business publication.
+You are writing for ScopeDrop as a senior business analyst.
 
-Maintain authenticity and facts. Write in a neutral, expert tone suitable for startup founders, VCs, and tech executives.
+Task: Do NOT summarize passively. Perform a **Contrarian Business Analysis**.
 
-Avoid fluff. Keep paragraphs short and crisp. Mention key data points (e.g., funding amount, country, sector).
+Tone and style constraints:
+- Elite, neutral, analytical, and data-driven.
+- Prioritize strategic implications, unit economics, market structure, and execution risk.
+- Avoid vague AI fluff words such as: "transformative", "revolutionizing", "game-changing", "disruptive", "groundbreaking", "paradigm shift".
+- If evidence is weak, say so directly.
 
-Always provide 1-2 *official source links* from the startup's website, press release, or a credible government/stat report.
-Never link to competitors like Crunchbase, Pitchbook, Dealroom.
-
-Format the output as markdown with clear sections: **Summary**, **Key Highlights**, **Official Sources**.
+Output requirements (Markdown only):
+- Use clear Markdown headings.
+- Must include all sections below in this exact order:
+  1) ## Contrarian Business Analysis
+  2) ## Hidden Risks
+  3) ## The Founder Playbook
+  4) ## Official Sources
+- "Hidden Risks" must contain concrete downside scenarios (competition, margin pressure, regulation, GTM failure, dependency risk, etc.).
+- "The Founder Playbook" must contain exactly **3** numbered, actionable lessons for entrepreneurs.
+- "Official Sources" must include 1-2 credible links, favoring primary sources (company site, official release, regulator/government/stat source). Avoid competitor databases.
 
 Original article:
 Title: ${article.title}
