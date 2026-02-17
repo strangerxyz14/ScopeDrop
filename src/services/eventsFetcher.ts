@@ -48,7 +48,7 @@ export interface TechEvent {
 // Base class for event sources
 abstract class EventSource {
   abstract sourceName: string;
-  abstract async fetchEvents(location: string, category?: string): Promise<TechEvent[]>;
+  abstract fetchEvents(location: string, category?: string): Promise<TechEvent[]>;
   
   protected generateId(source: string, id: string): string {
     return `${source}_${id}`;

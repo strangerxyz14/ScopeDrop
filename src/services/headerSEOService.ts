@@ -257,7 +257,7 @@ export class HeaderSEOService {
         this.navigationSEO.set(path, {
           ...existingSEO,
           description: updatedDescription,
-          keywords: [...existingSEO.keywords, ...Array.from(stats.tags)],
+          keywords: [...existingSEO.keywords, ...Array.from(stats.tags as Set<string>)],
           lastModified: new Date()
         });
       }

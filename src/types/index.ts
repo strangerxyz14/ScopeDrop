@@ -357,5 +357,3 @@ export interface SEOMetadata {
 
 // Export all types
 export * from './news';
-export * from './api';
-export * from './components';

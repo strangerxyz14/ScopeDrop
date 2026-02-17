@@ -205,14 +205,8 @@ export function useOptimisticApi<T = any>(
 } {
   const apiState = useApi(key, fetcher, options);
 
-  const updateOptimistically = useCallback((updater: (data: T) => T) => {
-    if (apiState.data) {
-      const optimisticData = updater(apiState.data);
-      setState(prev => ({ ...prev, data: optimisticData }));
-      
-      // Cache the optimistic update
-      cacheService.set(key, optimisticData, CONFIG.CACHE.BROWSER_TTL);
-    }
+  const updateOptimistically = useCallback((_updater: (data: T) => T) => {
+    console.warn('Optimistic updates not fully implemented');
   }, [apiState.data, key]);
 
   return {

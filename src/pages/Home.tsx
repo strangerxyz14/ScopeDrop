@@ -69,9 +69,9 @@ const Home = () => {
   return (
     <div className="flex flex-col min-h-screen">
       <SEO 
-        title="Startup Tracker - Latest Startup News & Funding Rounds"
-        description="Stay updated with the latest startup news, funding rounds, and emerging technologies. Track your favorite companies and discover new opportunities in the startup ecosystem."
-        keywords={["startup news", "funding rounds", "venture capital", "tech startups", ...(trendingTopics || [])]}
+        title="ScopeDrop - The Intelligence Layer for Startups"
+        description="Deep analysis at real-time speed. Track funding rounds, emerging technologies, and startup ecosystems with ScopeDrop."
+        keywords={["startup intelligence", "funding rounds", "venture capital", "tech startups", ...(trendingTopics || [])]}
       />
       
       <Header />

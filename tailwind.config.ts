@@ -161,7 +161,8 @@ export default {
 			},
             fontFamily: {
                 sans: ['Inter', 'sans-serif'],
-                display: ['Montserrat', 'sans-serif']
+                display: ['Montserrat', 'sans-serif'],
+                serif: ['"DM Serif Display"', 'Georgia', 'serif']
             }
 		}
 	},
