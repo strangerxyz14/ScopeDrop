@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/services/enhancedCacheManager';
+import { supabase } from '@/lib/supabase';
 
 export const useDarkMode = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);

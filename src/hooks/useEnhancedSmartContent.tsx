@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { enhancedCacheManager } from '@/services/enhancedCacheManager';
-import { supabase } from '@/services/enhancedCacheManager';
+import { supabase } from '@/lib/supabase';
 import { CONFIG } from '@/config';
 
 interface ContentConfig {
