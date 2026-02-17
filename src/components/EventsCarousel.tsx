@@ -17,11 +17,12 @@ import {
   RefreshCw,
   Filter
 } from 'lucide-react';
-import { TechEvent, EventsAggregator } from '@/services/eventsFetcher';
+import type { TechEvent } from "@/types/events";
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import EventDetailsModal from './EventDetailsModal';
+import { supabase } from "@/integrations/supabase/client";
 
 interface EventsCarouselProps {
   location?: string;
@@ -46,12 +47,115 @@ export const EventsCarousel: React.FC<EventsCarouselProps> = ({
   const animationRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
 
-  // Fetch events using the aggregator
+  const normalizeEventType = (value: unknown): TechEvent["eventType"] => {
+    const v = typeof value === "string" ? value.toLowerCase() : "";
+    if (
+      v === "demo-day" ||
+      v === "hackathon" ||
+      v === "conference" ||
+      v === "meetup" ||
+      v === "workshop" ||
+      v === "webinar" ||
+      v === "pitch-event"
+    ) {
+      return v as TechEvent["eventType"];
+    }
+    return "meetup";
+  };
+
+  const toIsoString = (value: unknown): string => {
+    if (typeof value === "string" && value.trim().length > 0) {
+      const d = new Date(value);
+      if (!Number.isNaN(d.getTime())) return d.toISOString();
+    }
+    return new Date().toISOString();
+  };
+
+  const formatTime = (iso: string): string => {
+    try {
+      return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "TBA";
+    }
+  };
+
+  const mapRowToEvent = (row: any): TechEvent => {
+    const dateIso = toIsoString(row.date ?? row.starts_at ?? row.start_at ?? row.start_time ?? row.created_at);
+    const endIso = row.end_date ?? row.ends_at ?? row.end_at ?? row.end_time ?? null;
+
+    const isOnline = Boolean(row.is_online ?? row.online ?? row.isOnline);
+    const venue = (row.venue ?? row.location_venue ?? row.location_name ?? (isOnline ? "Online" : "TBA")) as string;
+    const address = (row.address ?? row.location_address ?? "") as string;
+    const city = (row.city ?? row.location_city ?? location) as string;
+    const country = (row.country ?? row.location_country ?? "") as string;
+
+    const registrationUrl = (row.registration_url ?? row.url ?? row.link ?? "") as string;
+
+    const amountRaw = row.price_amount ?? row.price ?? 0;
+    const amount = typeof amountRaw === "number" ? amountRaw : Number(amountRaw) || 0;
+    const currency = (row.currency ?? row.price_currency ?? "USD") as string;
+    const isFree = Boolean(row.is_free ?? row.free ?? amount === 0);
+
+    const tags = Array.isArray(row.tags) ? row.tags.filter((t: any) => typeof t === "string") : [];
+    const categoryArr = Array.isArray(row.category) ? row.category.filter((c: any) => typeof c === "string") : [];
+
+    return {
+      id: String(row.id ?? `event_${dateIso}`),
+      title: String(row.title ?? row.name ?? "Untitled Event"),
+      description: String(row.description ?? ""),
+      organizer: String(row.organizer ?? row.host ?? "Unknown"),
+      date: dateIso,
+      endDate: typeof endIso === "string" ? endIso : undefined,
+      time: formatTime(dateIso),
+      location: {
+        venue,
+        address,
+        city,
+        country,
+        isOnline,
+      },
+      eventType: normalizeEventType(row.event_type ?? row.eventType ?? row.type),
+      category: categoryArr.length > 0 ? categoryArr : ["Startups"],
+      tags,
+      imageUrl:
+        typeof row.image_url === "string"
+          ? row.image_url
+          : typeof row.imageUrl === "string"
+            ? row.imageUrl
+            : undefined,
+      registrationUrl: registrationUrl || "#",
+      price: { amount, currency, isFree },
+      attendeeCount: typeof row.attendee_count === "number" ? row.attendee_count : undefined,
+      maxAttendees: typeof row.max_attendees === "number" ? row.max_attendees : undefined,
+      relevanceScore: typeof row.relevance_score === "number" ? row.relevance_score : undefined,
+      source: String(row.source ?? "supabase"),
+      fetchedAt: toIsoString(row.fetched_at ?? row.created_at ?? new Date().toISOString()),
+    };
+  };
+
+  // Fetch events strictly from Supabase
   const { data: events, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['events', location, category],
     queryFn: async () => {
-      const aggregator = new EventsAggregator();
-      return aggregator.fetchAllEvents(location, category);
+      try {
+        const { data, error } = await supabase
+          .from("events" as any)
+          .select("*")
+          .order("created_at" as any, { ascending: false })
+          .limit(50);
+
+        if (error) throw error;
+        const rows = (data ?? []) as any[];
+
+        const mapped = rows.map(mapRowToEvent);
+        const byLocation = mapped.filter((e) =>
+          e.location.isOnline ? true : e.location.city.toLowerCase().includes(location.toLowerCase()),
+        );
+        return byLocation;
+      } catch (e) {
+        console.warn("Events query failed (missing table or RLS).", e);
+        return [] as TechEvent[];
+      }
     },
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
     staleTime: 3 * 60 * 1000, // Consider data stale after 3 minutes

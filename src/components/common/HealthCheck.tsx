@@ -3,8 +3,8 @@ import { Activity, CheckCircle, XCircle, AlertTriangle, RefreshCw } from 'lucide
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { gnewsService } from '@/services/api/GNewsService';
 import { cacheService } from '@/services/cache/CacheService';
+import { supabase } from "@/integrations/supabase/client";
 
 interface ServiceStatus {
   name: string;
@@ -39,7 +39,10 @@ export const HealthCheck: React.FC = () => {
     setIsChecking(true);
     try {
       const services = await Promise.all([
-        checkServiceHealth('GNews API', () => gnewsService.healthCheck()),
+        checkServiceHealth("Supabase", async () => {
+          const { error } = await supabase.from("articles").select("id").limit(1);
+          return !error;
+        }),
         checkServiceHealth('Cache Service', () => cacheService.healthCheck()),
       ]);
 

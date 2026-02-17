@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
-import { processArticleWithGemini } from "@/services/geminiService";
 import { sanitizeHtml } from "@/utils/sanitize";
 import { fetchArticleByIdOrSlug, mapDbArticleToNewsArticle } from "@/services/articlesService";
 
@@ -25,20 +24,15 @@ const ArticleView = () => {
 
   const article = dbRow ? mapDbArticleToNewsArticle(dbRow as any) : null;
   const contentHtml = (dbRow as any)?.content_html;
+  const summaryText = (dbRow as any)?.summary ?? (dbRow as any)?.description ?? article?.description ?? "";
+  const analysisMetadata = (dbRow as any)?.ai_analysis_metadata;
+  const disruptor = analysisMetadata && typeof analysisMetadata === "object" && !Array.isArray(analysisMetadata)
+    ? (analysisMetadata as any).disruptor
+    : null;
   const primarySourceUrl =
     Array.isArray((dbRow as any)?.source_urls) && typeof (dbRow as any).source_urls[0] === "string"
       ? (dbRow as any).source_urls[0]
       : null;
-  
-  const { data: processedContent, isLoading: isProcessingContent } = useQuery({
-    queryKey: ["articleContent", id, article?.title],
-    queryFn: async () => {
-      if (!article) return "";
-      return processArticleWithGemini(article);
-    },
-    enabled: !!article && !(typeof contentHtml === "string" && contentHtml.trim().length > 0),
-    staleTime: 1000 * 60 * 60, // Cache for 1 hour
-  });
 
   useEffect(() => {
     // Scroll to top when article loads
@@ -110,25 +104,72 @@ const ArticleView = () => {
               </div>
               
               <div className="prose prose-lg max-w-none">
-                {isProcessingContent ? (
-                  <div className="space-y-4 my-8">
-                    <p className="text-gray-600 italic">Processing with AI for enhanced insights...</p>
-                    <div className="flex space-x-2">
-                      <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                    </div>
-                  </div>
-                ) : (
+                {typeof contentHtml === "string" && contentHtml.trim().length > 0 ? (
                   <div 
                     dangerouslySetInnerHTML={{ 
                       __html: sanitizeHtml(
-                        (typeof contentHtml === "string" && contentHtml.trim().length > 0
-                          ? contentHtml
-                          : processedContent) || article.description || ""
+                        contentHtml
                       )
                     }} 
                   />
+                ) : disruptor && typeof disruptor === "object" ? (
+                  <div className="space-y-8">
+                    {typeof disruptor.contrarian_take === "string" && disruptor.contrarian_take.trim().length > 0 && (
+                      <section>
+                        <h2 className="text-xl font-semibold">Contrarian Take</h2>
+                        <p>{disruptor.contrarian_take}</p>
+                      </section>
+                    )}
+
+                    {Array.isArray(disruptor.asymmetric_risks) && disruptor.asymmetric_risks.length > 0 && (
+                      <section>
+                        <h2 className="text-xl font-semibold">Asymmetric Risks</h2>
+                        <ul>
+                          {disruptor.asymmetric_risks.slice(0, 10).map((r: any, idx: number) => (
+                            <li key={idx}>{String(r)}</li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
+
+                    {Array.isArray(disruptor.founder_playbooks) && disruptor.founder_playbooks.length > 0 && (
+                      <section>
+                        <h2 className="text-xl font-semibold">Founder Playbook</h2>
+                        <ol>
+                          {disruptor.founder_playbooks.slice(0, 10).map((p: any, idx: number) => (
+                            <li key={idx}>{String(p)}</li>
+                          ))}
+                        </ol>
+                      </section>
+                    )}
+
+                    {Array.isArray(disruptor.disconfirming_signals) && disruptor.disconfirming_signals.length > 0 && (
+                      <section>
+                        <h2 className="text-xl font-semibold">Disconfirming Signals</h2>
+                        <ul>
+                          {disruptor.disconfirming_signals.slice(0, 10).map((s: any, idx: number) => (
+                            <li key={idx}>{String(s)}</li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
+
+                    {typeof summaryText === "string" && summaryText.trim().length > 0 && (
+                      <section>
+                        <h2 className="text-xl font-semibold">Context</h2>
+                        <p className="text-muted-foreground">{summaryText}</p>
+                      </section>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4 my-8">
+                    <p className="text-muted-foreground">
+                      This story has been scouted, but analysis content hasn’t been published yet.
+                    </p>
+                    {typeof summaryText === "string" && summaryText.trim().length > 0 && (
+                      <p className="text-muted-foreground">{summaryText}</p>
+                    )}
+                  </div>
                 )}
                 
                 {primarySourceUrl && (

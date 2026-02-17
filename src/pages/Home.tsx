@@ -11,7 +11,6 @@ import { RefreshCw } from "lucide-react";
 import NewsSection from "@/components/NewsSection";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { usePageContent, useContentRefresh, useRealTimeUpdates } from "@/hooks/useContentData";
-import { useRealTimeContent } from "@/hooks/useRealTimeContent";
 import { Badge } from "@/components/ui/badge";
 import SEO from "@/components/SEO";
 
@@ -23,17 +22,15 @@ const Home = () => {
   const { data: pageContent, isLoading: isLoadingContent } = usePageContent('home');
   const { refreshPage, isRefreshing } = useContentRefresh();
   const { lastUpdate } = useRealTimeUpdates(60000); // Update every minute
-  const { data: rtContent, isLoading: isLoadingRt } = useRealTimeContent("news");
 
   const articles = (pageContent as any)?.featuredArticles || [];
   const trendingTopics = (pageContent as any)?.trendingTopics || [];
-  const fallbackArticles = (rtContent as any)?.articles || [];
-  const displayArticles = Array.isArray(articles) && articles.length > 0 ? articles : fallbackArticles;
 
   const marketMaps: any[] = [];
   const events: any[] = [];
 
-  const isLoading = isLoadingContent || isLoadingRt;
+  const isLoading = isLoadingContent;
+  const isDbEmpty = !isLoading && Array.isArray(articles) && articles.length === 0;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -82,17 +79,29 @@ const Home = () => {
                       <RealTimeHeroSection />
         
         {/* Recent Stories Section */}
-        <NewsSection
-          title="Recent Stories"
-          subtitle={
-            Array.isArray(articles) && articles.length > 0
-              ? "The latest from the startup ecosystem"
-              : "Live web feed (DB empty — seed Supabase to take control)"
-          }
-          articles={displayArticles?.slice(0, 6) || []}
-          isLoading={isLoading}
-          viewAllLink="/startups/news"
-        />
+        {isDbEmpty ? (
+          <section className="py-16 bg-background">
+            <div className="container mx-auto px-4">
+              <div className="border border-border rounded-lg bg-card p-10 text-center">
+                <p className="text-sm font-mono text-muted-foreground uppercase tracking-widest mb-3">
+                  Securing Intelligence...
+                </p>
+                <p className="text-muted-foreground max-w-2xl mx-auto">
+                  No published articles are available yet. Once Scout/Disruptor publish into{" "}
+                  <code className="px-1">articles</code>, stories will appear here automatically.
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <NewsSection
+            title="Recent Stories"
+            subtitle="The latest from the startup ecosystem"
+            articles={articles?.slice(0, 6) || []}
+            isLoading={isLoading}
+            viewAllLink="/startups/news"
+          />
+        )}
         
         {/* Market Maps Section */}
         <MarketMapsSection 

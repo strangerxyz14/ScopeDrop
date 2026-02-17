@@ -3,8 +3,6 @@
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').trim().replace(/\/+$/, '');
 const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
-const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
-const GNEWS_API_KEY = (import.meta.env.VITE_GNEWS_API_KEY || '').trim();
 
 export const CONFIG = {
   // Environment
@@ -14,8 +12,6 @@ export const CONFIG = {
 
   // API keys
   API_KEYS: {
-    GNEWS: GNEWS_API_KEY,
-    GEMINI: GEMINI_API_KEY,
     SUPABASE_URL,
     SUPABASE_ANON_KEY,
   },
@@ -29,29 +25,7 @@ export const CONFIG = {
 
   // API Endpoints
   ENDPOINTS: {
-    GNEWS_BASE: 'https://gnews.io/api/v4',
-    GEMINI_BASE: 'https://generativelanguage.googleapis.com/v1beta/models',
     SUPABASE_FUNCTIONS: SUPABASE_URL ? `${SUPABASE_URL}/functions/v1` : '',
-  },
-
-  // API Rate Limits (Staging has reduced limits)
-  RATE_LIMITS: {
-    STAGING: {
-      GNEWS: { dailyLimit: 100, hourlyLimit: 10, cooldown: 60 * 1000 },
-      GEMINI: { dailyLimit: 1500, hourlyLimit: 150, cooldown: 2 * 1000 },
-      REDDIT: { dailyLimit: 100, hourlyLimit: 6, cooldown: 60 * 1000 },
-      HN: { dailyLimit: 100, hourlyLimit: 3, cooldown: 60 * 1000 },
-      RSS: { dailyLimit: 1000, hourlyLimit: 100, cooldown: 10 * 1000 },
-      MEETUP: { dailyLimit: 100, hourlyLimit: 20, cooldown: 60 * 1000 },
-    },
-    PRODUCTION: {
-      GNEWS: { dailyLimit: 1000, hourlyLimit: 100, cooldown: 60 * 1000 },
-      GEMINI: { dailyLimit: 15000, hourlyLimit: 1500, cooldown: 2 * 1000 },
-      REDDIT: { dailyLimit: 1000, hourlyLimit: 60, cooldown: 60 * 1000 },
-      HN: { dailyLimit: 1000, hourlyLimit: 30, cooldown: 60 * 1000 },
-      RSS: { dailyLimit: 10000, hourlyLimit: 1000, cooldown: 10 * 1000 },
-      MEETUP: { dailyLimit: 1000, hourlyLimit: 200, cooldown: 60 * 1000 },
-    },
   },
 
   // Cache Configuration
@@ -123,11 +97,6 @@ export const CONFIG = {
   },
 };
 
-// Helper function to get current rate limits based on environment
-export const getRateLimits = () => {
-  return CONFIG.IS_PRODUCTION ? CONFIG.RATE_LIMITS.PRODUCTION : CONFIG.RATE_LIMITS.STAGING;
-};
-
 // Helper function to check if feature is enabled
 export const isFeatureEnabled = (feature: keyof typeof CONFIG.FEATURES) => {
   return CONFIG.FEATURES[feature];
@@ -148,15 +117,7 @@ export const validateConfig = () => {
   const errors: string[] = [];
 
   // Check required API keys
-  if (!getApiKey('GNEWS')) {
-    errors.push('GNews API key not configured');
-  }
-  if (!getApiKey('GEMINI')) {
-    errors.push('Gemini API key not configured');
-  }
-  if (!getApiKey('SUPABASE_ANON_KEY')) {
-    errors.push('Supabase API key not configured');
-  }
+  if (!getApiKey('SUPABASE_ANON_KEY')) errors.push('Supabase anon key not configured');
 
   // Check required URLs
   if (!CONFIG.SUPABASE.URL) {

@@ -77,9 +77,9 @@ npm run test:cache
 
 ### **Configuration (2 minutes)**
 ```bash
-# Update .env with your API keys
-VITE_GNEWS_API_KEY=your-actual-key
-VITE_GEMINI_API_KEY=your-actual-key
+# Frontend env (Supabase read-only)
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
 ### **Start Development**

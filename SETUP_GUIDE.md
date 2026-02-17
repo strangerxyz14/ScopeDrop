@@ -42,14 +42,15 @@ nano .env
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
-# API Keys
-VITE_GNEWS_API_KEY=your-gnews-api-key-here
-VITE_GEMINI_API_KEY=your-gemini-api-key-here
-
 # Environment Configuration
 NODE_ENV=development
 VITE_APP_ENV=staging
 ```
+
+**Backend-only secrets (Supabase Edge Functions):**
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `GEMINI_API_KEY`
+- Your scout/news provider key (if applicable)
 
 ### Step 3: Initialize Supabase Project
 

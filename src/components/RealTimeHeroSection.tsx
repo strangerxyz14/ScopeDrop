@@ -3,9 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { ArrowRight, TrendingUp, Zap, Clock, RefreshCw } from "lucide-react";
-import { useRealTimeContent, useAPIConfiguration } from "@/hooks/useRealTimeContent";
 import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
@@ -14,12 +12,10 @@ interface RealTimeHeroSectionProps {
 }
 
 const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) => {
-  const { data: realTimeData, isLoading: isRTLoading, refreshContent } = useRealTimeContent('all');
-  const { hasMinimumConfig } = useAPIConfiguration();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch articles from Supabase
-  const { data: supabaseArticles, isLoading: isDbLoading } = useQuery({
+  const { data: supabaseArticles, isLoading: isDbLoading, refetch } = useQuery({
     queryKey: ['supabase-articles-hero'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -35,16 +31,15 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refreshContent();
-      toast.success('Content refreshed!');
+      await refetch();
     } catch {
-      toast.error('Failed to refresh content');
+      // swallow
     } finally {
       setIsRefreshing(false);
     }
   };
 
-  const isLoading = isRTLoading && isDbLoading;
+  const isLoading = isDbLoading;
 
   return (
     <div className={`relative overflow-hidden bg-oxford ${className}`}>
@@ -119,7 +114,7 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
                   ))
                 ) : (
                   <>
-                    {/* Show Supabase articles first, then real-time data */}
+                    {/* Supabase articles */}
                     {(supabaseArticles || []).slice(0, 3).map((article, i) => (
                       <motion.div
                         key={`db-${article.id}`}
@@ -145,35 +140,10 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
                         </div>
                       </motion.div>
                     ))}
-                    
-                    {/* Fallback to real-time articles */}
-                    {(!supabaseArticles || supabaseArticles.length === 0) && realTimeData?.articles?.slice(0, 4).map((article, i) => (
-                      <motion.div
-                        key={`rt-${i}`}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        className="px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer group"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-white font-medium truncate group-hover:text-parrot transition-colors">
-                              {article.title}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-parrot/60 font-mono">{article.category || 'News'}</span>
-                              <span className="text-xs text-white/30">·</span>
-                              <span className="text-xs text-white/30">{article.source?.name || 'Feed'}</span>
-                            </div>
-                          </div>
-                          <Clock className="w-3 h-3 text-white/20 mt-1 flex-shrink-0" />
-                        </div>
-                      </motion.div>
-                    ))}
-                    
-                    {(!supabaseArticles || supabaseArticles.length === 0) && (!realTimeData?.articles || realTimeData.articles.length === 0) && (
+
+                    {(!supabaseArticles || supabaseArticles.length === 0) && (
                       <div className="px-4 py-6 text-center text-white/30 text-sm">
-                        No articles yet. Add data to your articles table.
+                        No articles yet. Agents will publish into <code className="px-1">articles</code>.
                       </div>
                     )}
                   </>

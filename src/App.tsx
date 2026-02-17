@@ -10,9 +10,6 @@ import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { HealthCheck } from "@/components/common/HealthCheck";
 import { supabaseConfig } from "@/integrations/supabase/client";
 
-// Import content scheduler to auto-start real-time content fetching
-import "./services/contentScheduler";
-
 // Lazy load all page components
 const Home = React.lazy(() => import("./pages/Home"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));

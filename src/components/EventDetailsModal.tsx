@@ -23,7 +23,7 @@ import {
   Share2,
   Bookmark
 } from 'lucide-react';
-import { TechEvent } from '@/services/eventsFetcher';
+import type { TechEvent } from '@/types/events';
 
 interface EventDetailsModalProps {
   event: TechEvent | null;

@@ -9,7 +9,6 @@ import type { Sector, Region, FundingStage, NewsType } from "@/types/news";
 import ErrorMonitor from "@/components/ErrorMonitor";
 import { supabase } from "@/integrations/supabase/client";
 import { mapDbArticleToNewsArticle } from "@/services/articlesService";
-import { realTimeContentAggregator } from "@/services/realTimeContentAPIs";
 
 interface Filters {
   stages: FundingStage[];
@@ -43,21 +42,11 @@ const StartupNews = () => {
 
         const { data, error } = await query.limit(30);
         if (error) throw error;
-        const mapped = (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
-        if (mapped.length > 0) return mapped;
+        return (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
       } catch (e) {
-        console.warn("Supabase articles fetch failed; falling back to live web feed.", e);
+        console.warn("Supabase articles fetch failed.", e);
+        return [];
       }
-
-      // Fallback: realtime web feed (external URLs)
-      const rt = await realTimeContentAggregator.aggregateAllContent();
-      const fallback = filters.types.length
-        ? rt.articles.filter((a) => {
-            const c = (a.category ?? "").toLowerCase();
-            return filters.types.some((t) => c.includes(t.toLowerCase()));
-          })
-        : rt.articles;
-      return fallback.slice(0, 30);
     },
   });
 

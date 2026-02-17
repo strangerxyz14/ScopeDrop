@@ -2,14 +2,10 @@
 import React from "react";
 import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
-import { processArticleWithGemini } from "@/services/geminiService";
 import { useQuery } from "@tanstack/react-query";
-import { NewsArticle } from "@/types/news";
 import { Skeleton } from "@/components/ui/skeleton";
 import NewsCard from "@/components/NewsCard";
-import { sanitizeHtml } from "@/utils/sanitize";
 import { fetchLatestArticles, mapDbArticleToNewsArticle } from "@/services/articlesService";
-import { realTimeContentAggregator } from "@/services/realTimeContentAPIs";
 
 interface ContentPageTemplateProps {
   title: string;
@@ -23,28 +19,7 @@ const ContentPageTemplate = ({ title, description, topic, heroImage }: ContentPa
     queryKey: ['articles', topic],
     queryFn: async () => {
       const rows = await fetchLatestArticles(8);
-      const mapped = rows.map(mapDbArticleToNewsArticle);
-      if (mapped.length > 0) return mapped;
-      const rt = await realTimeContentAggregator.aggregateAllContent();
-      return rt.articles.slice(0, 8);
-    },
-  });
-
-  // Get AI-generated content about this topic
-  const { data: introContent, isLoading: isLoadingIntro } = useQuery({
-    queryKey: ['intro', topic],
-    queryFn: async () => {
-      // Create a sample article to get content for
-      const sampleArticle: NewsArticle = {
-        title: title,
-        description: description,
-        url: `https://scopedrop.com/${topic}`,
-        publishedAt: new Date().toISOString(),
-      };
-      
-      // Use Gemini to get recommendation text
-      const content = await processArticleWithGemini(sampleArticle);
-      return content;
+      return rows.map(mapDbArticleToNewsArticle);
     },
   });
 
@@ -70,19 +45,14 @@ const ContentPageTemplate = ({ title, description, topic, heroImage }: ContentPa
         
         {/* Introduction */}
         <div className="container mx-auto px-4 py-12">
-          {isLoadingIntro ? (
-            <div className="max-w-3xl mx-auto space-y-4">
-              <Skeleton className="h-6 w-3/4" />
-              <Skeleton className="h-6 w-full" />
-              <Skeleton className="h-6 w-5/6" />
-              <Skeleton className="h-6 w-full" />
-              <Skeleton className="h-6 w-2/3" />
-            </div>
-          ) : (
-            <div className="max-w-3xl mx-auto prose prose-lg">
-              <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(introContent || "") }} />
-            </div>
-          )}
+          <div className="max-w-3xl mx-auto space-y-3">
+            <p className="text-muted-foreground text-lg leading-relaxed">
+              {description}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              ScopeDrop publishes agent-generated intelligence from Supabase. If this feed is empty, run Scout/Disruptor to populate <code className="px-1">articles</code>.
+            </p>
+          </div>
         </div>
         
         {/* Articles Grid */}

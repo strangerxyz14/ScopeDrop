@@ -82,11 +82,13 @@ npm run setup:supabase         # Initialize Supabase project
 4. **Mock data** is being served for development
 
 ### **For Full Production Setup**
-1. **Configure API Keys** in `.env`:
+1. **Frontend env**: configure only Supabase read keys in `.env`:
    ```env
-   VITE_GNEWS_API_KEY=your-actual-key
-   VITE_GEMINI_API_KEY=your-actual-key
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key
    ```
+
+   **Backend secrets (Supabase)**: configure Edge Function secrets (no VITE_* keys for News/LLMs).
 
 2. **Deploy to Production Supabase**:
    ```bash

@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
@@ -7,7 +6,6 @@ import NewsCard from "@/components/NewsCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { mapDbArticleToNewsArticle } from "@/services/articlesService";
-import { realTimeContentAggregator } from "@/services/realTimeContentAPIs";
 import type { NewsArticle } from "@/types/news";
 
 type TopicFeedPageProps = {
@@ -41,47 +39,21 @@ const TopicFeedPage = ({ title, description, queryTerm, heroImage }: TopicFeedPa
   const { data, isLoading, error } = useQuery({
     queryKey: ["topic-feed", term],
     queryFn: async () => {
-      // 1) Supabase first (source of truth)
-      try {
-        let query = supabase
-          .from("articles")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(30);
-
-        if (term) {
-          const escaped = term.replaceAll(",", " "); // defensive: avoid breaking .or syntax
-          query = query.or(
-            `category.ilike.%${escaped}%,title.ilike.%${escaped}%,summary.ilike.%${escaped}%`,
-          );
-        }
-
-        const { data: rows, error } = await query;
-        if (error) throw error;
-
-        const mapped = (rows ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
-        if (mapped.length > 0) {
-          return { source: "supabase" as const, articles: mapped };
-        }
-      } catch {
-        // Fall through to realtime.
-      }
-
-      // 2) Fallback: realtime aggregator (external URLs)
-      const rt = await realTimeContentAggregator.aggregateAllContent();
-      const filtered = term ? rt.articles.filter((a) => matchesTerm(a, term)) : rt.articles;
-      return { source: "realtime" as const, articles: filtered.slice(0, 30) };
+      const { data: rows, error } = await supabase
+        .from("articles")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      const mapped = (rows ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
+      const filtered = term ? mapped.filter((a) => matchesTerm(a, term)) : mapped;
+      return { articles: filtered.slice(0, 30) };
     },
     staleTime: 60_000,
   });
 
-  const articles = data?.articles ?? [];
+  const articles = (data as any)?.articles ?? [];
   const isEmpty = !isLoading && articles.length === 0;
-
-  const headline = useMemo(() => {
-    if (!data?.source) return title;
-    return data.source === "supabase" ? title : `${title} (Live Web Feed)`;
-  }, [data?.source, title]);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -107,7 +79,7 @@ const TopicFeedPage = ({ title, description, queryTerm, heroImage }: TopicFeedPa
           }
         >
           <div className="container mx-auto px-4">
-            <h1 className="text-3xl md:text-4xl font-display font-bold mb-2">{headline}</h1>
+            <h1 className="text-3xl md:text-4xl font-display font-bold mb-2">{title}</h1>
             <p className="text-blue-100 max-w-2xl">{description}</p>
             {error && (
               <p className="mt-4 text-sm text-red-100">

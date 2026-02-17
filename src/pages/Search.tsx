@@ -10,7 +10,6 @@ import NewsCard from "@/components/NewsCard";
 import { Search as SearchIcon, Loader } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { mapDbArticleToNewsArticle } from "@/services/articlesService";
-import { realTimeContentAggregator } from "@/services/realTimeContentAPIs";
 
 const Search = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -27,14 +26,11 @@ const Search = () => {
           .order("created_at", { ascending: false })
           .limit(50);
         if (error) throw error;
-        const mapped = (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
-        if (mapped.length > 0) return mapped;
+        return (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
       } catch (e) {
-        console.warn("Supabase search preload failed; falling back to live web feed.", e);
+        console.warn("Supabase search preload failed.", e);
+        return [];
       }
-
-      const rt = await realTimeContentAggregator.aggregateAllContent();
-      return rt.articles.slice(0, 50);
     },
   });
 

@@ -2,11 +2,7 @@
 import React from "react";
 import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
-import { processArticleWithGemini } from "@/services/geminiService";
-import { NewsArticle } from "@/types/news";
-import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { sanitizeHtml } from "@/utils/sanitize";
 
 interface ResourcePageTemplateProps {
   title: string;
@@ -16,23 +12,6 @@ interface ResourcePageTemplateProps {
 }
 
 const ResourcePageTemplate = ({ title, description, topic, children }: ResourcePageTemplateProps) => {
-  // Get AI-generated content about this topic
-  const { data: content, isLoading } = useQuery({
-    queryKey: ['resource', topic],
-    queryFn: async () => {
-      // Create a sample article to get content for
-      const sampleArticle: NewsArticle = {
-        title: title,
-        description: description,
-        url: `https://scopedrop.com/${topic}`,
-        publishedAt: new Date().toISOString(),
-      };
-      
-      // Use Gemini to get content
-      return processArticleWithGemini(sampleArticle);
-    },
-  });
-
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -50,17 +29,19 @@ const ResourcePageTemplate = ({ title, description, topic, children }: ResourceP
         <div className="container mx-auto px-4 py-12">
           <div className="max-w-4xl mx-auto">
             {children || (
-              isLoading ? (
-                <div className="space-y-4">
+              <div className="space-y-4">
+                <p className="text-muted-foreground text-lg leading-relaxed">
+                  {description}
+                </p>
+                <div className="space-y-3">
                   <Skeleton className="h-6 w-3/4" />
                   <Skeleton className="h-6 w-full" />
                   <Skeleton className="h-6 w-5/6" />
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-6 w-2/3" />
                 </div>
-              ) : (
-                <div className="prose prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(content || "") }} />
-              )
+                <p className="text-sm text-muted-foreground">
+                  This resource page is waiting for agent-generated content to be published into Supabase.
+                </p>
+              </div>
             )}
           </div>
         </div>

@@ -240,15 +240,17 @@ import { HealthCheck } from '@/components/common/HealthCheck';
 Create a `.env` file in the root directory:
 
 ```env
-# API Keys
-VITE_GNEWS_API_KEY=your-gnews-api-key
-VITE_GEMINI_API_KEY=your-gemini-api-key
 VITE_SUPABASE_URL=your-supabase-url
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 # Environment
 NODE_ENV=development
 ```
+
+Backend-only secrets live in Supabase Edge Function secrets (not `VITE_*`):
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `GEMINI_API_KEY`
+- Your scout/news provider key (if applicable)
 
 ### **Configuration Validation**
 The system automatically validates configuration on startup:
@@ -457,8 +459,6 @@ npm run type-check
 
 ### **2. Environment Variables**
 Ensure all required environment variables are set:
-- `VITE_GNEWS_API_KEY`
-- `VITE_GEMINI_API_KEY`
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
