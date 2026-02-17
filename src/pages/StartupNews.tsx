@@ -9,6 +9,7 @@ import type { Sector, Region, FundingStage, NewsType } from "@/types/news";
 import ErrorMonitor from "@/components/ErrorMonitor";
 import { supabase } from "@/integrations/supabase/client";
 import { mapDbArticleToNewsArticle } from "@/services/articlesService";
+import { realTimeContentAggregator } from "@/services/realTimeContentAPIs";
 
 interface Filters {
   stages: FundingStage[];
@@ -31,7 +32,7 @@ const StartupNews = () => {
       let query = supabase
         .from("articles")
         .select("*")
-        .order("published_at", { ascending: false });
+        .order("created_at", { ascending: false });
 
       // Apply Category/Type filter (server-side)
       if (filters.types.length > 0) {
@@ -41,7 +42,18 @@ const StartupNews = () => {
 
       const { data, error } = await query.limit(30);
       if (error) throw error;
-      return (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
+      const mapped = (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
+      if (mapped.length > 0) return mapped;
+
+      // Fallback: realtime web feed (external URLs)
+      const rt = await realTimeContentAggregator.aggregateAllContent();
+      const fallback = filters.types.length
+        ? rt.articles.filter((a) => {
+            const c = (a.category ?? "").toLowerCase();
+            return filters.types.some((t) => c.includes(t.toLowerCase()));
+          })
+        : rt.articles;
+      return fallback.slice(0, 30);
     },
   });
 

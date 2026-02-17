@@ -24,6 +24,10 @@ const NewsSection = ({
   const displayArticles = articles;
   const loading = isLoading;
 
+  const isUuid = (value: unknown): value is string =>
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
   const formatDate = (dateString: string) => {
     try {
       return formatDistanceToNow(new Date(dateString), { addSuffix: true });
@@ -70,6 +74,19 @@ const NewsSection = ({
                 const articleDate = article.publishedAt;
                 const articleUrl = article.url;
                 const articleDescription = article.description;
+                const isDbBacked = isUuid(article.id);
+                const internalTo = article.slug
+                  ? `/article/${encodeURIComponent(article.slug)}`
+                  : article.id
+                    ? `/article/${encodeURIComponent(article.id)}`
+                    : "#";
+                const to =
+                  isDbBacked
+                    ? internalTo
+                    : articleUrl?.trim()
+                      ? articleUrl
+                      : internalTo;
+                const isExternal = !isDbBacked && typeof articleUrl === "string" && articleUrl.startsWith("http");
 
                 return (
                   <div
@@ -84,17 +101,9 @@ const NewsSection = ({
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <Link 
-                        to={
-                          articleUrl?.trim()
-                            ? articleUrl
-                            : article.slug
-                              ? `/article/${encodeURIComponent(article.slug)}`
-                              : article.id
-                                ? `/article/${encodeURIComponent(article.id)}`
-                                : "#"
-                        }
+                        to={to}
                         className="block"
-                        target={articleUrl?.startsWith('http') ? '_blank' : undefined}
+                        target={isExternal ? "_blank" : undefined}
                       >
                         <h3 className="font-medium text-foreground group-hover:text-accent transition-colors truncate text-sm md:text-base">
                           {articleTitle}
@@ -114,7 +123,7 @@ const NewsSection = ({
                         <Clock className="w-3 h-3" />
                         {formatDate(articleDate)}
                       </span>
-                      {articleUrl?.startsWith('http') && (
+                      {isExternal && (
                         <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                       )}
                     </div>

@@ -10,6 +10,7 @@ import NewsCard from "@/components/NewsCard";
 import { Search as SearchIcon, Loader } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { mapDbArticleToNewsArticle } from "@/services/articlesService";
+import { realTimeContentAggregator } from "@/services/realTimeContentAPIs";
 
 const Search = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -22,10 +23,13 @@ const Search = () => {
       const { data, error } = await supabase
         .from("articles")
         .select("*")
-        .order("published_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
-      return (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
+      const mapped = (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
+      if (mapped.length > 0) return mapped;
+      const rt = await realTimeContentAggregator.aggregateAllContent();
+      return rt.articles.slice(0, 50);
     },
   });
 

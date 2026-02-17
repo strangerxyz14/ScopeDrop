@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HelmetProvider } from "react-helmet-async";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
@@ -26,6 +26,7 @@ const ArticleView = React.lazy(() => import("./pages/ArticleView"));
 const FundingRounds = React.lazy(() => import("./pages/FundingRounds"));
 const MarketMaps = React.lazy(() => import("./pages/MarketMaps"));
 const MarketMapView = React.lazy(() => import("./pages/MarketMapView"));
+const TopicFeedPage = React.lazy(() => import("./pages/TopicFeedPage"));
 
 // Account Pages
 const Dashboard = React.lazy(() => import("./pages/account/Dashboard"));
@@ -104,6 +105,32 @@ const App = () => {
                 <Route path="/startups/news" element={<StartupNews />} />
                 <Route path="/market-maps" element={<MarketMaps />} />
                 <Route path="/market-maps/:id" element={<MarketMapView />} />
+                {/* Header nav aliases (prevent 404s) */}
+                <Route path="/funding" element={<FundingRounds />} />
+                <Route
+                  path="/ai-trends"
+                  element={
+                    <TopicFeedPage
+                      title="AI Trends"
+                      description="Where the AI market is actually moving — product, capital, and consolidation."
+                      queryTerm="ai"
+                      heroImage="https://images.unsplash.com/photo-1535378620166-273708d44e4c?auto=format&fit=crop&q=80"
+                    />
+                  }
+                />
+                <Route
+                  path="/acquisitions"
+                  element={
+                    <TopicFeedPage
+                      title="Acquisitions"
+                      description="M&A, acquihires, and competitive roll-ups — the deals and the incentives behind them."
+                      queryTerm="acquisition"
+                      heroImage="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&q=80"
+                    />
+                  }
+                />
+                <Route path="/founders" element={<Navigate to="/founder-spotlights" replace />} />
+                <Route path="/tech-stacks" element={<Navigate to="/tech/tech-stacks" replace />} />
                 <Route path="/funding/rounds" element={<FundingRounds />} />
                 <Route path="/tech/tech-stacks" element={<TechStacks />} />
                 <Route path="/tech/growth-hacking" element={<GrowthHacking />} />
@@ -119,6 +146,8 @@ const App = () => {
                 <Route path="/account/recent" element={<RecentlyViewed />} />
                 <Route path="/account/settings" element={<Settings />} />
                 <Route path="/signout" element={<SignOut />} />
+                <Route path="/settings" element={<Navigate to="/account/settings" replace />} />
+                <Route path="/profile" element={<Navigate to="/account/dashboard" replace />} />
                 
                 {/* Explore Pages */}
                 <Route path="/funding/big-stories" element={<BigFundingStories />} />
@@ -126,6 +155,26 @@ const App = () => {
                 <Route path="/founder-spotlights" element={<FounderSpotlights />} />
                 <Route path="/case-studies" element={<CaseStudies />} />
                 <Route path="/growth-strategies" element={<GrowthStrategies />} />
+                <Route
+                  path="/reports"
+                  element={
+                    <TopicFeedPage
+                      title="Reports"
+                      description="Snapshot analyses pulled from the live feed."
+                      heroImage="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80"
+                    />
+                  }
+                />
+                <Route
+                  path="/directory"
+                  element={
+                    <TopicFeedPage
+                      title="Directory"
+                      description="Company and ecosystem discovery (currently backed by the live feed)."
+                      heroImage="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&q=80"
+                    />
+                  }
+                />
                 
                 {/* Resource Pages */}
                 <Route path="/blog" element={<Blog />} />

@@ -14,7 +14,7 @@ export const usePageContent = (page: string, params?: any) => {
       let query = supabase
         .from("articles")
         .select("*")
-        .order("published_at", { ascending: false });
+        .order("created_at", { ascending: false });
       // If not home, filter by the page name (treating it as a category)
       if (page !== "home") {
         // Capitalize first letter to match DB categories usually (e.g. 'tech' -> 'Tech')
@@ -60,7 +60,7 @@ export const useSearch = () => {
         .from("articles")
         .select("*")
         .or(`title.ilike.%${term}%,summary.ilike.%${term}%`)
-        .order("published_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(30);
 
       if (error) throw error;
@@ -84,7 +84,7 @@ export const useSearch = () => {
         .from("articles")
         .select("title")
         .ilike("title", `%${term}%`)
-        .order("published_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(8);
 
       if (error) throw error;
@@ -158,7 +158,7 @@ export const useTrendingTopics = () => {
       const { data, error } = await supabase
         .from("articles")
         .select("category")
-        .order("published_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(100);
 
       if (error) throw error;
@@ -191,7 +191,7 @@ export const useSectorContent = (sector: string, count: number = 10) => {
         .from("articles")
         .select("*")
         .ilike("category", `%${sector}%`) // Fuzzy match sector to category
-        .order("published_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(count);
 
       if (error) throw error;
@@ -278,7 +278,7 @@ export const useInfiniteContent = (contentType: 'articles' | 'funding' | 'compan
       const { data, error } = await supabase
         .from("articles")
         .select("*")
-        .order("published_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .range(from, to);
       if (error) throw error;
       const newContent = (data ?? []).map(mapDbArticleToNewsArticle);

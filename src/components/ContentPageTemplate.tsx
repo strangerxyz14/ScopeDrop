@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import NewsCard from "@/components/NewsCard";
 import { sanitizeHtml } from "@/utils/sanitize";
 import { fetchLatestArticles, mapDbArticleToNewsArticle } from "@/services/articlesService";
+import { realTimeContentAggregator } from "@/services/realTimeContentAPIs";
 
 interface ContentPageTemplateProps {
   title: string;
@@ -22,7 +23,10 @@ const ContentPageTemplate = ({ title, description, topic, heroImage }: ContentPa
     queryKey: ['articles', topic],
     queryFn: async () => {
       const rows = await fetchLatestArticles(8);
-      return rows.map(mapDbArticleToNewsArticle);
+      const mapped = rows.map(mapDbArticleToNewsArticle);
+      if (mapped.length > 0) return mapped;
+      const rt = await realTimeContentAggregator.aggregateAllContent();
+      return rt.articles.slice(0, 8);
     },
   });
 

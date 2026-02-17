@@ -1,4 +1,5 @@
 
+import type { ReactNode } from "react";
 import { NewsArticle } from "@/types/news";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,8 +56,31 @@ const NewsCard = ({ article, articleId, className = "" }: NewsCardProps) => {
     }
   };
 
+  const isExternalUrl = (url: unknown): url is string =>
+    typeof url === "string" && /^https?:\/\//i.test(url);
+
+  const isUuid = (value: unknown): value is string =>
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+  // Prefer internal routing for DB-backed rows (UUID id),
+  // even when the mapped `article.url` is an external source link.
+  const isDbBacked = isUuid(article.id);
+
+  const internalTo = `/article/${encodeURIComponent(articleId)}`;
+  const externalHref = !isDbBacked && isExternalUrl(article.url) ? article.url : null;
+
+  const Wrapper = ({ children }: { children: ReactNode }) =>
+    externalHref ? (
+      <a href={externalHref} target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    ) : (
+      <Link to={internalTo}>{children}</Link>
+    );
+
   return (
-    <Link to={`/article/${encodeURIComponent(articleId)}`}>
+    <Wrapper>
       <Card className={`insight-card group cursor-pointer ${className}`}>
         {article.image && (
           <div className="relative overflow-hidden aspect-video">
@@ -100,7 +124,7 @@ const NewsCard = ({ article, articleId, className = "" }: NewsCardProps) => {
           </span>
         </CardFooter>
       </Card>
-    </Link>
+    </Wrapper>
   );
 };
 

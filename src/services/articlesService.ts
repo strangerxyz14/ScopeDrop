@@ -64,7 +64,7 @@ export async function fetchLatestArticles(limit: number = 20): Promise<DbArticle
   const { data, error } = await supabase
     .from("articles")
     .select("*")
-    .order("published_at", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(limit);
 
   if (error) throw error;
