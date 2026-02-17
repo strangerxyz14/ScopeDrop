@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai";
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.24.1";
 import type {
   Article,
   BusinessCategory,
@@ -125,7 +125,7 @@ serve(async (req) => {
 
     const aiClient = new GoogleGenerativeAI(geminiApiKey);
     const model = aiClient.getGenerativeModel({
-      model: "gemini-1.5-pro",
+      model: "gemini-1.5-pro-latest",
       systemInstruction: DISRUPTOR_SYSTEM_PROMPT,
       generationConfig: {
         temperature: 0,
@@ -156,7 +156,7 @@ serve(async (req) => {
         asymmetric_risks: normalizeStringArray(parsed.asymmetric_risks),
         founder_playbooks: normalizeStringArray(parsed.founder_playbooks),
         disconfirming_signals: normalizeStringArray(parsed.disconfirming_signals),
-        model: "gemini-1.5-pro",
+        model: "gemini-1.5-pro-latest",
       },
     };
 

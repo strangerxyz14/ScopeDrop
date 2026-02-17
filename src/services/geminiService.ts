@@ -63,7 +63,7 @@ Source: ${article.source?.name || "Unknown"}
 URL: ${article.url || ""}
 `;
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
