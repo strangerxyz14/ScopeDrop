@@ -14,48 +14,146 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_logs: {
+        Row: {
+          action: string
+          agent_name: string
+          article_id: string | null
+          created_at: string
+          id: string
+          payload: Json
+          status: string
+        }
+        Insert: {
+          action: string
+          agent_name: string
+          article_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          status: string
+        }
+        Update: {
+          action?: string
+          agent_name?: string
+          article_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_logs_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       articles: {
         Row: {
-          category: string | null
+          ai_analysis_metadata: Json
+          category: Database["public"]["Enums"]["business_category"]
           content: string | null
+          content_html: string | null
           created_at: string
           description: string | null
           id: string
           image_url: string | null
           published_at: string | null
+          slug: string
           source_name: string | null
+          source_urls: Json
+          status: Database["public"]["Enums"]["article_status"]
+          summary: string | null
           tags: string[] | null
           title: string
           updated_at: string
           url: string | null
         }
         Insert: {
-          category?: string | null
+          ai_analysis_metadata?: Json
+          category?: Database["public"]["Enums"]["business_category"]
           content?: string | null
+          content_html?: string | null
           created_at?: string
           description?: string | null
           id?: string
           image_url?: string | null
           published_at?: string | null
+          slug: string
           source_name?: string | null
+          source_urls?: Json
+          status?: Database["public"]["Enums"]["article_status"]
+          summary?: string | null
           tags?: string[] | null
           title: string
           updated_at?: string
           url?: string | null
         }
         Update: {
-          category?: string | null
+          ai_analysis_metadata?: Json
+          category?: Database["public"]["Enums"]["business_category"]
           content?: string | null
+          content_html?: string | null
           created_at?: string
           description?: string | null
           id?: string
           image_url?: string | null
           published_at?: string | null
+          slug?: string
           source_name?: string | null
+          source_urls?: Json
+          status?: Database["public"]["Enums"]["article_status"]
+          summary?: string | null
           tags?: string[] | null
           title?: string
           updated_at?: string
           url?: string | null
+        }
+        Relationships: []
+      }
+      raw_signals: {
+        Row: {
+          category: Database["public"]["Enums"]["business_category"]
+          created_at: string
+          headline: string
+          id: string
+          payload: Json
+          scouted_at: string
+          signal_score: number
+          source_url: string
+          status: Database["public"]["Enums"]["article_status"]
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["business_category"]
+          created_at?: string
+          headline: string
+          id?: string
+          payload?: Json
+          scouted_at?: string
+          signal_score?: number
+          source_url: string
+          status?: Database["public"]["Enums"]["article_status"]
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["business_category"]
+          created_at?: string
+          headline?: string
+          id?: string
+          payload?: Json
+          scouted_at?: string
+          signal_score?: number
+          source_url?: string
+          status?: Database["public"]["Enums"]["article_status"]
+          summary?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -92,6 +190,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      article_status: "scouted" | "analyzing" | "published" | "rejected"
+      business_category: "Startup" | "Tech" | "Business" | "Case Study"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -220,6 +320,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      article_status: ["scouted", "analyzing", "published", "rejected"],
+      business_category: ["Startup", "Tech", "Business", "Case Study"],
     },
   },
 } as const
