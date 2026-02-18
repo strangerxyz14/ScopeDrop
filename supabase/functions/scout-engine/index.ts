@@ -17,9 +17,6 @@ function getCorsHeaders(origin: string | null): HeadersInit {
   };
 }
 
-const DEFAULT_NEWS_API_URL =
-  "https://api.spaceflightnewsapi.net/v4/articles/?limit=40&has_event=false&has_launch=false";
-
 const FLUFF_REGEX =
   /\b(sponsored|advertorial|promotion|promoted|top\s*\d+|best\s+\w+|listicle|roundup|gift\s+guide|coupon|deal|buy\s+now|affiliate)\b/i;
 const SIGNAL_REGEX =
@@ -171,10 +168,11 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+ const gnewsKey = Deno.env.get("GNEWS_API_KEY");
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey || !gnewsKey) {
       return new Response(
-        JSON.stringify({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY." }),
+        JSON.stringify({ error: "Missing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, or GNEWS_API_KEY." }),
         { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
       );
     }
@@ -189,8 +187,8 @@ serve(async (req) => {
       return authContext;
     }
 
-    const apiUrl = Deno.env.get("SCOUT_NEWS_API_URL") ?? DEFAULT_NEWS_API_URL;
     const limit = parseLimit(new URL(req.url).searchParams.get("limit"));
+    const apiUrl = `https://gnews.io/api/v4/search?q=startup+OR+funding+OR+"venture+capital"+OR+AI&lang=en&country=us&max=${limit}&apikey=${gnewsKey}`;
 
     const response = await fetch(apiUrl, { method: "GET" });
     if (!response.ok) {
@@ -226,7 +224,7 @@ serve(async (req) => {
       source_urls: [canonicalUrl(candidate.sourceUrl)],
       ai_analysis_metadata: {
         scout: {
-          source: "placeholder-news-api",
+          source: "gnews-api",
           fetched_at: now,
           published_at: candidate.publishedAt,
           signal_score: scoreSignal(candidate),
@@ -242,7 +240,7 @@ serve(async (req) => {
       status: "scouted",
       payload: {
         published_at: candidate.publishedAt,
-        source: "placeholder-news-api",
+        source: "gnews-api",
       },
       scouted_at: now,
     }));
