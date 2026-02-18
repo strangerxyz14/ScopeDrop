@@ -87,9 +87,9 @@ export async function fetchArticleByIdOrSlug(idOrSlug: string): Promise<DbArticl
     return (data ?? null) as unknown as DbArticleRow | null;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase
     .from("articles")
-    .select("*")
+    .select("*") as any)
     .eq("slug", trimmed)
     .maybeSingle();
 
