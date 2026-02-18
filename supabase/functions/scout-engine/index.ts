@@ -3,10 +3,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import type { BusinessCategory, ScoutNewsCandidate } from "../_shared/types.ts";
 import { requireSupabaseJwt } from "../_shared/auth.ts";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = [
+  "https://scopedrop.lovable.app",
+  "https://id-preview--4acd3d99-4555-4448-bee8-897d547c57c0.lovable.app",
+  ...(Deno.env.get("ENVIRONMENT") === "development" ? ["http://localhost:5173", "http://localhost:8080"] : []),
+];
+
+function getCorsHeaders(origin: string | null): HeadersInit {
+  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 const DEFAULT_NEWS_API_URL =
   "https://api.spaceflightnewsapi.net/v4/articles/?limit=40&has_event=false&has_launch=false";
@@ -152,6 +161,8 @@ function dedupe(candidates: ScoutNewsCandidate[]): ScoutNewsCandidate[] {
 }
 
 serve(async (req) => {
+  const origin = req.headers.get("origin");
+  const CORS_HEADERS = getCorsHeaders(origin);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
   }

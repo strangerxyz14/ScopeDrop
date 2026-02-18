@@ -42,9 +42,9 @@ export class SmartSearchService {
 
     try {
       // Query Supabase for relevant content
-      const { data: articles, error } = await supabase
+      const { data: articles, error } = await (supabase
         .from('articles')
-        .select('id, title, summary, category, created_at')
+        .select('id, title, summary, category, created_at') as any)
         .or(`title.ilike.%${query}%,summary.ilike.%${query}%`)
         .order('created_at', { ascending: false })
         .limit(10);
@@ -110,20 +110,20 @@ export class SmartSearchService {
         .map((r: any) => (typeof r.category === "string" ? r.category.trim() : ""))
         .filter(Boolean);
 
-      const counts = categories.reduce((acc: Record<string, number>, c: string) => {
+      const counts: Record<string, number> = categories.reduce((acc: Record<string, number>, c: string) => {
         acc[c] = (acc[c] ?? 0) + 1;
         return acc;
       }, {});
 
-      const top = Object.entries(counts)
-        .sort((a, b) => b[1] - a[1])
+      const top: TrendingTopic[] = Object.entries(counts)
+        .sort((a, b) => (b[1] as number) - (a[1] as number))
         .slice(0, 10)
         .map(([category, mentions]) => ({
           id: category,
           topic: category,
           category,
-          momentum: Math.min(1, mentions / 10),
-          mentions,
+          momentum: Math.min(1, (mentions as number) / 10),
+          mentions: mentions as number,
           lastUpdated: new Date(),
         }));
 

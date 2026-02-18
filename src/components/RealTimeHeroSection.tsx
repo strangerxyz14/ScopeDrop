@@ -132,7 +132,7 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
                               <span className="text-xs text-parrot/60 font-mono">{article.category}</span>
                               <span className="text-xs text-white/30">·</span>
                               <span className="text-xs text-white/30">
-                                {Array.isArray(article.source_urls) ? 'ScopeDrop Signal' : (article.source_name || 'ScopeDrop')}
+                                {Array.isArray((article as any).source_urls) ? 'ScopeDrop Signal' : (article.source_name || 'ScopeDrop')}
                               </span>
                             </div>
                           </div>
