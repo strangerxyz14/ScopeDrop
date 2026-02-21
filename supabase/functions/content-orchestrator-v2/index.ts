@@ -90,7 +90,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Edge Function error:', error)
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: (error as Error).message }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
@@ -120,7 +120,7 @@ async function scheduleContentJob(supabase: any, job: ContentJob) {
     }
   } catch (error) {
     console.error('Schedule job error:', error)
-    return { success: false, error: error.message }
+    return { success: false, error: (error as Error).message }
   }
 }
 
@@ -175,8 +175,8 @@ async function executeContentJob(supabase: any, jobId: string) {
 
   } catch (error) {
     console.error('Execute job error:', error)
-    await updateJobStatus(supabase, jobId, 'failed', error.message)
-    return { success: false, error: error.message }
+    await updateJobStatus(supabase, jobId, 'failed', (error as Error).message)
+    return { success: false, error: (error as Error).message }
   }
 }
 
@@ -205,10 +205,11 @@ async function batchFetchContent(supabase: any, batchRequest: BatchRequest) {
 
     // Cache results
     for (const [contentType, content] of Object.entries(results)) {
-      if (content && content.length > 0) {
-        await cacheContent(supabase, contentType, content, {
+      const arr = content as any[];
+      if (arr && arr.length > 0) {
+        await cacheContent(supabase, contentType, arr, {
           keywords: batchRequest.keywords,
-          count: content.length
+          count: arr.length
         }, batchRequest.priority)
       }
     }
@@ -225,7 +226,7 @@ async function batchFetchContent(supabase: any, batchRequest: BatchRequest) {
 
   } catch (error) {
     console.error('Batch fetch error:', error)
-    return { success: false, error: error.message }
+    return { success: false, error: (error as Error).message }
   }
 }
 
@@ -254,7 +255,7 @@ async function monitorQuotas(supabase: any) {
 
   } catch (error) {
     console.error('Monitor quotas error:', error)
-    return { success: false, error: error.message }
+    return { success: false, error: (error as Error).message }
   }
 }
 
@@ -275,7 +276,7 @@ async function cleanupCache(supabase: any) {
 
   } catch (error) {
     console.error('Cleanup cache error:', error)
-    return { success: false, error: error.message }
+    return { success: false, error: (error as Error).message }
   }
 }
 
@@ -299,7 +300,7 @@ async function updateAnalytics(supabase: any, data: any) {
 
   } catch (error) {
     console.error('Update analytics error:', error)
-    return { success: false, error: error.message }
+    return { success: false, error: (error as Error).message }
   }
 }
 
