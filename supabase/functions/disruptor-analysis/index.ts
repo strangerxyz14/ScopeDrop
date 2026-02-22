@@ -1,13 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.24.1";
-import type {
-  Article,
-  BusinessCategory,
-  GeminiDisruptorOutput,
-  SupabaseWebhookInsertPayload,
-} from "../_shared/types.ts";
-import { requireSupabaseJwt } from "../_shared/auth.ts";
 
 const ALLOWED_ORIGINS = [
   "https://scopedrop.lovable.app",
@@ -23,9 +16,6 @@ function getCorsHeaders(origin: string | null): HeadersInit {
   };
 }
 
-const DISRUPTOR_SYSTEM_PROMPT =
-  "You are a contrarian VC. Analyze the news for asymmetric risk and founder playbooks. Do not summarize. Output valid JSON only.";
-
 function safeJsonParse<T>(value: string): T {
   const trimmed = value.trim();
   const cleaned = trimmed.startsWith("```")
@@ -34,46 +24,77 @@ function safeJsonParse<T>(value: string): T {
   return JSON.parse(cleaned) as T;
 }
 
-function isBusinessCategory(value: unknown): value is BusinessCategory {
-  return value === "Startup" || value === "Tech" || value === "Business" || value === "Case Study";
+function buildPrompt(category: string, headline: string, summary: string): string {
+  const prompts = {
+    "Funding": `
+You are a cynical VC analyst. Format like Axios Pro. Focus on burn rate, valuation mechanics, and market reality.
+Analyze this funding news:
+Headline: ${headline}
+Summary: ${summary}
+
+Return JSON with EXACTLY this format:
+{"confidence_score": number, "content_html": "semantic HTML with <h2> headers like 'The Money Trail', 'Valuation Reality Check'"}`,
+    
+    "Business": `
+You are a forensic market analyst. Format like Bloomberg Terminal. Focus on macro impact and operational post-mortem.
+Analyze this business news:
+Headline: ${headline}
+Summary: ${summary}
+
+Return JSON with EXACTLY this format:
+{"confidence_score": number, "content_html": "semantic HTML with <h2> headers like 'Macro Impact', 'Operational Post-Mortem'"}`,
+    
+    "Startup": `
+You are an enterprise architect. Format like TechCrunch. Focus on market disruption and technical impact.
+Analyze this startup news:
+Headline: ${headline}
+Summary: ${summary}
+
+Return JSON with EXACTLY this format:
+{"confidence_score": number, "content_html": "semantic HTML with <h2> headers like 'Market Disruption Alert', 'Technical Impact'"}`
+  };
+
+  return prompts[category as keyof typeof prompts] || prompts["Startup"];
 }
 
-function normalizeStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+async function exponentialBackoff<T>(
+  fn: () => Promise<T>,
+  maxAttempts: number = 3
+): Promise<T> {
+  let lastError: Error;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      if (attempt === maxAttempts) {
+        throw lastError;
+      }
+      
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError!;
 }
 
-function normalizeConfidence(value: unknown): number {
-  if (typeof value !== "number" || Number.isNaN(value)) return 0;
-  return Math.max(0, Math.min(1, value));
-}
-
-function buildPrompt(article: Partial<Article>): string {
-  const sourceUrls = Array.isArray(article.source_urls) ? article.source_urls : [];
-  return [
-    "Input article payload:",
-    `title: ${article.title ?? ""}`,
-    `summary: ${article.summary ?? ""}`,
-    `source_urls: ${sourceUrls.join(", ")}`,
-    "",
-    "Return JSON with this exact schema:",
-    "{",
-    '  "contrarian_take": "string",',
-    '  "asymmetric_risks": ["string"],',
-    '  "founder_playbooks": ["string"],',
-    '  "disconfirming_signals": ["string"],',
-    '  "confidence_score": 0.0,',
-    '  "category": "Startup|Tech|Business|Case Study",',
-    '  "headline": "string",',
-    '  "summary": "string",',
-    '  "content_html": "string"',
-    "}",
-  ].join("\n");
+function slugify(title: string): string {
+  const base = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 72);
+  const suffix = Math.abs(Math.random().toString(36).slice(2, 10)).slice(0, 8);
+  return `${base}-${suffix}`;
 }
 
 serve(async (req) => {
   const origin = req.headers.get("origin");
   const CORS_HEADERS = getCorsHeaders(origin);
+  
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
   }
@@ -82,149 +103,133 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
     if (!supabaseUrl || !serviceRoleKey || !geminiApiKey) {
       return new Response(
         JSON.stringify({
           error: "Missing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, or GEMINI_API_KEY.",
         }),
-        { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-      );
-    }
-
-    const authContext = await requireSupabaseJwt(req, {
-      supabaseUrl,
-      serviceRoleKey,
-      anonKey,
-      corsHeaders: CORS_HEADERS,
-    });
-    if (authContext instanceof Response) {
-      return authContext;
-    }
-
-    const rawPayload = await req.json();
-    const payload = (typeof rawPayload === "object" && rawPayload !== null)
-      ? rawPayload as Partial<SupabaseWebhookInsertPayload<Partial<Article>>>
-      : null;
-    const record = payload?.record ?? null;
-
-    if (!record?.id || !record.title) {
-      return new Response(
-        JSON.stringify({ ignored: true, reason: "No record payload found." }),
-        { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+        { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const primarySourceUrl = Array.isArray(record.source_urls) && typeof record.source_urls[0] === "string"
-      ? record.source_urls[0]
-      : null;
 
-    await supabase
-      .from("articles")
-      .update({ status: "analyzing" })
-      .eq("id", record.id);
-    if (primarySourceUrl) {
-      await supabase
-        .from("raw_signals")
-        .update({ status: "analyzing" })
-        .eq("source_url", primarySourceUrl);
+    // Query pending raw signals
+    const { data: pendingSignals, error: fetchError } = await supabase
+      .from("raw_signals")
+      .select("*")
+      .eq("status", "pending")
+      .limit(2);
+
+    if (fetchError) {
+      return new Response(
+        JSON.stringify({ error: fetchError.message }),
+        { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!pendingSignals || pendingSignals.length === 0) {
+      return new Response(
+        JSON.stringify({ message: "No work to do - queue is empty" }),
+        { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
     }
 
     const aiClient = new GoogleGenerativeAI(geminiApiKey);
     const model = aiClient.getGenerativeModel({
       model: "gemini-1.5-pro-latest",
-      systemInstruction: DISRUPTOR_SYSTEM_PROMPT,
       generationConfig: {
-        temperature: 0,
+        temperature: 0.7,
         responseMimeType: "application/json",
       },
     });
 
-    const generated = await model.generateContent(buildPrompt(record));
-    const rawText = generated.response.text();
-    const parsed = safeJsonParse<Partial<GeminiDisruptorOutput>>(rawText);
+    const processedArticles = [];
 
-    const confidenceScore = normalizeConfidence(parsed.confidence_score);
-    const nextStatus = confidenceScore > 0.8 ? "published" : "rejected";
-    const nextCategory = isBusinessCategory(parsed.category) ? parsed.category : (record.category ?? "Business");
+    // Process each pending signal
+    for (const signal of pendingSignals) {
+      try {
+        const prompt = buildPrompt(signal.category, signal.headline, signal.summary);
+        
+        const result = await exponentialBackoff(async () => {
+          const generated = await model.generateContent(prompt);
+          return generated.response.text();
+        });
 
-    const metadataBase = record.ai_analysis_metadata &&
-        typeof record.ai_analysis_metadata === "object" &&
-        !Array.isArray(record.ai_analysis_metadata)
-      ? record.ai_analysis_metadata as Record<string, unknown>
-      : {};
+        const parsed = safeJsonParse<{ confidence_score: number; content_html: string }>(result);
+        
+        const confidenceScore = Math.max(0, Math.min(1, parsed.confidence_score || 0.5));
+        const contentHtml = parsed.content_html || "";
 
-    const metadata = {
-      ...metadataBase,
-      disruptor: {
-        analyzed_at: new Date().toISOString(),
-        confidence_score: confidenceScore,
-        contrarian_take: typeof parsed.contrarian_take === "string" ? parsed.contrarian_take : "",
-        asymmetric_risks: normalizeStringArray(parsed.asymmetric_risks),
-        founder_playbooks: normalizeStringArray(parsed.founder_playbooks),
-        disconfirming_signals: normalizeStringArray(parsed.disconfirming_signals),
-        model: "gemini-1.5-pro-latest",
-      },
-    };
+        // Insert into articles table
+        const { data: articleData, error: insertError } = await supabase
+          .from("articles")
+          .insert({
+            title: signal.headline,
+            slug: slugify(signal.headline),
+            content_html: contentHtml,
+            summary: signal.summary,
+            category: signal.category,
+            status: "published",
+            source_urls: [signal.source_url],
+            ai_analysis_metadata: {
+              disruptor: {
+                analyzed_at: new Date().toISOString(),
+                confidence_score: confidenceScore,
+                model: "gemini-1.5-pro-latest",
+                source: "worker-queue",
+              },
+            },
+          })
+          .select("id")
+          .single();
 
-    const { error: updateError } = await supabase
-      .from("articles")
-      .update({
-        title: typeof parsed.headline === "string" && parsed.headline.trim().length > 0 ? parsed.headline : record.title,
-        summary: typeof parsed.summary === "string" && parsed.summary.trim().length > 0 ? parsed.summary : record.summary,
-        content_html: typeof parsed.content_html === "string" ? parsed.content_html : record.content_html,
-        category: nextCategory,
-        status: nextStatus,
-        ai_analysis_metadata: metadata,
-      })
-      .eq("id", record.id);
+        if (insertError) {
+          console.error(`Failed to insert article for signal ${signal.id}:`, insertError);
+          continue;
+        }
 
-    if (updateError) {
-      return new Response(
-        JSON.stringify({ error: updateError.message }),
-        { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-      );
+        // Update raw signal status
+        await supabase
+          .from("raw_signals")
+          .update({ status: "published" })
+          .eq("id", signal.id);
+
+        processedArticles.push({
+          signalId: signal.id,
+          articleId: articleData.id,
+          confidence: confidenceScore,
+        });
+
+      } catch (error) {
+        console.error(`Failed to process signal ${signal.id}:`, error);
+        
+        // Mark as failed to prevent infinite retries
+        await supabase
+          .from("raw_signals")
+          .update({ status: "failed" })
+          .eq("id", signal.id);
+      }
     }
-    if (primarySourceUrl) {
-      await supabase
-        .from("raw_signals")
-        .update({
-          status: nextStatus,
-          signal_score: confidenceScore,
-        })
-        .eq("source_url", primarySourceUrl);
-    }
-
-    await supabase.from("agent_logs").insert({
-      agent_name: "disruptor-analysis",
-      action: "analyze_article",
-      status: nextStatus,
-      article_id: record.id,
-      payload: {
-        confidence_score: confidenceScore,
-        category: nextCategory,
-        role: authContext.role,
-      },
-    });
 
     return new Response(
       JSON.stringify({
-        article_id: record.id,
-        status: nextStatus,
-        confidence_score: confidenceScore,
+        success: true,
+        processed: processedArticles.length,
+        articles: processedArticles,
       }),
-      { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     );
+
   } catch (error) {
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : "Unexpected disruptor-analysis failure.",
+        error: error instanceof Error ? error.message : "Worker queue failure",
       }),
-      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     );
   }
 });

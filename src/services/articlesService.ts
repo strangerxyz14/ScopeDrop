@@ -71,6 +71,30 @@ export async function fetchLatestArticles(limit: number = 20): Promise<DbArticle
   return (data ?? []) as unknown as DbArticleRow[];
 }
 
+export async function fetchArticlesByCategory(category: string, limit: number = 20): Promise<DbArticleRow[]> {
+  const { data, error } = await supabase
+    .from("articles")
+    .select("*")
+    .eq("category", category)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? []) as unknown as DbArticleRow[];
+}
+
+export async function fetchFundingArticles(limit: number = 20): Promise<DbArticleRow[]> {
+  return fetchArticlesByCategory("Funding", limit);
+}
+
+export async function fetchBusinessArticles(limit: number = 20): Promise<DbArticleRow[]> {
+  return fetchArticlesByCategory("Business", limit);
+}
+
+export async function fetchStartupArticles(limit: number = 20): Promise<DbArticleRow[]> {
+  return fetchArticlesByCategory("Startup", limit);
+}
+
 export async function fetchArticleByIdOrSlug(idOrSlug: string): Promise<DbArticleRow | null> {
   const trimmed = idOrSlug.trim();
   if (!trimmed) return null;
