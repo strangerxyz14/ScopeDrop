@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import Parser from "https://esm.sh/rss-parser";
 
 const ALLOWED_ORIGINS = [
   "https://scopedrop.lovable.app",
@@ -51,14 +50,26 @@ async function fetchFinnhubNews(apiKey: string): Promise<any[]> {
 }
 
 async function fetchTechCrunchRSS(): Promise<any[]> {
-  const parser = new Parser();
-  const feed = await parser.parseURL("https://techcrunch.com/category/startups/feed/");
-  return feed.items.slice(0, 5).map(item => ({
-    title: item.title,
-    summary: item.contentSnippet || item.content || "",
-    sourceUrl: item.link || item.guid,
-    publishedAt: item.pubDate || item.isoDate,
-    category: "Startup"
+  const response = await fetch("https://techcrunch.com/category/startups/feed/");
+  if (!response.ok) throw new Error(`TechCrunch RSS failed: ${response.status}`);
+
+  const xmlText = await response.text();
+  const itemBlocks = xmlText.match(/<item>[\s\S]*?<\/item>/g)?.slice(0, 5) ?? [];
+
+  const readTag = (block: string, tag: string): string => {
+    const cdataMatch = block.match(new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, "i"));
+    if (cdataMatch?.[1]) return cdataMatch[1].trim();
+
+    const plainMatch = block.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i"));
+    return plainMatch?.[1]?.replace(/<!\[CDATA\[|\]\]>/g, "").trim() ?? "";
+  };
+
+  return itemBlocks.map((block) => ({
+    title: readTag(block, "title"),
+    summary: readTag(block, "description"),
+    sourceUrl: readTag(block, "link"),
+    publishedAt: readTag(block, "pubDate"),
+    category: "Startup",
   }));
 }
 
@@ -104,9 +115,9 @@ serve(async (req) => {
         headline: article.title,
         summary: article.description || article.summary || "",
         source_url: canonicalUrl(article.article_url || article.url),
-        category: "Funding",
+        category: "Business",
         signal_score: 0.8,
-        status: "pending",
+        status: "scouted",
         payload: {
           published_at: article.published_at,
           source: "polygon-api",
@@ -123,7 +134,7 @@ serve(async (req) => {
         source_url: canonicalUrl(article.url),
         category: "Business",
         signal_score: 0.7,
-        status: "pending",
+        status: "scouted",
         payload: {
           published_at: article.datetime,
           source: "finnhub-api",
@@ -140,7 +151,7 @@ serve(async (req) => {
         source_url: canonicalUrl(article.sourceUrl),
         category: "Startup",
         signal_score: 0.9,
-        status: "pending",
+        status: "scouted",
         payload: {
           published_at: article.publishedAt,
           source: "techcrunch-rss",
