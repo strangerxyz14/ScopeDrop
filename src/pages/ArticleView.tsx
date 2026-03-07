@@ -2,13 +2,14 @@
 import React, { useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Clock, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
 import { sanitizeHtml } from "@/utils/sanitize";
-import { fetchArticleByIdOrSlug, mapDbArticleToNewsArticle } from "@/services/articlesService";
+import { fetchArticleById, ARTICLE_QUERY_CONFIG } from "@/services/articlesService";
 
 const ArticleView = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,25 +18,21 @@ const ArticleView = () => {
     queryKey: ["article", id],
     queryFn: async () => {
       if (!id) return null;
-      return fetchArticleByIdOrSlug(id);
+      return fetchArticleById(id);
     },
     enabled: Boolean(id),
+    ...ARTICLE_QUERY_CONFIG,
   });
 
-  const article = dbRow ? mapDbArticleToNewsArticle(dbRow as any) : null;
-  const contentHtml = (dbRow as any)?.content_html;
-  const summaryText = (dbRow as any)?.summary ?? (dbRow as any)?.description ?? article?.description ?? "";
-  const analysisMetadata = (dbRow as any)?.ai_analysis_metadata;
-  const disruptor = analysisMetadata && typeof analysisMetadata === "object" && !Array.isArray(analysisMetadata)
-    ? (analysisMetadata as any).disruptor
-    : null;
-  const primarySourceUrl =
-    Array.isArray((dbRow as any)?.source_urls) && typeof (dbRow as any).source_urls[0] === "string"
-      ? (dbRow as any).source_urls[0]
-      : null;
+  const headline = (dbRow as any)?.headline ?? "Untitled";
+  const summary = (dbRow as any)?.summary ?? "";
+  const contentHtml = (dbRow as any)?.content_html ?? "";
+  const category = (dbRow as any)?.category ?? "";
+  const tags: string[] = Array.isArray((dbRow as any)?.tags) ? (dbRow as any).tags : [];
+  const readTime: number = (dbRow as any)?.read_time_minutes ?? 3;
+  const createdAt = (dbRow as any)?.created_at ?? new Date().toISOString();
 
   useEffect(() => {
-    // Scroll to top when article loads
     window.scrollTo(0, 0);
   }, [id]);
 
@@ -49,7 +46,7 @@ const ArticleView = () => {
         hour: '2-digit',
         minute: '2-digit'
       }).format(date);
-    } catch (e) {
+    } catch {
       return 'Recently';
     }
   };
@@ -77,29 +74,38 @@ const ArticleView = () => {
               <Skeleton className="h-20 w-full" />
               <Skeleton className="h-20 w-full" />
             </div>
-          ) : article ? (
+          ) : dbRow ? (
             <article className="max-w-4xl mx-auto">
               <div className="mb-8">
-                <h1 className="text-3xl md:text-4xl font-bold mb-4">{article.title}</h1>
-                <div className="flex items-center text-gray-600 text-sm mb-6">
-                  <span className="mr-4">
-                    {article.source?.name || 'ScopeDrop'} • {formatDate(article.publishedAt)}
-                  </span>
-                  {article.category && (
-                    <span className="px-2 py-1 bg-gray-100 rounded text-xs font-medium">
-                      {article.category}
-                    </span>
+                <h1 className="text-3xl md:text-4xl font-bold mb-4">{headline}</h1>
+                <div className="flex flex-wrap items-center gap-3 text-gray-600 text-sm mb-4">
+                  <span>ScopeDrop • {formatDate(createdAt)}</span>
+                  {category && (
+                    <Badge variant="secondary" className="text-xs font-medium">
+                      {category}
+                    </Badge>
                   )}
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {readTime} min read
+                  </span>
                 </div>
-                
-                {article.image && (
-                  <div className="mb-6">
-                    <img 
-                      src={article.image} 
-                      alt={article.title}
-                      className="w-full h-auto rounded-lg object-cover aspect-video"
-                    />
+
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    {tags.map((tag, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">
+                        <Tag className="w-3 h-3 mr-1" />
+                        {tag}
+                      </Badge>
+                    ))}
                   </div>
+                )}
+
+                {summary && (
+                  <p className="text-lg text-muted-foreground leading-relaxed border-l-4 border-accent pl-4 mb-6">
+                    {summary}
+                  </p>
                 )}
               </div>
               
@@ -107,83 +113,13 @@ const ArticleView = () => {
                 {typeof contentHtml === "string" && contentHtml.trim().length > 0 ? (
                   <div 
                     dangerouslySetInnerHTML={{ 
-                      __html: sanitizeHtml(
-                        contentHtml
-                      )
+                      __html: sanitizeHtml(contentHtml)
                     }} 
                   />
-                ) : disruptor && typeof disruptor === "object" ? (
-                  <div className="space-y-8">
-                    {typeof disruptor.contrarian_take === "string" && disruptor.contrarian_take.trim().length > 0 && (
-                      <section>
-                        <h2 className="text-xl font-semibold">Contrarian Take</h2>
-                        <p>{disruptor.contrarian_take}</p>
-                      </section>
-                    )}
-
-                    {Array.isArray(disruptor.asymmetric_risks) && disruptor.asymmetric_risks.length > 0 && (
-                      <section>
-                        <h2 className="text-xl font-semibold">Asymmetric Risks</h2>
-                        <ul>
-                          {disruptor.asymmetric_risks.slice(0, 10).map((r: any, idx: number) => (
-                            <li key={idx}>{String(r)}</li>
-                          ))}
-                        </ul>
-                      </section>
-                    )}
-
-                    {Array.isArray(disruptor.founder_playbooks) && disruptor.founder_playbooks.length > 0 && (
-                      <section>
-                        <h2 className="text-xl font-semibold">Founder Playbook</h2>
-                        <ol>
-                          {disruptor.founder_playbooks.slice(0, 10).map((p: any, idx: number) => (
-                            <li key={idx}>{String(p)}</li>
-                          ))}
-                        </ol>
-                      </section>
-                    )}
-
-                    {Array.isArray(disruptor.disconfirming_signals) && disruptor.disconfirming_signals.length > 0 && (
-                      <section>
-                        <h2 className="text-xl font-semibold">Disconfirming Signals</h2>
-                        <ul>
-                          {disruptor.disconfirming_signals.slice(0, 10).map((s: any, idx: number) => (
-                            <li key={idx}>{String(s)}</li>
-                          ))}
-                        </ul>
-                      </section>
-                    )}
-
-                    {typeof summaryText === "string" && summaryText.trim().length > 0 && (
-                      <section>
-                        <h2 className="text-xl font-semibold">Context</h2>
-                        <p className="text-muted-foreground">{summaryText}</p>
-                      </section>
-                    )}
-                  </div>
                 ) : (
                   <div className="space-y-4 my-8">
                     <p className="text-muted-foreground">
-                      This story has been scouted, but analysis content hasn’t been published yet.
-                    </p>
-                    {typeof summaryText === "string" && summaryText.trim().length > 0 && (
-                      <p className="text-muted-foreground">{summaryText}</p>
-                    )}
-                  </div>
-                )}
-                
-                {primarySourceUrl && (
-                  <div className="mt-8 pt-4 border-t">
-                    <p className="text-gray-700">
-                      <strong>Read the original article: </strong>
-                      <a 
-                        href={primarySourceUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-oxford hover:underline"
-                      >
-                        {article.source?.name || 'Source'}
-                      </a>
+                      This article is still being processed by our AI pipeline.
                     </p>
                   </div>
                 )}

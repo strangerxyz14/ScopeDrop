@@ -26,6 +26,9 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
       if (error) throw error;
       return data;
     },
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
+    retry: 2,
   });
 
   const handleRefresh = async () => {
@@ -126,14 +129,12 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-white font-medium truncate group-hover:text-parrot transition-colors">
-                              {article.title}
+                              {(article as any).headline ?? (article as any).title ?? 'Untitled'}
                             </p>
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-xs text-parrot/60 font-mono">{article.category}</span>
                               <span className="text-xs text-white/30">·</span>
-                              <span className="text-xs text-white/30">
-                                {Array.isArray((article as any).source_urls) ? 'ScopeDrop Signal' : (article.source_name || 'ScopeDrop')}
-                              </span>
+                              <span className="text-xs text-white/30">ScopeDrop</span>
                             </div>
                           </div>
                           <Clock className="w-3 h-3 text-white/20 mt-1 flex-shrink-0" />

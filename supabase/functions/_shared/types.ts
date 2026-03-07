@@ -1,44 +1,36 @@
-export type ArticleStatus = "scouted" | "analyzing" | "published" | "rejected";
+export type SignalStatus = "pending" | "published" | "rejected" | "paused";
 
-export type BusinessCategory = "Startup" | "Tech" | "Business" | "Case Study";
+export type ArticleCategory = "funding" | "ai" | "markets" | "startups" | "policy";
+
+export interface RawSignal {
+  id: string;
+  title: string | null;
+  raw_content: string | null;
+  source_url: string;
+  source_name: string | null;
+  status: SignalStatus;
+  error_message: string | null;
+  created_at: string;
+  processed_at: string | null;
+}
 
 export interface Article {
   id: string;
-  title: string;
-  slug: string;
-  content_html: string | null;
-  summary: string | null;
-  category: BusinessCategory;
-  status: ArticleStatus;
-  source_urls: string[];
-  ai_analysis_metadata: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ScoutNewsCandidate {
-  title: string;
-  summary: string;
-  sourceUrl: string;
-  publishedAt: string | null;
-}
-
-export interface GeminiDisruptorOutput {
-  contrarian_take: string;
-  asymmetric_risks: string[];
-  founder_playbooks: string[];
-  disconfirming_signals: string[];
-  confidence_score: number;
-  category: BusinessCategory;
   headline: string;
   summary: string;
   content_html: string;
+  category: ArticleCategory;
+  tags: string[];
+  read_time_minutes: number;
+  source_signal_id: string | null;
+  status: string;
+  created_at: string;
 }
 
-export interface SupabaseWebhookInsertPayload<TRecord> {
-  type: "INSERT" | "UPDATE" | "DELETE";
-  table: string;
-  schema: string;
-  record: TRecord;
-  old_record: TRecord | null;
+export interface PipelineStats {
+  date: string;
+  tokens_used: number;
+  articles_generated: number;
+  requests_made: number;
+  last_updated: string;
 }

@@ -120,15 +120,15 @@ const ErrorMonitoringDashboard = () => {
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Gemini API Status</CardTitle>
+            <CardTitle className="text-sm font-medium">Groq API Status</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center">
-              {getStatusColor("Gemini").includes("green") 
+              {getStatusColor("Groq").includes("green") 
                 ? <CheckCircle className="text-green-500 mr-2" /> 
                 : <AlertTriangle className="text-red-500 mr-2" />}
-              <span className={`text-2xl font-bold ${getStatusColor("Gemini")}`}>
-                {getStatusColor("Gemini").includes("green") ? "Operational" : "Issues Detected"}
+              <span className={`text-2xl font-bold ${getStatusColor("Groq")}`}>
+                {getStatusColor("Groq").includes("green") ? "Operational" : "Issues Detected"}
               </span>
             </div>
           </CardContent>
@@ -144,7 +144,7 @@ const ErrorMonitoringDashboard = () => {
               <TabsTrigger value="all">All Logs</TabsTrigger>
               <TabsTrigger value="GNews">GNews API</TabsTrigger>
               <TabsTrigger value="Newsdata">Newsdata API</TabsTrigger>
-              <TabsTrigger value="Gemini">Gemini API</TabsTrigger>
+              <TabsTrigger value="Groq">Groq API</TabsTrigger>
             </TabsList>
           </Tabs>
         </CardHeader>
