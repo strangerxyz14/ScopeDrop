@@ -25,6 +25,13 @@ const FundingRounds = React.lazy(() => import("./pages/FundingRounds"));
 const MarketMaps = React.lazy(() => import("./pages/MarketMaps"));
 const MarketMapView = React.lazy(() => import("./pages/MarketMapView"));
 const TopicFeedPage = React.lazy(() => import("./pages/TopicFeedPage"));
+const MarketsPage = React.lazy(() => import("./pages/MarketsPage"));
+const StartupsPage = React.lazy(() => import("./pages/StartupsPage"));
+const AcquisitionsPage = React.lazy(() => import("./pages/AcquisitionsPage"));
+const FounderStoriesPage = React.lazy(() => import("./pages/FounderStoriesPage"));
+const FundingPage = React.lazy(() => import("./pages/FundingPage"));
+const AIToolsPage = React.lazy(() => import("./pages/AIToolsPage"));
+const DevToolsPage = React.lazy(() => import("./pages/DevToolsPage"));
 
 // Account Pages
 const Dashboard = React.lazy(() => import("./pages/account/Dashboard"));
@@ -115,12 +122,18 @@ const App = () => {
                 <Route path="/" element={<Home />} />
                 <Route path="/article/:id" element={<ArticleView />} />
                 
+                {/* Category pages */}
+                <Route path="/markets" element={<MarketsPage />} />
+                <Route path="/startups" element={<StartupsPage />} />
+                <Route path="/founder-stories" element={<FounderStoriesPage />} />
+                <Route path="/funding" element={<FundingPage />} />
+                <Route path="/tech/ai-tools" element={<AIToolsPage />} />
+                <Route path="/tech/dev-tools" element={<DevToolsPage />} />
+                
                 {/* Existing Routes */}
                 <Route path="/startups/news" element={<StartupNews />} />
                 <Route path="/market-maps" element={<MarketMaps />} />
                 <Route path="/market-maps/:id" element={<MarketMapView />} />
-                {/* Header nav aliases (prevent 404s) */}
-                <Route path="/funding" element={<FundingRounds />} />
                 <Route
                   path="/ai-trends"
                   element={
@@ -132,17 +145,7 @@ const App = () => {
                     />
                   }
                 />
-                <Route
-                  path="/acquisitions"
-                  element={
-                    <TopicFeedPage
-                      title="Acquisitions"
-                      description="M&A, acquihires, and competitive roll-ups — the deals and the incentives behind them."
-                      queryTerm="acquisition"
-                      heroImage="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&q=80"
-                    />
-                  }
-                />
+                <Route path="/acquisitions" element={<AcquisitionsPage />} />
                 <Route path="/founders" element={<Navigate to="/founder-spotlights" replace />} />
                 <Route path="/tech-stacks" element={<Navigate to="/tech/tech-stacks" replace />} />
                 <Route path="/funding/rounds" element={<FundingRounds />} />

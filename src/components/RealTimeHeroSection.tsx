@@ -18,9 +18,10 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
   const { data: supabaseArticles, isLoading: isDbLoading, refetch } = useQuery({
     queryKey: ['supabase-articles-hero'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('articles')
         .select('*')
+        .in('category', ['funding', 'ai', 'startups'])
         .order('created_at', { ascending: false })
         .limit(5);
       if (error) throw error;

@@ -11,13 +11,20 @@ export const usePageContent = (page: string, params?: any) => {
     queryKey: ['pageContent', page, params],
     queryFn: async () => {
       // Base query
-      let query = supabase
+      let query = (supabase as any)
         .from("articles")
         .select("*")
         .order("created_at", { ascending: false });
-      // If not home, filter by the page name (treating it as a category)
-      if (page !== "home") {
-        // Capitalize first letter to match DB categories usually (e.g. 'tech' -> 'Tech')
+
+      if (page === "home") {
+        // Home: only relevant tech/startup/finance categories, exclude entertainment noise
+        query = query
+          .in("category", ["funding", "ai", "markets", "startups", "acquisitions", "tech", "policy"])
+          .not("headline", "ilike", "%travel%")
+          .not("headline", "ilike", "%music%")
+          .not("headline", "ilike", "%artist%")
+          .not("headline", "ilike", "%sport%");
+      } else {
         const categoryFilter = page.charAt(0).toUpperCase() + page.slice(1);
         query = query.ilike("category", `%${categoryFilter}%`);
       }
