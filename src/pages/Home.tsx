@@ -6,6 +6,7 @@ import RealTimeHeroSection from "@/components/RealTimeHeroSection";
 import MarketMapsSection from "@/components/MarketMapsSection";
 import EventsSection from "@/components/EventsSection";
 import NewsletterCta from "@/components/NewsletterCta";
+import FundingSection from "@/components/FundingSection";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import NewsSection from "@/components/NewsSection";
@@ -76,9 +77,9 @@ const Home = () => {
         </div>
 
         {/* Hero Section with News Slider and Funding Rounds */}
-                      <RealTimeHeroSection />
+        <RealTimeHeroSection />
         
-        {/* Recent Stories Section */}
+        {/* Recent Stories + Funding Section - Side by Side */}
         {isDbEmpty ? (
           <section className="py-16 bg-background">
             <div className="container mx-auto px-4">
@@ -94,13 +95,16 @@ const Home = () => {
             </div>
           </section>
         ) : (
-          <NewsSection
-            title="Recent Stories"
-            subtitle="The latest from the startup ecosystem"
-            articles={articles?.slice(0, 6) || []}
-            isLoading={isLoading}
-            viewAllLink="/startups/news"
-          />
+          <div className="grid lg:grid-cols-2 gap-0">
+            <NewsSection
+              title="Recent Stories"
+              subtitle="The latest from the startup ecosystem"
+              articles={articles?.slice(0, 6) || []}
+              isLoading={isLoading}
+              viewAllLink="/startups/news"
+            />
+            <FundingSection limit={6} />
+          </div>
         )}
         
         {/* Market Maps Section */}

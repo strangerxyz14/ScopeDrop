@@ -11,13 +11,6 @@ import {
 
 export const PRIMARY_NAV = [
   {
-    label: "Funding",
-    path: "/funding",
-    icon: TrendingUp,
-    badge: "Hot", // Real-time funding alerts
-    priority: "high"
-  },
-  {
     label: "AI Trends", 
     path: "/ai-trends",
     icon: Brain,
