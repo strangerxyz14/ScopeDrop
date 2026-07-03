@@ -5,6 +5,7 @@ const ALLOWED_ORIGINS = [
   "https://scopedrop.lovable.app",
   "https://id-preview--4acd3d99-4555-4448-bee8-897d547c57c0.lovable.app",
   "https://agent-6a47384977e453278e9969ee--scopedrop.netlify.app",
+  "https://scopedrop1.netlify.app",
   ...(Deno.env.get("ENVIRONMENT") === "development"
     ? ["http://localhost:5173", "http://localhost:8080"]
     : []),
