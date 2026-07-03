@@ -87,10 +87,10 @@ const RealTimeHeroSection: React.FC<RealTimeHeroSectionProps> = ({ className }) 
                 </Link>
               </Button>
               
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="lg"
-                className="border-white/20 text-white hover:bg-white/5"
+                className="border-white/20 text-white hover:bg-white/5 bg-transparent"
                 onClick={handleRefresh}
                 disabled={isRefreshing}
               >

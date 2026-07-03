@@ -5,11 +5,12 @@ import { requireSupabaseJwt } from "../_shared/auth.ts";
 const ALLOWED_ORIGINS = [
   'https://scopedrop.lovable.app',
   'https://id-preview--4acd3d99-4555-4448-bee8-897d547c57c0.lovable.app',
+  'https://agent-6a47384977e453278e9969ee--scopedrop.netlify.app',
   ...(Deno.env.get('ENVIRONMENT') === 'development' ? ['http://localhost:5173', 'http://localhost:8080'] : [])
 ];
 
 function getCorsHeaders(origin: string | null): HeadersInit {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith('.lovable.app'))
+  const allowedOrigin = origin && ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith('.lovable.app') || origin.endsWith('.netlify.app'))
     ? origin
     : ALLOWED_ORIGINS[0];
 
@@ -36,7 +37,7 @@ const EVENT_SOURCES: EventSource[] = [
   },
   {
     name: 'predicthq',
-    apiKey: Deno.env.get('PREDICTHQ_API_KEY'),
+    apiKey: Deno.env.get('PREDICT_HQ_API_KEY') ?? Deno.env.get('PREDICTHQ_API_KEY'),
     endpoint: 'https://api.predicthq.com/v1/events/',
     rateLimit: 100 // per day
   },
@@ -87,7 +88,7 @@ async function fetchEventbriteEvents(location: string, category: string = 'techn
 
 // Fetch from PredictHQ
 async function fetchPredictHQEvents(location: string) {
-  const apiKey = Deno.env.get('PREDICTHQ_API_KEY')
+  const apiKey = Deno.env.get('PREDICT_HQ_API_KEY') ?? Deno.env.get('PREDICTHQ_API_KEY')
   
   if (!apiKey) {
     return getMockPredictHQData(location)

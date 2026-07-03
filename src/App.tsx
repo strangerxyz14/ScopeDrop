@@ -9,6 +9,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { HealthCheck } from "@/components/common/HealthCheck";
 import { supabaseConfig } from "@/integrations/supabase/client";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 // Lazy load all page components
 const Home = React.lazy(() => import("./pages/Home"));
@@ -97,6 +98,7 @@ const App = () => {
       <HelmetProvider>
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>
+            <AuthProvider>
             <TooltipProvider>
               <Toaster />
               <Sonner />
@@ -214,6 +216,7 @@ const App = () => {
               {/* Health Check Component */}
               <HealthCheck />
             </TooltipProvider>
+            </AuthProvider>
           </QueryClientProvider>
         </ErrorBoundary>
       </HelmetProvider>

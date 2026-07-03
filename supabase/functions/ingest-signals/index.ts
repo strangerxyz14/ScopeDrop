@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const ALLOWED_ORIGINS = [
   "https://scopedrop.lovable.app",
   "https://id-preview--4acd3d99-4555-4448-bee8-897d547c57c0.lovable.app",
+  "https://agent-6a47384977e453278e9969ee--scopedrop.netlify.app",
   ...(Deno.env.get("ENVIRONMENT") === "development"
     ? ["http://localhost:5173", "http://localhost:8080"]
     : []),
@@ -11,7 +12,9 @@ const ALLOWED_ORIGINS = [
 
 function getCorsHeaders(origin: string | null): HeadersInit {
   const allowedOrigin =
-    origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+    origin && (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.netlify.app') || origin.endsWith('.lovable.app'))
+      ? origin
+      : ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Headers":
@@ -49,6 +52,9 @@ const REQUIRE_ONE_OF = [
   "product","launch","series a","series b","series c","raise","raised",
   "billion","million","platform","enterprise","infrastructure","cloud",
   "fintech","deeptech","b2b",
+  // India-specific
+  "india","indian","bangalore","bengaluru","mumbai","delhi","hyderabad",
+  "pune","chennai","noida","gurugram","sebi","rbi","unicorn","soonicorn",
 ];
 
 function isRelevant(title: string, rawContent: string, sourceUrl: string): boolean {
@@ -202,11 +208,19 @@ async function fetchRSSFeed(config: RSSFeedConfig): Promise<RawSignalRow[]> {
 
 async function fetchRSSFeeds(): Promise<RawSignalRow[]> {
   const feeds: RSSFeedConfig[] = [
+    // Global sources
     { url: "https://techcrunch.com/startups/feed/", source_name: "TechCrunch Startups", suggested_category: "startups", suggested_tags: ["startups","funding"] },
     { url: "https://techcrunch.com/category/venture/feed/", source_name: "TechCrunch Venture", suggested_category: "funding", suggested_tags: ["funding","vc","venture"] },
     { url: "https://techcrunch.com/category/artificial-intelligence/feed/", source_name: "TechCrunch AI", suggested_category: "ai", suggested_tags: ["ai","deeptech"] },
     { url: "https://www.producthunt.com/feed", source_name: "Product Hunt", suggested_category: "tech", suggested_tags: ["launch","product","saas"] },
     { url: "https://hnrss.org/launches", source_name: "HN Launches", suggested_category: "tech", suggested_tags: ["launch","developer","saas"] },
+    { url: "https://venturebeat.com/feed/", source_name: "VentureBeat", suggested_category: "ai", suggested_tags: ["ai","enterprise","deeptech"] },
+    // India-first sources
+    { url: "https://yourstory.com/feed", source_name: "YourStory", suggested_category: "startups", suggested_tags: ["india","startups","funding"] },
+    { url: "https://inc42.com/feed/", source_name: "Inc42", suggested_category: "funding", suggested_tags: ["india","funding","startups"] },
+    { url: "https://entrackr.com/feed/", source_name: "Entrackr", suggested_category: "funding", suggested_tags: ["india","funding","vc"] },
+    { url: "https://economictimes.indiatimes.com/small-biz/startups/rss.xml", source_name: "ET Startups", suggested_category: "startups", suggested_tags: ["india","startups","business"] },
+    { url: "https://www.livemint.com/rss/startup", source_name: "Mint Startup", suggested_category: "startups", suggested_tags: ["india","startups","funding"] },
   ];
 
   const results = await Promise.all(
@@ -292,6 +306,10 @@ async function fetchNewsData(apiKey: string): Promise<RawSignalRow[]> {
     { params: "category=business&q=acquisition+tech+company", suggested_category: "acquisitions", suggested_tags: ["acquisition","enterprise"] },
     { params: "category=technology&q=AI+startup", suggested_category: "ai", suggested_tags: ["ai","deeptech"] },
     { params: "category=business&q=IPO+valuation+tech", suggested_category: "markets", suggested_tags: ["ipo","markets"] },
+    // India-specific queries
+    { params: "country=in&category=business&q=startup+funding+India", suggested_category: "funding", suggested_tags: ["india","funding","startups"] },
+    { params: "country=in&category=technology&q=India+unicorn+Series", suggested_category: "startups", suggested_tags: ["india","unicorn","startups"] },
+    { params: "country=in&category=business&q=India+acquisition+startup", suggested_category: "acquisitions", suggested_tags: ["india","acquisition"] },
   ];
   const results = await Promise.all(
     configs.map((c) => fetchNewsDataQuery(c, apiKey).catch((e) => {
@@ -315,7 +333,7 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY");
     const gnewsApiKey = Deno.env.get("GNEWS_API_KEY");
     const finnhubApiKey = Deno.env.get("FINNHUB_API_KEY");
     const devtoApiKey = Deno.env.get("DEVTO_API_KEY");
