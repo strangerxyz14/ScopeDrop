@@ -23,6 +23,86 @@ function getCorsHeaders(origin: string | null): HeadersInit {
   };
 }
 
+// ── Image generation: Pollinations → Pexels → Unsplash ───
+const CATEGORY_PEXELS_QUERIES: Record<string, string> = {
+  funding:     "venture capital investment business",
+  ai:          "artificial intelligence technology future",
+  startups:    "startup entrepreneur office innovation",
+  markets:     "stock market finance graph data",
+  policy:      "government policy law regulation",
+  acquisitions:"business merger corporate deal",
+  tech:        "technology software developer code",
+};
+
+async function fetchImageUrl(
+  headline: string,
+  category: string,
+  tags: string[],
+  pexelsKey: string | undefined,
+  unsplashKey: string | undefined,
+): Promise<string | null> {
+  // 1. Pollinations.ai — unique AI image from headline (Flux, free, no key)
+  try {
+    const prompt = encodeURIComponent(
+      `editorial illustration for: ${headline}, clean minimal tech style, professional, no text, no logos, no people`
+    );
+    const pollinationsUrl = `https://image.pollinations.ai/prompt/${prompt}?width=1200&height=630&nologo=true&model=flux&seed=${Date.now()}`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000); // 12s timeout
+    const res = await fetch(pollinationsUrl, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (res.ok && res.headers.get("content-type")?.startsWith("image/")) {
+      console.log("Image: Pollinations OK");
+      return pollinationsUrl;
+    }
+  } catch (e) {
+    console.warn("Pollinations failed:", e instanceof Error ? e.message : e);
+  }
+
+  // 2. Pexels — keyword search by tags or category
+  if (pexelsKey) {
+    try {
+      const query = encodeURIComponent(
+        tags.slice(0, 2).join(" ") || CATEGORY_PEXELS_QUERIES[category] || "technology startup"
+      );
+      const res = await fetch(
+        `https://api.pexels.com/v1/search?query=${query}&per_page=1&orientation=landscape`,
+        { headers: { Authorization: pexelsKey } }
+      );
+      if (res.ok) {
+        const json = await res.json();
+        const url = json.photos?.[0]?.src?.large2x ?? json.photos?.[0]?.src?.original ?? null;
+        if (url) { console.log("Image: Pexels OK"); return url; }
+      }
+    } catch (e) {
+      console.warn("Pexels failed:", e instanceof Error ? e.message : e);
+    }
+  }
+
+  // 3. Unsplash — keyword search
+  if (unsplashKey) {
+    try {
+      const query = encodeURIComponent(
+        tags.slice(0, 2).join(" ") || CATEGORY_PEXELS_QUERIES[category] || "technology"
+      );
+      const res = await fetch(
+        `https://api.unsplash.com/search/photos?query=${query}&per_page=1&orientation=landscape`,
+        { headers: { Authorization: `Client-ID ${unsplashKey}` } }
+      );
+      if (res.ok) {
+        const json = await res.json();
+        const url = json.results?.[0]?.urls?.regular ?? null;
+        if (url) { console.log("Image: Unsplash OK"); return url; }
+      }
+    } catch (e) {
+      console.warn("Unsplash failed:", e instanceof Error ? e.message : e);
+    }
+  }
+
+  console.warn("Image: all sources failed, using null");
+  return null;
+}
+
 // ── 4D: Model fallback chain ──────────────────────────────
 const MODELS = [
   "llama-3.3-70b-versatile",
@@ -195,6 +275,8 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY");
     const groqApiKey = Deno.env.get("GROQ_API_KEY");
+    const pexelsKey = Deno.env.get("PEXELS_API_KEY");
+    const unsplashKey = Deno.env.get("UNSPLASH_ACCESS_TOKEN");
 
     if (!supabaseUrl || !serviceRoleKey || !groqApiKey) {
       return new Response(
@@ -354,7 +436,16 @@ serve(async (req) => {
           continue;
         }
 
-        // ── 4I: Insert article ──────────────────────────
+        // ── 4I: Generate image (Pollinations → Pexels → Unsplash) ─
+        const image_url = await fetchImageUrl(
+          parsed.homepage_headline,
+          parsed.category,
+          Array.isArray(parsed.tags) ? parsed.tags : [],
+          pexelsKey,
+          unsplashKey,
+        );
+
+        // ── 4J: Insert article ──────────────────────────
         const { error: insertError } = await supabase.from("articles").insert({
           headline: parsed.homepage_headline,
           summary: parsed.homepage_summary,
@@ -366,7 +457,7 @@ serve(async (req) => {
               ? Math.max(2, Math.min(8, parsed.read_time_minutes))
               : 3,
           source_signal_id: signal.id,
-          image_url: (signal as any).image_url ?? null,
+          image_url: image_url ?? (signal as any).image_url ?? null,
           status: "published",
         });
 
