@@ -326,6 +326,10 @@ async function fetchNewsDataQuery(config: NewsDataConfig, apiKey: string): Promi
 }
 
 async function fetchNewsData(apiKey: string): Promise<RawSignalRow[]> {
+  // Only run every 2 hours to stay within 200 req/day free limit (7 queries × 12 runs = 84/day)
+  const hourNow = new Date().getUTCHours();
+  if (hourNow % 2 !== 0) return [];
+
   const configs: NewsDataConfig[] = [
     { params: "category=technology&q=startup+funding", suggested_category: "funding", suggested_tags: ["funding","startups"] },
     { params: "category=business&q=acquisition+tech+company", suggested_category: "acquisitions", suggested_tags: ["acquisition","enterprise"] },
