@@ -366,6 +366,7 @@ serve(async (req) => {
               ? Math.max(2, Math.min(8, parsed.read_time_minutes))
               : 3,
           source_signal_id: signal.id,
+          image_url: (signal as any).image_url ?? null,
           status: "published",
         });
 

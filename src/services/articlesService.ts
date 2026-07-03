@@ -20,6 +20,16 @@ export type DbArticleRow = Record<string, unknown> & {
   source_signal_id?: string | null;
   status?: string | null;
   created_at?: string | null;
+  image_url?: string | null;
+};
+
+const CATEGORY_FALLBACK_IMAGES: Record<string, string> = {
+  funding:   "https://images.unsplash.com/photo-1579532537598-459ecdaf39cc?w=800&h=450&fit=crop",
+  ai:        "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=800&h=450&fit=crop",
+  startups:  "https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=800&h=450&fit=crop",
+  markets:   "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=450&fit=crop",
+  policy:    "https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800&h=450&fit=crop",
+  default:   "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=800&h=450&fit=crop",
 };
 
 function isNonEmptyString(value: unknown): value is string {
@@ -28,6 +38,8 @@ function isNonEmptyString(value: unknown): value is string {
 
 export function mapDbArticleToNewsArticle(row: DbArticleRow): NewsArticle {
   const internalPath = row.id ? `/article/${row.id}` : "#";
+  const category = isNonEmptyString(row.category) ? row.category : "default";
+  const fallbackImage = CATEGORY_FALLBACK_IMAGES[category] ?? CATEGORY_FALLBACK_IMAGES.default;
 
   return {
     id: row.id,
@@ -39,6 +51,7 @@ export function mapDbArticleToNewsArticle(row: DbArticleRow): NewsArticle {
     source: { name: "ScopeDrop", url: "" },
     category: isNonEmptyString(row.category) ? row.category : undefined,
     tags: Array.isArray(row.tags) ? row.tags : undefined,
+    image: isNonEmptyString(row.image_url) ? (row.image_url as string) : fallbackImage,
     processedByAI: true,
   };
 }

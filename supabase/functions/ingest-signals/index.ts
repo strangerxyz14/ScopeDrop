@@ -30,6 +30,31 @@ interface RawSignalRow {
   status: string;
   suggested_category?: string;
   suggested_tags?: string[];
+  image_url?: string | null;
+}
+
+// Extract og:image from a URL (3s timeout, fail silently)
+async function extractOgImage(url: string): Promise<string | null> {
+  if (!url || !url.startsWith("http")) return null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "ScopeDrop/1.0 (OG image crawler)" },
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const html = await res.text();
+    const match = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+      ?? html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    const imgUrl = match?.[1]?.trim() ?? null;
+    // Skip data URIs and very short strings
+    if (!imgUrl || imgUrl.startsWith("data:") || imgUrl.length < 10) return null;
+    return imgUrl;
+  } catch {
+    return null;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -417,8 +442,11 @@ serve(async (req) => {
         if (existingUrls.has(signal.source_url)) { skippedDuplicate++; continue; }
         existingUrls.add(signal.source_url); // prevent duplicate within this batch
 
+        // OG image extraction (best-effort, non-blocking)
+        const image_url = await extractOgImage(signal.source_url);
+
         const { _src: _, ...row } = signal as any;
-        const { error: insertError } = await supabase.from("raw_signals").insert(row);
+        const { error: insertError } = await supabase.from("raw_signals").insert({ ...row, image_url });
 
         if (insertError) {
           console.error(`Insert error (${srcKey}):`, insertError.message);

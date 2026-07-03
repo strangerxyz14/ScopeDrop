@@ -75,13 +75,13 @@ const ArticleView = () => {
               <Skeleton className="h-20 w-full" />
             </div>
           ) : dbRow ? (
-            <article className="max-w-4xl mx-auto">
+            <article className="max-w-2xl mx-auto">
               <div className="mb-8">
-                <h1 className="text-3xl md:text-4xl font-bold mb-4">{headline}</h1>
-                <div className="flex flex-wrap items-center gap-3 text-gray-600 text-sm mb-4">
+                <h1 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">{headline}</h1>
+                <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm mb-4">
                   <span>ScopeDrop • {formatDate(createdAt)}</span>
                   {category && (
-                    <Badge variant="secondary" className="text-xs font-medium">
+                    <Badge variant="secondary" className="text-xs font-medium capitalize">
                       {category}
                     </Badge>
                   )}
@@ -103,25 +103,23 @@ const ArticleView = () => {
                 )}
 
                 {summary && (
-                  <p className="text-lg text-muted-foreground leading-relaxed border-l-4 border-accent pl-4 mb-6">
+                  <p className="text-lg text-muted-foreground leading-relaxed border-l-4 border-primary pl-4 mb-8 italic">
                     {summary}
                   </p>
                 )}
               </div>
-              
-              <div className="prose prose-lg max-w-none">
+
+              <div className="prose prose-lg dark:prose-invert prose-headings:font-bold prose-headings:mt-8 prose-headings:mb-4 prose-p:leading-relaxed prose-p:mb-4">
                 {typeof contentHtml === "string" && contentHtml.trim().length > 0 ? (
-                  <div 
-                    dangerouslySetInnerHTML={{ 
+                  <div
+                    dangerouslySetInnerHTML={{
                       __html: sanitizeHtml(contentHtml)
-                    }} 
+                    }}
                   />
                 ) : (
-                  <div className="space-y-4 my-8">
-                    <p className="text-muted-foreground">
-                      This article is still being processed by our AI pipeline.
-                    </p>
-                  </div>
+                  <p className="text-muted-foreground">
+                    This article is still being processed by our AI pipeline.
+                  </p>
                 )}
               </div>
             </article>
