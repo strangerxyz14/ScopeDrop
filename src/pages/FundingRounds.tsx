@@ -1,12 +1,9 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
 import SEO from "@/components/SEO";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ExternalLink } from "lucide-react";
 
 interface CapitalEventRow {
@@ -25,6 +22,18 @@ interface CapitalEventRow {
     investor: { name: string } | null;
   }> | null;
 }
+
+/** Stage → functional color. Parrot = early/new, oxford tints = growth stages. */
+const STAGE_STYLES: Record<string, string> = {
+  pre_seed: "text-parrot-600 border-parrot-300 bg-parrot-50",
+  seed: "text-parrot-700 border-parrot-400 bg-parrot-50",
+  series_a: "text-oxford-400 border-oxford-200 bg-oxford-50",
+  series_b: "text-oxford-500 border-oxford-300 bg-oxford-50",
+  series_c: "text-oxford-600 border-oxford-300 bg-oxford-100",
+  series_d_plus: "text-oxford-700 border-oxford-400 bg-oxford-100",
+  growth: "text-oxford-700 border-oxford-400 bg-oxford-100",
+  debt: "text-slate-600 border-slate-300 bg-slate-50",
+};
 
 const FundingRounds = () => {
   const { data: rounds, isLoading, error } = useQuery({
@@ -96,8 +105,21 @@ const FundingRounds = () => {
       .join(" ");
   };
 
+  // Signature element: left-edge amount bar, filled proportionally to the
+  // largest round currently in view. Data-honest — the fill IS the number.
+  const maxAmount = Math.max(
+    1,
+    ...(rounds ?? []).map((r) => (typeof r.amount_usd === "number" ? r.amount_usd : 0))
+  );
+
+  const isFreshRound = (announcedAt: string) => {
+    const d = new Date(announcedAt);
+    if (Number.isNaN(d.getTime())) return false;
+    return Date.now() - d.getTime() < 1000 * 60 * 60 * 48; // 48h
+  };
+
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-paper">
       <SEO
         title="Funding - ScopeDrop"
         description="Funding rounds, investor moves, and capital flows shaping the startup ecosystem."
@@ -107,82 +129,119 @@ const FundingRounds = () => {
       <Header />
 
       <main className="flex-grow">
-        <div
-          className="bg-gradient-to-r from-oxford to-oxford-400 text-white py-12"
-          style={{
-            backgroundImage:
-              "linear-gradient(to right, rgba(0, 33, 71, 0.92), rgba(0, 33, 71, 0.82)), url(https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80)",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
+        {/* Hero: no stock photos. Ink surface, mono eyebrow, display headline. */}
+        <div className="bg-ink text-paper py-14 border-b-4 border-parrot">
           <div className="container mx-auto px-4">
-            <h1 className="text-3xl md:text-4xl font-display font-bold mb-2">Funding</h1>
-            <p className="text-blue-100 max-w-2xl">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-parrot mb-3">
+              Capital events · live feed
+            </p>
+            <h1 className="font-display text-4xl md:text-5xl font-semibold mb-3">Funding</h1>
+            <p className="text-oxford-100 max-w-2xl">
               Funding rounds, investor moves, and capital flows shaping the startup ecosystem.
             </p>
             {error && (
-              <p className="mt-4 text-sm text-red-100">
+              <p className="mt-4 font-mono text-sm text-red-300">
                 Feed error: {(error as any)?.message ?? "failed to load"}
               </p>
             )}
           </div>
         </div>
 
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-10">
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {Array(8)
                 .fill(0)
                 .map((_, i) => (
-                  <Skeleton key={i} className="h-40 w-full rounded-lg" />
+                  <Skeleton key={i} className="h-44 w-full rounded-lg" />
                 ))}
             </div>
           ) : (rounds ?? []).length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg shadow">
-              <p className="text-gray-500">No funding rounds published yet.</p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Agents should publish into <code className="px-1">capital_events</code> (event_type = 'funding') in Supabase.
+            <div className="text-center py-16 bg-white rounded-lg border border-oxford-50">
+              <p className="font-display text-lg text-oxford">No funding rounds published yet.</p>
+              <p className="font-mono text-sm text-muted-foreground mt-2">
+                capital_events · event_type = 'funding'
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {(rounds ?? []).map((row) => {
                 const company = row.entities?.name ?? "Unknown Company";
                 const stage = formatStage(row.round_type);
+                const stageStyle =
+                  STAGE_STYLES[row.round_type ?? ""] ??
+                  "text-oxford-500 border-oxford-200 bg-oxford-50";
                 const amount = formatAmount(row.amount_usd);
+                const fillPct =
+                  typeof row.amount_usd === "number" && row.amount_usd > 0
+                    ? Math.max(8, Math.round((row.amount_usd / maxAmount) * 100))
+                    : 0;
+                const fresh = isFreshRound(row.announced_at);
                 const investors = (row.capital_event_investors ?? [])
-                  .map((i) => i.investor?.name)
+                  .map((i) => (i.is_lead && i.investor?.name ? `${i.investor.name} (lead)` : i.investor?.name))
                   .filter(Boolean);
 
                 return (
-                  <Card key={row.id} className="overflow-hidden">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <CardTitle className="text-lg">{company}</CardTitle>
-                        <Badge variant="secondary" className="shrink-0">
+                  <article
+                    key={row.id}
+                    className="relative flex bg-white rounded-lg border border-oxford-50 overflow-hidden transition-shadow hover:shadow-md"
+                  >
+                    {/* ── Signature: left-edge amount bar ── */}
+                    <div className="w-1.5 shrink-0 bg-oxford-50 relative" aria-hidden="true">
+                      {fillPct > 0 && (
+                        <div
+                          className="absolute bottom-0 left-0 right-0 bg-amber"
+                          style={{ height: `${fillPct}%` }}
+                          title={`Relative deal size: ${fillPct}% of largest round shown`}
+                        />
+                      )}
+                    </div>
+
+                    <div className="flex-1 p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {row.entities?.logo_url && (
+                            <img
+                              src={row.entities.logo_url}
+                              alt=""
+                              className="w-9 h-9 rounded-md object-contain bg-oxford-50 shrink-0"
+                              loading="lazy"
+                            />
+                          )}
+                          <h2 className="font-display text-lg font-semibold text-ink truncate">
+                            {company}
+                          </h2>
+                          {fresh && (
+                            <span className="flex items-center gap-1 shrink-0 font-mono text-[10px] uppercase tracking-wider text-parrot-700">
+                              <span className="w-1.5 h-1.5 rounded-full bg-parrot animate-pulse-subtle" />
+                              New
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          className={`shrink-0 font-mono text-[11px] uppercase tracking-wide px-2 py-0.5 rounded border ${stageStyle}`}
+                        >
                           {stage}
-                        </Badge>
+                        </span>
                       </div>
-                      <CardDescription className="flex items-center gap-2">
-                        <span>{formatDate(row.announced_at)}</span>
+
+                      <div className="mt-2 flex items-baseline gap-3 font-mono text-sm">
                         {amount && (
-                          <>
-                            <span className="text-muted-foreground">·</span>
-                            <span className="font-medium text-oxford">{amount}</span>
-                          </>
+                          <span className="text-amber-deep text-xl font-semibold tabular-nums">
+                            {amount}
+                          </span>
                         )}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
+                        <span className="text-muted-foreground">{formatDate(row.announced_at)}</span>
+                      </div>
+
                       {investors.length > 0 && (
-                        <p className="text-sm text-muted-foreground">
-                          <span className="font-medium">Investors:</span> {investors.join(", ")}
+                        <p className="mt-2 text-sm text-oxford-500">
+                          {investors.join(" · ")}
                         </p>
                       )}
 
                       {row.one_liner && (
-                        <p className="text-sm text-gray-700 line-clamp-3">{row.one_liner}</p>
+                        <p className="mt-2 text-sm text-gray-700 line-clamp-2">{row.one_liner}</p>
                       )}
 
                       {typeof row.source_url === "string" && /^https?:\/\//i.test(row.source_url) && (
@@ -190,14 +249,14 @@ const FundingRounds = () => {
                           href={row.source_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center text-sm text-oxford hover:underline"
+                          className="mt-3 inline-flex items-center font-mono text-xs text-oxford-400 hover:text-oxford-600 hover:underline"
                         >
                           Source
                           <ExternalLink className="w-3 h-3 ml-1" />
                         </a>
                       )}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </article>
                 );
               })}
             </div>

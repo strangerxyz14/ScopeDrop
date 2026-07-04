@@ -1,5 +1,5 @@
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -37,10 +37,10 @@
 
     --radius: 0.75rem;
     
-    /* Enhanced Brand gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(262 83% 58%), hsl(300 76% 60%));
-    --gradient-accent: linear-gradient(90deg, hsl(142 76% 36%), hsl(166 76% 36%), hsl(190 76% 40%));
-    --gradient-hero: linear-gradient(135deg, hsl(221 83% 53%), hsl(262 83% 58%), hsl(300 76% 60%), hsl(340 76% 55%));
+    /* Brand gradients — restrained, two-stop, within the blue family only */
+    --gradient-primary: linear-gradient(135deg, #0F2847, #0A1628);
+    --gradient-accent: linear-gradient(90deg, #2bb95a, #3ECF6E);
+    --gradient-hero: linear-gradient(160deg, #0F2847 0%, #0A1628 70%);
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(210 40% 98%));
     
     /* Enhanced Shadows */

@@ -13,7 +13,7 @@
     "supabase:start": "sudo npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:reset": "npx supabase db reset",
-    "supabase:deploy": "npx supabase functions deploy content-orchestrator-v2",
+    "supabase:deploy": "npx supabase functions deploy ingest-signals && npx supabase functions deploy generate-content && npx supabase functions deploy extract-structured",
     "supabase:status": "npx supabase status",
     "cache:clean": "node scripts/clean-cache.js",
     "test:cache": "node scripts/test-cache.js",

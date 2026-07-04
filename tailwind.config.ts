@@ -63,31 +63,53 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
+                ink: {
+                    DEFAULT: '#0A1628', // Near-black blue — page base in dark sections
+                    soft: '#0D1D33'
+                },
                 oxford: {
-                    DEFAULT: '#002147', // Oxford Blue (dark blue for header/footer)
-                    50: '#e0e5eb',
-                    100: '#b3bfcf',
-                    200: '#8095b1',
-                    300: '#4d6b93',
-                    400: '#274c7d',
-                    500: '#002147',
-                    600: '#001d40',
-                    700: '#001837',
-                    800: '#00142e',
-                    900: '#000b1f'
+                    DEFAULT: '#0F2847', // Oxford blue — card & header surface
+                    50: '#e8edf4',
+                    100: '#c2cfe0',
+                    200: '#93aac6',
+                    300: '#6485ab',
+                    400: '#3d6390',
+                    500: '#0F2847',
+                    600: '#0d233e',
+                    700: '#0b1d34',
+                    800: '#08172a',
+                    900: '#050f1c'
+                },
+                paper: {
+                    DEFAULT: '#F7F9F7' // Green-tinted off-white — light text surfaces
+                },
+                amber: {
+                    DEFAULT: '#E8A33D', // Monetary amounts ONLY — never decorative
+                    soft: '#F2C069',
+                    deep: '#C4832A',
+                    50: '#fdf6ea',
+                    100: '#f9e8c8',
+                    200: '#f4d69d',
+                    300: '#eec06c',
+                    400: '#E8A33D',
+                    500: '#d98f26',
+                    600: '#c4832a',
+                    700: '#9c6620',
+                    800: '#7a4f1a',
+                    900: '#5c3b14'
                 },
                 parrot: {
-                    DEFAULT: '#00FF00', // Parrot Green for logo and highlights
-                    50: '#e6ffe6',
-                    100: '#b3ffb3',
-                    200: '#80ff80',
-                    300: '#4dff4d',
-                    400: '#1aff1a',
-                    500: '#00ff00',
-                    600: '#00e600',
-                    700: '#00cc00',
-                    800: '#00b300',
-                    900: '#008000'
+                    DEFAULT: '#3ECF6E', // Functional green — status/live/new signals only
+                    50: '#eafaf0',
+                    100: '#c9f1d8',
+                    200: '#9fe5ba',
+                    300: '#6fd898',
+                    400: '#3ECF6E',
+                    500: '#2bb95a',
+                    600: '#219a4a',
+                    700: '#1a7c3c',
+                    800: '#145f2e',
+                    900: '#0d4220'
                 },
 			},
 			borderRadius: {
@@ -161,8 +183,9 @@ export default {
 			},
             fontFamily: {
                 sans: ['Inter', 'sans-serif'],
-                display: ['Montserrat', 'sans-serif'],
-                serif: ['"DM Serif Display"', 'Georgia', 'serif']
+                display: ['"Space Grotesk"', 'Inter', 'sans-serif'],
+                serif: ['"DM Serif Display"', 'Georgia', 'serif'],
+                mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace']
             }
 		}
 	},
