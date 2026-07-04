@@ -34,6 +34,35 @@ const CATEGORY_PEXELS_QUERIES: Record<string, string> = {
   tech:        "technology software developer code",
 };
 
+// Extract likely proper-noun tokens (product/company names) from a headline,
+// e.g. "OnePlus N6" out of "OnePlus N6 Accessorized" — so stock-photo fallback
+// searches don't collapse to a generic "smartphone" query that can return an
+// unrelated real product photo (a different phone, a different company).
+function extractProperNouns(headline: string): string {
+  const words = headline.split(/\s+/).filter(Boolean);
+  const proper = words.filter((w) => /^[A-Z0-9]/.test(w) && !/^(The|A|An|In|On|For|With|Is|Are)$/i.test(w));
+  return proper.slice(0, 3).join(" ");
+}
+
+async function fetchPollinationsOnce(headline: string): Promise<string | null> {
+  try {
+    const prompt = encodeURIComponent(
+      `editorial illustration for: ${headline}, clean minimal tech style, professional, no text, no logos, no people`
+    );
+    const pollinationsUrl = `https://image.pollinations.ai/prompt/${prompt}?width=1200&height=630&nologo=true&model=flux&seed=${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000); // 12s timeout
+    const res = await fetch(pollinationsUrl, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (res.ok && res.headers.get("content-type")?.startsWith("image/")) {
+      return pollinationsUrl;
+    }
+  } catch (e) {
+    console.warn("Pollinations attempt failed:", e instanceof Error ? e.message : e);
+  }
+  return null;
+}
+
 async function fetchImageUrl(
   headline: string,
   category: string,
@@ -41,30 +70,28 @@ async function fetchImageUrl(
   pexelsKey: string | undefined,
   unsplashKey: string | undefined,
 ): Promise<string | null> {
-  // 1. Pollinations.ai — unique AI image from headline (Flux, free, no key)
-  try {
-    const prompt = encodeURIComponent(
-      `editorial illustration for: ${headline}, clean minimal tech style, professional, no text, no logos, no people`
-    );
-    const pollinationsUrl = `https://image.pollinations.ai/prompt/${prompt}?width=1200&height=630&nologo=true&model=flux&seed=${Date.now()}`;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 12000); // 12s timeout
-    const res = await fetch(pollinationsUrl, { signal: ctrl.signal });
-    clearTimeout(timer);
-    if (res.ok && res.headers.get("content-type")?.startsWith("image/")) {
-      console.log("Image: Pollinations OK");
-      return pollinationsUrl;
+  // 1. Pollinations.ai — unique AI image from headline (Flux, free, no key).
+  // Two attempts: transient network/queue failures are common and a unique
+  // AI image is always preferable to a stock photo of an unrelated product.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const url = await fetchPollinationsOnce(headline);
+    if (url) {
+      console.log(`Image: Pollinations OK (attempt ${attempt + 1})`);
+      return url;
     }
-  } catch (e) {
-    console.warn("Pollinations failed:", e instanceof Error ? e.message : e);
   }
 
-  // 2. Pexels — keyword search by tags or category
+  // Prefer proper nouns from the headline (product/company names) over
+  // generic AI-assigned tags — "OnePlus N6" beats "smartphone launch" for
+  // avoiding a stock photo of a different, unrelated product.
+  const properNouns = extractProperNouns(headline);
+  const fallbackQuery =
+    properNouns || tags.slice(0, 2).join(" ") || CATEGORY_PEXELS_QUERIES[category] || "technology startup";
+
+  // 2. Pexels — keyword search
   if (pexelsKey) {
     try {
-      const query = encodeURIComponent(
-        tags.slice(0, 2).join(" ") || CATEGORY_PEXELS_QUERIES[category] || "technology startup"
-      );
+      const query = encodeURIComponent(fallbackQuery);
       const res = await fetch(
         `https://api.pexels.com/v1/search?query=${query}&per_page=1&orientation=landscape`,
         { headers: { Authorization: pexelsKey } }
@@ -82,9 +109,7 @@ async function fetchImageUrl(
   // 3. Unsplash — keyword search
   if (unsplashKey) {
     try {
-      const query = encodeURIComponent(
-        tags.slice(0, 2).join(" ") || CATEGORY_PEXELS_QUERIES[category] || "technology"
-      );
+      const query = encodeURIComponent(fallbackQuery);
       const res = await fetch(
         `https://api.unsplash.com/search/photos?query=${query}&per_page=1&orientation=landscape`,
         { headers: { Authorization: `Client-ID ${unsplashKey}` } }
@@ -106,8 +131,7 @@ async function fetchImageUrl(
 // ── 4D: Model fallback chain ──────────────────────────────
 const MODELS = [
   "llama-3.3-70b-versatile",
-  "mixtral-8x7b-32768",
-  "llama3-8b-8192",
+  "llama-3.1-8b-instant",
 ];
 
 const DAILY_TOKEN_BUDGET = 450_000;

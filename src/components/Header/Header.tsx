@@ -27,7 +27,7 @@ export const Header: React.FC<HeaderProps> = ({ className }) => {
     <header 
       className={`
         fixed top-0 left-0 right-0 z-50
-        bg-oxford/95 backdrop-blur-md border-b border-oxford-400/20
+        bg-ink/90 backdrop-blur-md border-b border-white/10
         transition-all duration-300 ease-in-out
         ${isScrolled ? 'shadow-lg' : ''}
         ${className || ''}
@@ -35,11 +35,11 @@ export const Header: React.FC<HeaderProps> = ({ className }) => {
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          
+
           {/* Logo */}
           <div className="flex-shrink-0">
             <Link to="/" className="flex items-center">
-              <span className="text-2xl font-serif text-parrot hover:text-parrot-300 transition-colors tracking-tight">ScopeDrop</span>
+              <span className="text-2xl font-display font-bold text-parrot hover:text-parrot-300 transition-colors tracking-tight">ScopeDrop</span>
             </Link>
           </div>
 

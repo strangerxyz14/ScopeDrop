@@ -107,19 +107,28 @@ const NewsCard = ({ article, articleId, className = "" }: NewsCardProps) => {
         )}
         
         <CardContent className="p-6">
-          <h3 className="font-semibold text-lg line-clamp-2 mb-3 group-hover:text-accent transition-colors">
+          <h3 className="font-display font-semibold text-lg line-clamp-2 mb-3 group-hover:text-parrot transition-colors">
             {article.title}
           </h3>
           <p className="text-muted-foreground text-sm line-clamp-3 leading-relaxed">
             {article.description}
           </p>
+          {Array.isArray(article.tags) && article.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {article.tags.slice(0, 3).map((tag, i) => (
+                <span key={i} className="label-caps text-muted-foreground/80 border border-white/10 rounded px-1.5 py-0.5">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </CardContent>
-        
+
         <CardFooter className="px-6 pb-6 pt-0 flex justify-between text-xs text-muted-foreground">
-          <span className="font-medium">
+          <span className="font-mono">
             {formattedDate(article.publishedAt)}
           </span>
-          <span className="text-accent font-medium group-hover:underline">
+          <span className="text-parrot font-medium group-hover:underline">
             Read more
           </span>
         </CardFooter>

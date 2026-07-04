@@ -64,24 +64,24 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				},
                 ink: {
-                    DEFAULT: '#0A1628', // Near-black blue — page base in dark sections
-                    soft: '#0D1D33'
+                    DEFAULT: '#051424', // Void base — page background
+                    soft: '#0d1c2d'
                 },
                 oxford: {
-                    DEFAULT: '#0F2847', // Oxford blue — card & header surface
+                    DEFAULT: '#0d1c2d', // Surface blue-black — cards, header
                     50: '#e8edf4',
                     100: '#c2cfe0',
                     200: '#93aac6',
                     300: '#6485ab',
                     400: '#3d6390',
-                    500: '#0F2847',
-                    600: '#0d233e',
-                    700: '#0b1d34',
+                    500: '#1c2b3c',
+                    600: '#122131',
+                    700: '#0d1c2d',
                     800: '#08172a',
-                    900: '#050f1c'
+                    900: '#051424'
                 },
                 paper: {
-                    DEFAULT: '#F7F9F7' // Green-tinted off-white — light text surfaces
+                    DEFAULT: '#d4e4fa' // Light blue-white — high-contrast text on ink
                 },
                 amber: {
                     DEFAULT: '#E8A33D', // Monetary amounts ONLY — never decorative
@@ -99,17 +99,17 @@ export default {
                     900: '#5c3b14'
                 },
                 parrot: {
-                    DEFAULT: '#3ECF6E', // Functional green — status/live/new signals only
-                    50: '#eafaf0',
-                    100: '#c9f1d8',
-                    200: '#9fe5ba',
-                    300: '#6fd898',
-                    400: '#3ECF6E',
-                    500: '#2bb95a',
-                    600: '#219a4a',
-                    700: '#1a7c3c',
-                    800: '#145f2e',
-                    900: '#0d4220'
+                    DEFAULT: '#00E600', // Action green — the single high-energy accent
+                    50: '#e8ffe6',
+                    100: '#c2ffbd',
+                    200: '#96ff8e',
+                    300: '#76ff60',
+                    400: '#2ae500',
+                    500: '#00E600',
+                    600: '#01b300',
+                    700: '#028a00',
+                    800: '#026100',
+                    900: '#013a00'
                 },
 			},
 			borderRadius: {
@@ -183,9 +183,9 @@ export default {
 			},
             fontFamily: {
                 sans: ['Inter', 'sans-serif'],
-                display: ['"Space Grotesk"', 'Inter', 'sans-serif'],
+                display: ['Montserrat', 'Inter', 'sans-serif'],
                 serif: ['"DM Serif Display"', 'Georgia', 'serif'],
-                mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace']
+                mono: ['"Geist Mono"', '"IBM Plex Mono"', 'ui-monospace', 'monospace']
             }
 		}
 	},

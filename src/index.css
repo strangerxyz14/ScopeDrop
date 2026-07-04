@@ -1,83 +1,59 @@
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   ScopeDrop "Kinetic Insight" terminal theme — dark-only.
+   Base #051424, surfaces layered blue-black, single action
+   green #00E600, Geist Mono for data, Montserrat for display.
+   ============================================================ */
+
 @layer base {
   :root {
-    --background: 210 40% 98%; /* Ultra-light slate background */
-    --foreground: 220 84% 7%; /* Rich dark text */
+    --background: 211 76% 8%;        /* #051424 void base */
+    --foreground: 215 79% 91%;       /* #d4e4fa */
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 84% 7%;
+    --card: 212 55% 11%;             /* #0d1c2d surface-low */
+    --card-foreground: 215 79% 91%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 84% 7%;
+    --popover: 212 46% 13%;          /* #122131 */
+    --popover-foreground: 215 79% 91%;
 
-    --primary: 221 83% 53%; /* Vibrant blue #3b82f6 */
-    --primary-foreground: 0 0% 100%;
+    --primary: 120 100% 45%;         /* #00E600 action green */
+    --primary-foreground: 120 100% 7%;
 
-    --secondary: 210 40% 94%;
-    --secondary-foreground: 220 13% 18%;
+    --secondary: 213 36% 17%;        /* #1c2b3c surface-high */
+    --secondary-foreground: 215 79% 91%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 212 46% 13%;
+    --muted-foreground: 212 22% 65%; /* blue-gray body text */
 
-    --accent: 142 76% 36%; /* Vibrant green #22c55e */
-    --accent-foreground: 0 0% 100%;
+    --accent: 120 100% 45%;          /* green accent text/links */
+    --accent-foreground: 120 100% 7%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 6 100% 84%;
+    --destructive-foreground: 358 100% 21%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --border: 213 36% 17%;           /* #1c2b3c */
+    --input: 213 36% 17%;
+    --ring: 120 100% 45%;
 
-    --radius: 0.75rem;
-    
-    /* Brand gradients — restrained, two-stop, within the blue family only */
-    --gradient-primary: linear-gradient(135deg, #0F2847, #0A1628);
-    --gradient-accent: linear-gradient(90deg, #2bb95a, #3ECF6E);
-    --gradient-hero: linear-gradient(160deg, #0F2847 0%, #0A1628 70%);
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(210 40% 98%));
-    
-    /* Enhanced Shadows */
-    --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-header: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    --shadow-hero: 0 25px 50px -12px rgb(0 0 0 / 0.25);
-    --shadow-glow: 0 0 20px hsl(221 83% 53% / 0.3);
-  }
+    --radius: 0.375rem;              /* soft-geometric: crisp corners */
 
-  .dark {
-    --background: 221 51% 14%; /* Dark blue #0f172a */
-    --foreground: 210 40% 98%;
+    /* Brand gradients — restrained, within the blue family */
+    --gradient-primary: linear-gradient(135deg, #0d1c2d, #051424);
+    --gradient-accent: linear-gradient(90deg, #01b300, #00E600);
+    --gradient-hero: linear-gradient(160deg, #0d1c2d 0%, #051424 70%);
+    --gradient-card: linear-gradient(145deg, #122131, #0d1c2d);
 
-    --card: 224 44% 19%; /* Slightly lighter than background */
-    --card-foreground: 210 40% 98%;
-
-    --popover: 224 44% 19%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 142 76% 36%; /* Parrot green as primary in dark mode */
-    --primary-foreground: 221 51% 14%;
-
-    --secondary: 217 33% 18%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217 33% 18%;
-    --muted-foreground: 215 20% 65%;
-
-    --accent: 142 76% 36%; /* Parrot green */
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 142 76% 36%;
+    --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+    --shadow-header: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+    --shadow-hero: 0 25px 50px -12px rgb(0 0 0 / 0.6);
+    --shadow-glow: 0 0 20px rgb(0 230 0 / 0.2);
   }
 }
 
@@ -88,177 +64,125 @@
 
   body {
     @apply bg-background text-foreground font-sans;
-    background-image: 
-      radial-gradient(circle at 25% 25%, hsl(var(--accent) / 0.08) 0%, transparent 50%),
-      radial-gradient(circle at 75% 75%, hsl(var(--primary) / 0.08) 0%, transparent 50%),
-      radial-gradient(circle at 50% 50%, hsl(262 83% 58% / 0.03) 0%, transparent 70%);
+    background-image:
+      radial-gradient(circle at 20% 0%, rgb(0 230 0 / 0.04) 0%, transparent 45%),
+      radial-gradient(circle at 80% 100%, rgb(49 71 107 / 0.15) 0%, transparent 50%);
   }
-  
+
   html {
     scroll-behavior: smooth;
+  }
+
+  ::selection {
+    background: rgb(0 230 0 / 0.25);
   }
 }
 
 @layer components {
-  /* Modern card design */
+  /* Glassmorphic terminal card */
   .insight-card {
-    @apply bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden;
-    @apply hover:scale-[1.02] hover:border-accent/20;
+    @apply rounded-md border border-white/10 overflow-hidden transition-all duration-300;
+    background: rgb(13 28 45 / 0.6);
+    backdrop-filter: blur(12px);
   }
-  
-  /* Enhanced gradient backgrounds */
-  .gradient-primary {
-    background: var(--gradient-primary);
-  }
-  
-  .gradient-accent {
-    background: var(--gradient-accent);
+  .insight-card:hover {
+    @apply border-parrot/40;
+    box-shadow: 0 0 20px rgb(0 230 0 / 0.08);
   }
 
-  .gradient-hero {
-    background: var(--gradient-hero);
+  .terminal-panel {
+    @apply rounded-md border border-white/10;
+    background: rgb(13 28 45 / 0.5);
+    backdrop-filter: blur(12px);
   }
 
-  .gradient-card {
-    background: var(--gradient-card);
+  /* Geist caps label — timestamps, eyebrows, chips */
+  .label-caps {
+    @apply font-mono text-xs font-semibold uppercase tracking-[0.1em];
   }
 
-  /* Enhanced shadow utilities */
-  .shadow-hero {
-    box-shadow: var(--shadow-hero);
-  }
+  .gradient-primary { background: var(--gradient-primary); }
+  .gradient-accent { background: var(--gradient-accent); }
+  .gradient-hero { background: var(--gradient-hero); }
+  .gradient-card { background: var(--gradient-card); }
 
-  .shadow-glow {
-    box-shadow: var(--shadow-glow);
-  }
+  .shadow-hero { box-shadow: var(--shadow-hero); }
+  .shadow-glow { box-shadow: var(--shadow-glow); }
 
-  /* Vibrant button styles */
-  .btn-vibrant {
-    @apply bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white font-semibold px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300;
-  }
-
-  .btn-vibrant-outline {
-    @apply border-2 border-blue-500 text-blue-500 font-semibold px-6 py-3 rounded-lg hover:bg-blue-500 hover:text-white transition-all duration-300;
-  }
-
-  /* Text gradients */
-  .text-gradient-primary {
-    @apply bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent;
-  }
-
-  .text-gradient-accent {
-    @apply bg-gradient-to-r from-green-500 via-teal-500 to-blue-500 bg-clip-text text-transparent;
-  }
-
-  /* Enhanced hover effects */
-  .hover-lift {
-    @apply transition-transform duration-300 hover:-translate-y-2;
-  }
-
-  .hover-glow {
-    @apply transition-all duration-300 hover:shadow-glow;
-  }
-
-  /* Modern badge system */
+  /* Badges — condensed mono, low-opacity green fill */
   .badge {
-    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-wide;
-    @apply transition-all duration-200 hover:scale-105;
+    @apply inline-flex items-center rounded px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-wider;
   }
-
   .badge-funding {
-    @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300;
+    @apply text-parrot border border-parrot/40;
+    background: rgb(0 230 0 / 0.08);
   }
-
   .badge-acquisition {
-    @apply bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300;
+    @apply text-secondary-foreground border border-white/15 bg-secondary/60;
   }
-
   .badge-ipo {
-    @apply bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300;
+    @apply text-sky-300 border border-sky-400/30;
+    background: rgb(56 189 248 / 0.08);
   }
-
   .badge-founder {
-    @apply bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300;
+    @apply text-amber border border-amber/40;
+    background: rgb(232 163 61 / 0.08);
   }
-  
-  /* Navigation styles */
+
   .nav-link {
-    @apply px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200;
-    @apply hover:bg-muted hover:text-foreground;
+    @apply px-4 py-2 text-sm font-medium rounded transition-all duration-200;
+    @apply hover:bg-secondary hover:text-foreground;
   }
-
   .nav-link-active {
-    @apply bg-accent text-accent-foreground shadow-sm;
+    @apply bg-secondary text-parrot;
   }
 
-  /* Enhanced header nav */
   .header-nav-link {
-    @apply text-white/90 hover:text-white transition-all duration-300 ease-in-out;
-    @apply flex items-center space-x-2 py-2 px-4 rounded-lg;
-    @apply hover:bg-white/10 hover:backdrop-blur-sm hover:scale-105;
+    @apply text-foreground/80 hover:text-parrot transition-colors duration-200;
+    @apply flex items-center space-x-2 py-2 px-4 rounded;
+    @apply hover:bg-white/5;
   }
 
-  /* Updated footer link styles */
   .footer-link {
-    @apply hover:text-accent transition-all duration-200 hover:translate-x-1 inline-block;
-  }
-  
-  .footer-link:hover {
-    @apply underline underline-offset-4 decoration-accent decoration-2;
-    transform: translateY(-1px);
+    @apply hover:text-parrot transition-colors duration-200 inline-block;
   }
 
-  /* Modern button system */
   .btn-primary {
-    @apply bg-primary text-primary-foreground hover:bg-primary/90;
-    @apply px-6 py-3 rounded-lg font-semibold transition-all duration-200;
-    @apply hover:shadow-lg hover:scale-105;
+    @apply bg-parrot text-black font-mono text-sm font-semibold uppercase tracking-wider;
+    @apply px-6 py-3 rounded transition-all duration-200 hover:shadow-glow hover:bg-parrot-300;
   }
 
   .btn-accent {
-    @apply bg-accent text-accent-foreground hover:bg-accent/90;
-    @apply px-6 py-3 rounded-lg font-semibold transition-all duration-200;
-    @apply hover:shadow-lg hover:scale-105;
+    @apply bg-parrot text-black font-semibold px-6 py-3 rounded transition-all duration-200 hover:shadow-glow;
   }
 
   .btn-outline {
-    @apply border-2 border-accent text-accent hover:bg-accent hover:text-accent-foreground;
-    @apply px-6 py-3 rounded-lg font-semibold transition-all duration-200;
-    @apply hover:shadow-lg hover:scale-105;
+    @apply border border-parrot text-parrot bg-transparent hover:bg-parrot/10;
+    @apply px-6 py-3 rounded font-mono text-sm font-semibold uppercase tracking-wider transition-all duration-200;
   }
 
-  /* Typography enhancements */
   .heading-hero {
-    @apply text-4xl md:text-6xl font-bold tracking-tight;
-    background: linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--accent)));
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    @apply font-display text-4xl md:text-6xl font-bold tracking-tight text-foreground;
   }
-  
+
   .heading-section {
-    @apply text-2xl md:text-3xl font-bold tracking-tight text-foreground;
+    @apply font-display text-2xl md:text-3xl font-bold tracking-tight text-foreground;
   }
-  
+
   .text-muted {
     @apply text-muted-foreground text-lg leading-relaxed;
   }
 
-  /* Geometric background elements */
-  .bg-geometric::before {
-    content: '';
-    @apply absolute inset-0 opacity-5;
-    background-image: 
-      radial-gradient(circle at 25% 25%, hsl(var(--accent)) 2px, transparent 2px),
-      radial-gradient(circle at 75% 75%, hsl(var(--primary)) 1px, transparent 1px);
-    background-size: 50px 50px, 30px 30px;
+  /* Live pulse dot for active feeds */
+  .pulse-dot {
+    @apply inline-block w-2 h-2 rounded-full bg-parrot;
+    animation: pulse-subtle 2s infinite ease-in-out;
+    box-shadow: 0 0 8px rgb(0 230 0 / 0.6);
   }
 
-  /* Scroll animations */
   .scroll-reveal {
     @apply opacity-0 translate-y-8 transition-all duration-700 ease-out;
   }
-  
   .scroll-reveal.revealed {
     @apply opacity-100 translate-y-0;
   }

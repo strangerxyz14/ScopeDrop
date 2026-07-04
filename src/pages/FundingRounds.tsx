@@ -23,16 +23,16 @@ interface CapitalEventRow {
   }> | null;
 }
 
-/** Stage → functional color. Parrot = early/new, oxford tints = growth stages. */
+/** Stage → functional color. Parrot = early stage, amber-tinted = growth stages. */
 const STAGE_STYLES: Record<string, string> = {
-  pre_seed: "text-parrot-600 border-parrot-300 bg-parrot-50",
-  seed: "text-parrot-700 border-parrot-400 bg-parrot-50",
-  series_a: "text-oxford-400 border-oxford-200 bg-oxford-50",
-  series_b: "text-oxford-500 border-oxford-300 bg-oxford-50",
-  series_c: "text-oxford-600 border-oxford-300 bg-oxford-100",
-  series_d_plus: "text-oxford-700 border-oxford-400 bg-oxford-100",
-  growth: "text-oxford-700 border-oxford-400 bg-oxford-100",
-  debt: "text-slate-600 border-slate-300 bg-slate-50",
+  pre_seed: "text-parrot-300 border-parrot/30 bg-parrot/10",
+  seed: "text-parrot-300 border-parrot/40 bg-parrot/10",
+  series_a: "text-foreground/80 border-white/15 bg-white/5",
+  series_b: "text-foreground/80 border-white/15 bg-white/5",
+  series_c: "text-amber-300 border-amber/30 bg-amber/10",
+  series_d_plus: "text-amber-300 border-amber/40 bg-amber/10",
+  growth: "text-amber-300 border-amber/40 bg-amber/10",
+  debt: "text-muted-foreground border-white/15 bg-white/5",
 };
 
 const FundingRounds = () => {
@@ -119,7 +119,7 @@ const FundingRounds = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-paper">
+    <div className="flex flex-col min-h-screen bg-background">
       <SEO
         title="Funding - ScopeDrop"
         description="Funding rounds, investor moves, and capital flows shaping the startup ecosystem."
@@ -128,15 +128,16 @@ const FundingRounds = () => {
 
       <Header />
 
-      <main className="flex-grow">
-        {/* Hero: no stock photos. Ink surface, mono eyebrow, display headline. */}
-        <div className="bg-ink text-paper py-14 border-b-4 border-parrot">
+      <main className="flex-grow pt-16">
+        {/* Hero: ink surface, mono eyebrow, display headline. */}
+        <div className="bg-ink text-foreground py-14 border-b border-white/10">
           <div className="container mx-auto px-4">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-parrot mb-3">
+            <p className="label-caps text-parrot mb-3 flex items-center gap-2">
+              <span className="pulse-dot" />
               Capital events · live feed
             </p>
-            <h1 className="font-display text-4xl md:text-5xl font-semibold mb-3">Funding</h1>
-            <p className="text-oxford-100 max-w-2xl">
+            <h1 className="font-display text-4xl md:text-5xl font-bold mb-3">Funding</h1>
+            <p className="text-muted-foreground max-w-2xl">
               Funding rounds, investor moves, and capital flows shaping the startup ecosystem.
             </p>
             {error && (
@@ -153,12 +154,12 @@ const FundingRounds = () => {
               {Array(8)
                 .fill(0)
                 .map((_, i) => (
-                  <Skeleton key={i} className="h-44 w-full rounded-lg" />
+                  <Skeleton key={i} className="h-44 w-full rounded-md bg-secondary" />
                 ))}
             </div>
           ) : (rounds ?? []).length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-lg border border-oxford-50">
-              <p className="font-display text-lg text-oxford">No funding rounds published yet.</p>
+            <div className="terminal-panel text-center py-16">
+              <p className="font-display text-lg text-foreground">No funding rounds published yet.</p>
               <p className="font-mono text-sm text-muted-foreground mt-2">
                 capital_events · event_type = 'funding'
               </p>
@@ -170,7 +171,7 @@ const FundingRounds = () => {
                 const stage = formatStage(row.round_type);
                 const stageStyle =
                   STAGE_STYLES[row.round_type ?? ""] ??
-                  "text-oxford-500 border-oxford-200 bg-oxford-50";
+                  "text-foreground/80 border-white/15 bg-white/5";
                 const amount = formatAmount(row.amount_usd);
                 const fillPct =
                   typeof row.amount_usd === "number" && row.amount_usd > 0
@@ -184,10 +185,10 @@ const FundingRounds = () => {
                 return (
                   <article
                     key={row.id}
-                    className="relative flex bg-white rounded-lg border border-oxford-50 overflow-hidden transition-shadow hover:shadow-md"
+                    className="insight-card relative flex"
                   >
                     {/* ── Signature: left-edge amount bar ── */}
-                    <div className="w-1.5 shrink-0 bg-oxford-50 relative" aria-hidden="true">
+                    <div className="w-1.5 shrink-0 bg-white/5 relative" aria-hidden="true">
                       {fillPct > 0 && (
                         <div
                           className="absolute bottom-0 left-0 right-0 bg-amber"
@@ -204,16 +205,16 @@ const FundingRounds = () => {
                             <img
                               src={row.entities.logo_url}
                               alt=""
-                              className="w-9 h-9 rounded-md object-contain bg-oxford-50 shrink-0"
+                              className="w-9 h-9 rounded-md object-contain bg-secondary shrink-0"
                               loading="lazy"
                             />
                           )}
-                          <h2 className="font-display text-lg font-semibold text-ink truncate">
+                          <h2 className="font-display text-lg font-semibold text-foreground truncate">
                             {company}
                           </h2>
                           {fresh && (
-                            <span className="flex items-center gap-1 shrink-0 font-mono text-[10px] uppercase tracking-wider text-parrot-700">
-                              <span className="w-1.5 h-1.5 rounded-full bg-parrot animate-pulse-subtle" />
+                            <span className="flex items-center gap-1 shrink-0 label-caps text-parrot">
+                              <span className="pulse-dot" />
                               New
                             </span>
                           )}
@@ -227,7 +228,7 @@ const FundingRounds = () => {
 
                       <div className="mt-2 flex items-baseline gap-3 font-mono text-sm">
                         {amount && (
-                          <span className="text-amber-deep text-xl font-semibold tabular-nums">
+                          <span className="text-amber text-xl font-semibold tabular-nums">
                             {amount}
                           </span>
                         )}
@@ -235,13 +236,13 @@ const FundingRounds = () => {
                       </div>
 
                       {investors.length > 0 && (
-                        <p className="mt-2 text-sm text-oxford-500">
+                        <p className="mt-2 text-sm text-foreground/70">
                           {investors.join(" · ")}
                         </p>
                       )}
 
                       {row.one_liner && (
-                        <p className="mt-2 text-sm text-gray-700 line-clamp-2">{row.one_liner}</p>
+                        <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{row.one_liner}</p>
                       )}
 
                       {typeof row.source_url === "string" && /^https?:\/\//i.test(row.source_url) && (
@@ -249,7 +250,7 @@ const FundingRounds = () => {
                           href={row.source_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="mt-3 inline-flex items-center font-mono text-xs text-oxford-400 hover:text-oxford-600 hover:underline"
+                          className="mt-3 inline-flex items-center font-mono text-xs text-muted-foreground hover:text-parrot hover:underline"
                         >
                           Source
                           <ExternalLink className="w-3 h-3 ml-1" />

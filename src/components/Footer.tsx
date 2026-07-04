@@ -12,22 +12,7 @@ const Footer = () => {
   const { showBackToTop } = useScroll(400);
   
   return (
-    <footer className="bg-oxford relative overflow-hidden">
-      {/* Background image with overlay */}
-      <div 
-        className="absolute inset-0 bg-oxford-500 opacity-10 z-0" 
-        style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1531297484001-80022131f5a1')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundBlendMode: 'multiply',
-          filter: 'blur(2px)'
-        }}
-      />
-      
-      {/* Content overlay */}
-      <div className="absolute inset-0 bg-oxford-500/90 z-0"></div>
-      
+    <footer className="bg-ink border-t border-white/10 relative overflow-hidden">
       {/* Back to top button */}
       <BackToTop visible={showBackToTop} />
       
