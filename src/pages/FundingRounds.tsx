@@ -9,21 +9,54 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ExternalLink } from "lucide-react";
 
+interface CapitalEventRow {
+  id: string;
+  round_type: string | null;
+  amount_usd: number | null;
+  valuation_usd: number | null;
+  announced_at: string;
+  one_liner: string;
+  source_url: string | null;
+  primary_entity_id: string;
+  entities: { name: string; logo_url: string | null; slug: string } | null;
+  capital_event_investors: Array<{
+    is_lead: boolean;
+    investor_entity_id: string;
+    investor: { name: string } | null;
+  }> | null;
+}
+
 const FundingRounds = () => {
   const { data: rounds, isLoading, error } = useQuery({
-    queryKey: ["funding_rounds"],
+    queryKey: ["capital_events", "funding"],
     queryFn: async () => {
       try {
         const { data, error } = await supabase
-          .from("funding_rounds" as any)
-          .select("*")
-          .order("announced_at" as any, { ascending: false })
+          .from("capital_events")
+          .select(`
+            id,
+            round_type,
+            amount_usd,
+            valuation_usd,
+            announced_at,
+            one_liner,
+            source_url,
+            primary_entity_id,
+            entities:primary_entity_id ( name, logo_url, slug ),
+            capital_event_investors (
+              is_lead,
+              investor_entity_id,
+              investor:investor_entity_id ( name )
+            )
+          `)
+          .eq("event_type", "funding")
+          .order("announced_at", { ascending: false })
           .limit(50);
         if (error) throw error;
-        return (data ?? []) as any[];
+        return (data ?? []) as unknown as CapitalEventRow[];
       } catch (e) {
-        console.warn("Supabase funding_rounds query failed (missing table or RLS).", e);
-        return [] as any[];
+        console.warn("Supabase capital_events query failed (missing table or RLS).", e);
+        return [] as CapitalEventRow[];
       }
     },
     staleTime: 60_000,
@@ -53,6 +86,14 @@ const FundingRounds = () => {
     } catch {
       return `$${Math.round(n).toLocaleString()}`;
     }
+  };
+
+  const formatStage = (roundType: string | null) => {
+    if (!roundType) return "Round";
+    return roundType
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
   };
 
   return (
@@ -101,33 +142,30 @@ const FundingRounds = () => {
             <div className="text-center py-12 bg-white rounded-lg shadow">
               <p className="text-gray-500">No funding rounds published yet.</p>
               <p className="text-sm text-muted-foreground mt-2">
-                Agents should publish into <code className="px-1">funding_rounds</code> in Supabase.
+                Agents should publish into <code className="px-1">capital_events</code> (event_type = 'funding') in Supabase.
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {(rounds ?? []).map((row, idx) => {
-                const company =
-                  row.company_name ?? row.company ?? row.startup ?? row.name ?? row.organization ?? "Unknown Company";
-                const stage = row.stage ?? row.round ?? row.series ?? row.funding_stage ?? "Round";
-                const amount =
-                  formatAmount(row.amount_usd ?? row.amount ?? row.raised_usd ?? row.money_raised_usd ?? row.size_usd) ??
-                  null;
-                const announcedAt = row.announced_at ?? row.date ?? row.published_at ?? row.created_at;
-                const sourceUrl = row.source_url ?? row.url ?? row.source ?? null;
-                const investors = row.investors ?? row.investor_names ?? row.lead_investors ?? null;
+              {(rounds ?? []).map((row) => {
+                const company = row.entities?.name ?? "Unknown Company";
+                const stage = formatStage(row.round_type);
+                const amount = formatAmount(row.amount_usd);
+                const investors = (row.capital_event_investors ?? [])
+                  .map((i) => i.investor?.name)
+                  .filter(Boolean);
 
                 return (
-                  <Card key={row.id ?? idx} className="overflow-hidden">
+                  <Card key={row.id} className="overflow-hidden">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between gap-3">
-                        <CardTitle className="text-lg">{String(company)}</CardTitle>
+                        <CardTitle className="text-lg">{company}</CardTitle>
                         <Badge variant="secondary" className="shrink-0">
-                          {String(stage)}
+                          {stage}
                         </Badge>
                       </div>
                       <CardDescription className="flex items-center gap-2">
-                        <span>{formatDate(String(announcedAt ?? ""))}</span>
+                        <span>{formatDate(row.announced_at)}</span>
                         {amount && (
                           <>
                             <span className="text-muted-foreground">·</span>
@@ -137,20 +175,19 @@ const FundingRounds = () => {
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      {investors && (
+                      {investors.length > 0 && (
                         <p className="text-sm text-muted-foreground">
-                          <span className="font-medium">Investors:</span>{" "}
-                          {Array.isArray(investors) ? investors.join(", ") : String(investors)}
+                          <span className="font-medium">Investors:</span> {investors.join(", ")}
                         </p>
                       )}
 
-                      {typeof row.summary === "string" && row.summary.trim().length > 0 && (
-                        <p className="text-sm text-gray-700 line-clamp-3">{row.summary}</p>
+                      {row.one_liner && (
+                        <p className="text-sm text-gray-700 line-clamp-3">{row.one_liner}</p>
                       )}
 
-                      {typeof sourceUrl === "string" && /^https?:\/\//i.test(sourceUrl) && (
+                      {typeof row.source_url === "string" && /^https?:\/\//i.test(row.source_url) && (
                         <a
-                          href={sourceUrl}
+                          href={row.source_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center text-sm text-oxford hover:underline"

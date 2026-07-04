@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       agent_logs: {
@@ -42,118 +67,346 @@ export type Database = {
           payload?: Json
           status?: string
         }
+        Relationships: []
+      }
+      articles: {
+        Row: {
+          category: string
+          content_html: string
+          created_at: string
+          headline: string
+          id: string
+          image_url: string | null
+          read_time_minutes: number | null
+          related_entity_ids: string[] | null
+          source_signal_id: string | null
+          status: string
+          subtype: string | null
+          summary: string
+          tags: string[] | null
+        }
+        Insert: {
+          category: string
+          content_html: string
+          created_at?: string
+          headline: string
+          id?: string
+          image_url?: string | null
+          read_time_minutes?: number | null
+          related_entity_ids?: string[] | null
+          source_signal_id?: string | null
+          status?: string
+          subtype?: string | null
+          summary: string
+          tags?: string[] | null
+        }
+        Update: {
+          category?: string
+          content_html?: string
+          created_at?: string
+          headline?: string
+          id?: string
+          image_url?: string | null
+          read_time_minutes?: number | null
+          related_entity_ids?: string[] | null
+          source_signal_id?: string | null
+          status?: string
+          subtype?: string | null
+          summary?: string
+          tags?: string[] | null
+        }
         Relationships: [
           {
-            foreignKeyName: "agent_logs_article_id_fkey"
-            columns: ["article_id"]
+            foreignKeyName: "articles_source_signal_id_fkey"
+            columns: ["source_signal_id"]
             isOneToOne: false
-            referencedRelation: "articles"
+            referencedRelation: "raw_signals"
             referencedColumns: ["id"]
           },
         ]
       }
-      articles: {
+      capital_event_investors: {
         Row: {
-          ai_analysis_metadata: Json
-          category: Database["public"]["Enums"]["business_category"]
-          content: string | null
-          content_html: string | null
-          created_at: string
-          description: string | null
-          id: string
-          image_url: string | null
-          published_at: string | null
-          slug: string
-          source_name: string | null
-          source_urls: Json
-          status: Database["public"]["Enums"]["article_status"]
-          summary: string | null
-          tags: string[] | null
-          title: string
-          updated_at: string
-          url: string | null
+          capital_event_id: string
+          investor_entity_id: string
+          is_lead: boolean
         }
         Insert: {
-          ai_analysis_metadata?: Json
-          category?: Database["public"]["Enums"]["business_category"]
-          content?: string | null
-          content_html?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          image_url?: string | null
-          published_at?: string | null
-          slug: string
-          source_name?: string | null
-          source_urls?: Json
-          status?: Database["public"]["Enums"]["article_status"]
-          summary?: string | null
-          tags?: string[] | null
-          title: string
-          updated_at?: string
-          url?: string | null
+          capital_event_id: string
+          investor_entity_id: string
+          is_lead?: boolean
         }
         Update: {
-          ai_analysis_metadata?: Json
-          category?: Database["public"]["Enums"]["business_category"]
-          content?: string | null
-          content_html?: string | null
+          capital_event_id?: string
+          investor_entity_id?: string
+          is_lead?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capital_event_investors_capital_event_id_fkey"
+            columns: ["capital_event_id"]
+            isOneToOne: false
+            referencedRelation: "capital_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capital_event_investors_investor_entity_id_fkey"
+            columns: ["investor_entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      capital_events: {
+        Row: {
+          amount_usd: number | null
+          announced_at: string
+          counterparty_entity_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          one_liner: string
+          primary_entity_id: string
+          round_type: string | null
+          source_url: string | null
+          valuation_usd: number | null
+        }
+        Insert: {
+          amount_usd?: number | null
+          announced_at: string
+          counterparty_entity_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          one_liner: string
+          primary_entity_id: string
+          round_type?: string | null
+          source_url?: string | null
+          valuation_usd?: number | null
+        }
+        Update: {
+          amount_usd?: number | null
+          announced_at?: string
+          counterparty_entity_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          one_liner?: string
+          primary_entity_id?: string
+          round_type?: string | null
+          source_url?: string | null
+          valuation_usd?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capital_events_counterparty_entity_id_fkey"
+            columns: ["counterparty_entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capital_events_primary_entity_id_fkey"
+            columns: ["primary_entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collections: {
+        Row: {
+          collection_type: string
+          created_at: string
+          description: string | null
+          entity_ids: string[] | null
+          generated_at: string | null
+          id: string
+          slug: string
+          title: string
+        }
+        Insert: {
+          collection_type: string
           created_at?: string
           description?: string | null
+          entity_ids?: string[] | null
+          generated_at?: string | null
           id?: string
-          image_url?: string | null
-          published_at?: string | null
+          slug: string
+          title: string
+        }
+        Update: {
+          collection_type?: string
+          created_at?: string
+          description?: string | null
+          entity_ids?: string[] | null
+          generated_at?: string | null
+          id?: string
           slug?: string
-          source_name?: string | null
-          source_urls?: Json
-          status?: Database["public"]["Enums"]["article_status"]
-          summary?: string | null
-          tags?: string[] | null
           title?: string
+        }
+        Relationships: []
+      }
+      entities: {
+        Row: {
+          created_at: string
+          description: string | null
+          employee_count_estimate: number | null
+          entity_type: string
+          founded_year: number | null
+          headquarters: string | null
+          id: string
+          last_funding_stage: string | null
+          logo_url: string | null
+          name: string
+          sector: string | null
+          slug: string
+          tags: string[] | null
+          total_funding_raised: number | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          employee_count_estimate?: number | null
+          entity_type: string
+          founded_year?: number | null
+          headquarters?: string | null
+          id?: string
+          last_funding_stage?: string | null
+          logo_url?: string | null
+          name: string
+          sector?: string | null
+          slug: string
+          tags?: string[] | null
+          total_funding_raised?: number | null
           updated_at?: string
-          url?: string | null
+          website?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          employee_count_estimate?: number | null
+          entity_type?: string
+          founded_year?: number | null
+          headquarters?: string | null
+          id?: string
+          last_funding_stage?: string | null
+          logo_url?: string | null
+          name?: string
+          sector?: string | null
+          slug?: string
+          tags?: string[] | null
+          total_funding_raised?: number | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      pipeline_stats: {
+        Row: {
+          articles_generated: number
+          date: string
+          last_updated: string
+          requests_made: number
+          tokens_used: number
+        }
+        Insert: {
+          articles_generated?: number
+          date?: string
+          last_updated?: string
+          requests_made?: number
+          tokens_used?: number
+        }
+        Update: {
+          articles_generated?: number
+          date?: string
+          last_updated?: string
+          requests_made?: number
+          tokens_used?: number
         }
         Relationships: []
       }
       raw_signals: {
         Row: {
-          category: Database["public"]["Enums"]["business_category"]
           created_at: string
-          headline: string
+          error_message: string | null
           id: string
-          payload: Json
-          scouted_at: string
-          signal_score: number
-          source_url: string
-          status: Database["public"]["Enums"]["article_status"]
-          summary: string | null
-          updated_at: string
+          image_url: string | null
+          processed_at: string | null
+          raw_content: string | null
+          source_name: string | null
+          source_url: string | null
+          status: string
+          title: string | null
         }
         Insert: {
-          category?: Database["public"]["Enums"]["business_category"]
           created_at?: string
-          headline: string
+          error_message?: string | null
           id?: string
-          payload?: Json
-          scouted_at?: string
-          signal_score?: number
-          source_url: string
-          status?: Database["public"]["Enums"]["article_status"]
-          summary?: string | null
-          updated_at?: string
+          image_url?: string | null
+          processed_at?: string | null
+          raw_content?: string | null
+          source_name?: string | null
+          source_url?: string | null
+          status?: string
+          title?: string | null
         }
         Update: {
-          category?: Database["public"]["Enums"]["business_category"]
           created_at?: string
-          headline?: string
+          error_message?: string | null
           id?: string
-          payload?: Json
-          scouted_at?: string
-          signal_score?: number
-          source_url?: string
-          status?: Database["public"]["Enums"]["article_status"]
-          summary?: string | null
-          updated_at?: string
+          image_url?: string | null
+          processed_at?: string | null
+          raw_content?: string | null
+          source_name?: string | null
+          source_url?: string | null
+          status?: string
+          title?: string | null
+        }
+        Relationships: []
+      }
+      scheduled_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          event_type: string
+          id: string
+          is_virtual: boolean
+          location: string | null
+          registration_url: string | null
+          source_url: string | null
+          starts_at: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          event_type: string
+          id?: string
+          is_virtual?: boolean
+          location?: string | null
+          registration_url?: string | null
+          source_url?: string | null
+          starts_at: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          event_type?: string
+          id?: string
+          is_virtual?: boolean
+          location?: string | null
+          registration_url?: string | null
+          source_url?: string | null
+          starts_at?: string
+          title?: string
         }
         Relationships: []
       }
@@ -187,11 +440,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_pipeline_stats_safe: {
+        Args: {
+          p_articles: number
+          p_date: string
+          p_requests: number
+          p_tokens: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
-      article_status: "scouted" | "analyzing" | "published" | "rejected"
-      business_category: "Startup" | "Tech" | "Business" | "Case Study"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -317,11 +577,12 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
-      article_status: ["scouted", "analyzing", "published", "rejected"],
-      business_category: ["Startup", "Tech", "Business", "Case Study"],
     },
   },
 } as const
