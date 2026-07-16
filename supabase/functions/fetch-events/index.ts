@@ -10,7 +10,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 function getCorsHeaders(origin: string | null): HeadersInit {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith('.lovable.app') || origin.endsWith('.netlify.app'))
+  const allowedOrigin = origin && ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith('.lovable.app') || origin.endsWith('.netlify.app') || origin.endsWith('.pages.dev'))
     ? origin
     : ALLOWED_ORIGINS[0];
 

@@ -13,7 +13,7 @@ const ALLOWED_ORIGINS = [
 
 function getCorsHeaders(origin: string | null): HeadersInit {
   const allowedOrigin =
-    origin && (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.netlify.app') || origin.endsWith('.lovable.app'))
+    origin && (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.netlify.app') || origin.endsWith('.lovable.app') || origin.endsWith('.pages.dev'))
       ? origin
       : ALLOWED_ORIGINS[0];
   return {
