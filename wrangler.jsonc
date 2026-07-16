@@ -1,0 +1,12 @@
+{
+  // Static-assets deployment for the Vite SPA on Cloudflare Workers Builds.
+  // An explicit config stops wrangler from trying to auto-apply the Cloudflare
+  // Vite plugin (which requires Vite >= 6); instead it serves the built dist/
+  // directory as static assets with SPA fallback routing.
+  "name": "scopedrop",
+  "compatibility_date": "2024-11-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
