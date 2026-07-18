@@ -77,6 +77,8 @@ export type Database = {
           headline: string
           id: string
           image_url: string | null
+          is_flagship: boolean
+          published_at: string | null
           read_time_minutes: number | null
           related_entity_ids: string[] | null
           source_signal_id: string | null
@@ -92,6 +94,8 @@ export type Database = {
           headline: string
           id?: string
           image_url?: string | null
+          is_flagship?: boolean
+          published_at?: string | null
           read_time_minutes?: number | null
           related_entity_ids?: string[] | null
           source_signal_id?: string | null
@@ -107,6 +111,8 @@ export type Database = {
           headline?: string
           id?: string
           image_url?: string | null
+          is_flagship?: boolean
+          published_at?: string | null
           read_time_minutes?: number | null
           related_entity_ids?: string[] | null
           source_signal_id?: string | null
@@ -370,6 +376,7 @@ export type Database = {
       }
       scheduled_events: {
         Row: {
+          city: string | null
           created_at: string
           description: string | null
           ends_at: string | null
@@ -377,12 +384,14 @@ export type Database = {
           id: string
           is_virtual: boolean
           location: string | null
+          region: string | null
           registration_url: string | null
           source_url: string | null
           starts_at: string
           title: string
         }
         Insert: {
+          city?: string | null
           created_at?: string
           description?: string | null
           ends_at?: string | null
@@ -390,12 +399,14 @@ export type Database = {
           id?: string
           is_virtual?: boolean
           location?: string | null
+          region?: string | null
           registration_url?: string | null
           source_url?: string | null
           starts_at: string
           title: string
         }
         Update: {
+          city?: string | null
           created_at?: string
           description?: string | null
           ends_at?: string | null
@@ -403,10 +414,104 @@ export type Database = {
           id?: string
           is_virtual?: boolean
           location?: string | null
+          region?: string | null
           registration_url?: string | null
           source_url?: string | null
           starts_at?: string
           title?: string
+        }
+        Relationships: []
+      }
+      glossary_terms: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          long_definition: string | null
+          related_terms: string[] | null
+          short_definition: string
+          slug: string
+          term: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          long_definition?: string | null
+          related_terms?: string[] | null
+          short_definition: string
+          slug: string
+          term: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          long_definition?: string | null
+          related_terms?: string[] | null
+          short_definition?: string
+          slug?: string
+          term?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      learning_tracks: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          slug: string
+          steps: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          slug: string
+          steps?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          slug?: string
+          steps?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subscribers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          source?: string | null
         }
         Relationships: []
       }
