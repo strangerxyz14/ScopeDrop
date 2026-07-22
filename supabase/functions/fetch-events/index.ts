@@ -3,13 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireSupabaseJwt } from "../_shared/auth.ts";
 
 const ALLOWED_ORIGINS = [
-  'https://scopedrop.lovable.app',
-  'https://id-preview--4acd3d99-4555-4448-bee8-897d547c57c0.lovable.app',
   ...(Deno.env.get('ENVIRONMENT') === 'development' ? ['http://localhost:5173', 'http://localhost:8080'] : [])
 ];
 
 function getCorsHeaders(origin: string | null): HeadersInit {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith('.lovable.app') || origin.endsWith('.pages.dev') || origin.endsWith('.workers.dev'))
+  const allowedOrigin = origin && ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith('.pages.dev') || origin.endsWith('.workers.dev'))
     ? origin
     : ALLOWED_ORIGINS[0];
 

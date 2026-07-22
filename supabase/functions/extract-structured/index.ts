@@ -2,8 +2,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ALLOWED_ORIGINS = [
-  "https://scopedrop.lovable.app",
-  "https://id-preview--4acd3d99-4555-4448-bee8-897d547c57c0.lovable.app",
   ...(Deno.env.get("ENVIRONMENT") === "development"
     ? ["http://localhost:5173", "http://localhost:8080"]
     : []),
@@ -11,7 +9,7 @@ const ALLOWED_ORIGINS = [
 
 function getCorsHeaders(origin: string | null): HeadersInit {
   const allowedOrigin =
-    origin && (ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".lovable.app") || origin.endsWith(".pages.dev") || origin.endsWith(".workers.dev"))
+    origin && (ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".pages.dev") || origin.endsWith(".workers.dev"))
       ? origin
       : ALLOWED_ORIGINS[0];
   return {
