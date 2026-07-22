@@ -7,9 +7,10 @@ const ALLOWED_ORIGINS = [
 ];
 
 function getCorsHeaders(origin: string | null): HeadersInit {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith('.pages.dev') || origin.endsWith('.workers.dev'))
-    ? origin
-    : ALLOWED_ORIGINS[0];
+  const allowedOrigin =
+    origin && (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.pages.dev') || origin.endsWith('.workers.dev'))
+      ? origin
+      : ALLOWED_ORIGINS[0];
 
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
