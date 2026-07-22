@@ -5,12 +5,11 @@ import { requireSupabaseJwt } from "../_shared/auth.ts";
 const ALLOWED_ORIGINS = [
   'https://scopedrop.lovable.app',
   'https://id-preview--4acd3d99-4555-4448-bee8-897d547c57c0.lovable.app',
-  'https://agent-6a47384977e453278e9969ee--scopedrop.netlify.app',
   ...(Deno.env.get('ENVIRONMENT') === 'development' ? ['http://localhost:5173', 'http://localhost:8080'] : [])
 ];
 
 function getCorsHeaders(origin: string | null): HeadersInit {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith('.lovable.app') || origin.endsWith('.netlify.app') || origin.endsWith('.pages.dev') || origin.endsWith('.workers.dev'))
+  const allowedOrigin = origin && ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith('.lovable.app') || origin.endsWith('.pages.dev') || origin.endsWith('.workers.dev'))
     ? origin
     : ALLOWED_ORIGINS[0];
 

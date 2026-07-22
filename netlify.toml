@@ -1,8 +1,0 @@
-# SPA fallback for Netlify. Relocated from public/_redirects, which was removed
-# because Cloudflare Workers Assets rejects the `/* /index.html 200` rule as an
-# infinite loop. Netlify behaviour is unchanged; Cloudflare handles the SPA
-# fallback via not_found_handling in wrangler.jsonc.
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
