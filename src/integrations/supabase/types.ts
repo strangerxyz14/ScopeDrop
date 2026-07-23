@@ -382,10 +382,14 @@ export type Database = {
           ends_at: string | null
           event_type: string
           id: string
+          image_url: string | null
           is_virtual: boolean
           location: string | null
           region: string | null
           registration_url: string | null
+          slug: string | null
+          source: string | null
+          source_id: string | null
           source_url: string | null
           starts_at: string
           title: string
@@ -397,10 +401,14 @@ export type Database = {
           ends_at?: string | null
           event_type: string
           id?: string
+          image_url?: string | null
           is_virtual?: boolean
           location?: string | null
           region?: string | null
           registration_url?: string | null
+          slug?: string | null
+          source?: string | null
+          source_id?: string | null
           source_url?: string | null
           starts_at: string
           title: string
@@ -412,10 +420,14 @@ export type Database = {
           ends_at?: string | null
           event_type?: string
           id?: string
+          image_url?: string | null
           is_virtual?: boolean
           location?: string | null
           region?: string | null
           registration_url?: string | null
+          slug?: string | null
+          source?: string | null
+          source_id?: string | null
           source_url?: string | null
           starts_at?: string
           title?: string

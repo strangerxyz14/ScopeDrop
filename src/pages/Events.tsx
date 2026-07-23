@@ -1,174 +1,234 @@
-
-import React, { useState } from "react";
-import { Header } from "@/components/Header/Header";
-import Footer from "@/components/Footer";
-import EventsCarousel from "@/components/EventsCarousel";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { MapPin, Calendar, TrendingUp, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import SEO from "@/components/SEO";
+import { SiteHeader } from "@/components/home/SiteHeader";
+import { SiteFooter } from "@/components/home/SiteFooter";
+import { BackToTop } from "@/components/home/BackToTop";
+import { supabase } from "@/integrations/supabase/client";
+import { GEO_TABS, type ScheduledEventRow } from "@/hooks/home/useUpcomingEvents";
+import { formatEventDate } from "@/components/home/utils";
+import "@/components/home/theme.css";
+
+const warmedGeos = new Set<string>();
+
+async function warmGeo(geoKey: string) {
+  if (warmedGeos.has(geoKey)) return;
+  const tab = GEO_TABS.find((t) => t.key === geoKey);
+  if (!tab || !tab.warmCity) return;
+  warmedGeos.add(geoKey);
+  try {
+    await supabase.functions.invoke("fetch-events", {
+      body: { city: tab.warmCity, region: tab.warmRegion ?? null },
+    });
+  } catch (err) {
+    console.warn(`fetch-events warm failed for ${geoKey}:`, err);
+    warmedGeos.delete(geoKey);
+  }
+}
+
+async function fetchEvents(geoKey: string): Promise<ScheduledEventRow[]> {
+  const tab = GEO_TABS.find((t) => t.key === geoKey) ?? GEO_TABS[GEO_TABS.length - 1];
+  const nowIso = new Date().toISOString();
+  let q = supabase
+    .from("scheduled_events")
+    .select("*")
+    .gte("starts_at", nowIso)
+    .order("starts_at", { ascending: true })
+    .limit(60);
+
+  if (tab.key !== "global") {
+    const orParts: string[] = [];
+    for (const c of tab.matchCities ?? []) orParts.push(`city.ilike.${c}`);
+    for (const r of tab.matchRegions ?? []) orParts.push(`region.ilike.${r}`);
+    if (orParts.length > 0) q = q.or(orParts.join(","));
+  }
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ?? [];
+}
 
 const Events = () => {
-  const [userLocation, setUserLocation] = useState("San Francisco");
+  const [geoKey, setGeoKey] = useState<string>("global");
+  const [rows, setRows] = useState<ScheduledEventRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Popular tech hubs for quick selection
-  const techHubs = [
-    "San Francisco",
-    "New York",
-    "London",
-    "Berlin",
-    "Singapore",
-    "Austin",
-    "Seattle",
-    "Boston"
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    (async () => {
+      // Warm in parallel with the read; refetch when warm completes.
+      const warm = warmGeo(geoKey);
+      try {
+        const initial = await fetchEvents(geoKey);
+        if (!cancelled) setRows(initial);
+      } catch (e) {
+        if (!cancelled) setError(String(e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+
+      await warm;
+      if (cancelled) return;
+      try {
+        const refreshed = await fetchEvents(geoKey);
+        if (!cancelled) setRows(refreshed);
+      } catch {
+        // ignore secondary refresh failures — user already has initial data
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [geoKey]);
 
   return (
-    <>
+    <div className="sdvg">
       <SEO
-        title="Demo Days & Startup Events - ScopeDrop"
-        description="Discover upcoming demo days, hackathons, conferences, and startup events in your area. Never miss important networking opportunities."
-        keywords={["demo day", "startup events", "tech conferences", "hackathons", "networking events"]}
+        title="Events — ScopeDrop"
+        description="Upcoming demo days, conferences, and startup meetups near you."
+        keywords={["startup events", "demo days", "founder meetups"]}
       />
-      
-      <div className="flex flex-col min-h-screen">
-        <Header />
-        
-        <main className="flex-grow bg-background pt-16">
-          <div className="container mx-auto px-4 py-8">
-            {/* Hero Section */}
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 border border-parrot/30 bg-parrot/10">
-                <Calendar className="w-8 h-8 text-parrot" />
-              </div>
-              <h1 className="font-display text-4xl font-bold text-foreground mb-4">Demo Days & Startup Events</h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                AI-powered event discovery for startup founders, investors, and tech enthusiasts.
-                Never miss the next big demo day or networking opportunity.
-              </p>
-            </div>
-
-            {/* Location Selector */}
-            <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-secondary/60">
-                <MapPin className="w-4 h-4 text-parrot" />
-                <span className="text-sm font-medium text-foreground">Current Location:</span>
-                <select
-                  value={userLocation}
-                  onChange={(e) => setUserLocation(e.target.value)}
-                  className="bg-transparent border-none focus:outline-none font-semibold text-parrot"
-                >
-                  {techHubs.map(city => (
-                    <option key={city} value={city} className="bg-oxford text-foreground">{city}</option>
-                  ))}
-                </select>
-              </div>
-              <Button variant="outline" size="sm" className="border-white/15 text-foreground hover:bg-white/5 bg-transparent">
-                Use My Location
-              </Button>
-            </div>
-
-            {/* Featured Section - Demo Days */}
-            <div className="mb-12">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <Sparkles className="w-6 h-6 text-amber" />
-                  <h2 className="font-display text-2xl font-bold text-foreground">Featured Demo Days</h2>
-                </div>
-                <Button variant="ghost" size="sm" className="text-parrot hover:bg-white/5">View All</Button>
-              </div>
-              <EventsCarousel
-                location={userLocation}
-                category="demo-day"
-                autoScroll={true}
-                scrollSpeed={40}
-              />
-            </div>
-
-            {/* Tabs for Different Event Types */}
-            <Tabs defaultValue="all" className="space-y-8">
-              <TabsList className="grid w-full grid-cols-5 bg-secondary/60 border border-white/10">
-                <TabsTrigger value="all">All Events</TabsTrigger>
-                <TabsTrigger value="hackathons">Hackathons</TabsTrigger>
-                <TabsTrigger value="conferences">Conferences</TabsTrigger>
-                <TabsTrigger value="meetups">Meetups</TabsTrigger>
-                <TabsTrigger value="online">Online</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="all" className="space-y-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <TrendingUp className="w-5 h-5 text-parrot" />
-                  <h3 className="text-lg font-semibold text-foreground">Trending in {userLocation}</h3>
-                </div>
-                <EventsCarousel
-                  location={userLocation}
-                  autoScroll={true}
-                  scrollSpeed={30}
-                />
-              </TabsContent>
-
-              <TabsContent value="hackathons">
-                <EventsCarousel
-                  location={userLocation}
-                  category="hackathon"
-                  autoScroll={true}
-                  scrollSpeed={30}
-                />
-              </TabsContent>
-
-              <TabsContent value="conferences">
-                <EventsCarousel
-                  location={userLocation}
-                  category="conference"
-                  autoScroll={true}
-                  scrollSpeed={30}
-                />
-              </TabsContent>
-
-              <TabsContent value="meetups">
-                <EventsCarousel
-                  location={userLocation}
-                  category="meetup"
-                  autoScroll={true}
-                  scrollSpeed={30}
-                />
-              </TabsContent>
-
-              <TabsContent value="online">
-                <Card className="insight-card p-6">
-                  <CardContent className="text-center">
-                    <p className="text-muted-foreground">Online events from all locations coming soon!</p>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-
-            {/* Stats Section */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12">
-              <Card className="insight-card p-4 text-center">
-                <div className="font-mono text-2xl font-bold text-parrot">50+</div>
-                <div className="text-sm text-muted-foreground">Events This Week</div>
-              </Card>
-              <Card className="insight-card p-4 text-center">
-                <div className="font-mono text-2xl font-bold text-parrot">15</div>
-                <div className="text-sm text-muted-foreground">Demo Days</div>
-              </Card>
-              <Card className="insight-card p-4 text-center">
-                <div className="font-mono text-2xl font-bold text-parrot">8</div>
-                <div className="text-sm text-muted-foreground">Cities Covered</div>
-              </Card>
-              <Card className="insight-card p-4 text-center">
-                <div className="font-mono text-2xl font-bold text-amber">24/7</div>
-                <div className="text-sm text-muted-foreground">Auto Updates</div>
-              </Card>
+      <SiteHeader />
+      <main>
+        <div className="masthead">
+          <div className="wrap mh">
+            <div className="l">
+              <span>EVENTS · WHAT'S HAPPENING</span>
             </div>
           </div>
-        </main>
-        
-        <Footer />
-      </div>
-    </>
+        </div>
+
+        <section className="ev-sec">
+          <div className="wrap">
+            <div className="sec-h">
+              <h3>
+                Upcoming events
+                <span className="geo" role="tablist" aria-label="Filter events by city">
+                  {GEO_TABS.map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={t.key === geoKey}
+                      className={t.key === geoKey ? "on" : ""}
+                      onClick={() => setGeoKey(t.key)}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </span>
+              </h3>
+              <Link className="more" to="/">
+                ← Back home
+              </Link>
+            </div>
+
+            {loading && (!rows || rows.length === 0) ? (
+              <div className="ev-grid" aria-busy="true">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="ev">
+                    <div className="sd-skel" style={{ height: 60 }}></div>
+                  </div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className="sd-empty">
+                <span className="k">Something went wrong</span>
+                <p>{error}</p>
+              </div>
+            ) : rows && rows.length === 0 ? (
+              <div className="sd-empty">
+                <span className="k">
+                  No upcoming events {geoKey !== "global" ? `in ${GEO_TABS.find((t) => t.key === geoKey)?.label}` : "tracked"}
+                </span>
+                <p>
+                  {geoKey !== "global" ? (
+                    <>
+                      Try{" "}
+                      <button
+                        type="button"
+                        onClick={() => setGeoKey("global")}
+                        style={{
+                          color: "var(--parrot)",
+                          background: "transparent",
+                          border: 0,
+                          cursor: "pointer",
+                          font: "inherit",
+                        }}
+                      >
+                        Global
+                      </button>
+                      , or submit an event.
+                    </>
+                  ) : (
+                    <>Events populate as they're added.</>
+                  )}
+                </p>
+              </div>
+            ) : (
+              <div className="ev-grid">
+                {(rows ?? []).map((e) => {
+                  const parts = [e.city, e.location, e.is_virtual ? "VIRTUAL" : "IN-PERSON"]
+                    .filter(Boolean)
+                    .join(" · ")
+                    .toUpperCase();
+                  const content = (
+                    <>
+                      <div className="d">{formatEventDate(e.starts_at)}</div>
+                      <h4>{e.title}</h4>
+                      {parts && <div className="loc">{parts}</div>}
+                      {e.description && (
+                        <p
+                          style={{
+                            color: "var(--fg-mute)",
+                            fontSize: 13,
+                            marginTop: 10,
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {e.description.length > 180
+                            ? e.description.slice(0, 180) + "…"
+                            : e.description}
+                        </p>
+                      )}
+                    </>
+                  );
+                  if (e.registration_url) {
+                    return (
+                      <a
+                        key={e.id}
+                        className="ev"
+                        href={e.registration_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {content}
+                      </a>
+                    );
+                  }
+                  return (
+                    <div key={e.id} className="ev" style={{ cursor: "default" }}>
+                      {content}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="ev-note">
+              EVENTS SOURCED FROM EVENTBRITE AND PREDICTHQ. TAB CHANGES TRIGGER A FRESH PULL.
+            </div>
+          </div>
+        </section>
+      </main>
+      <SiteFooter />
+      <BackToTop />
+    </div>
   );
 };
 

@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireSupabaseJwt } from "../_shared/auth.ts";
 
 const ALLOWED_ORIGINS = [
-  ...(Deno.env.get('ENVIRONMENT') === 'development' ? ['http://localhost:5173', 'http://localhost:8080'] : [])
+  'http://localhost:5173',
+  'http://localhost:8080',
 ];
 
 function getCorsHeaders(origin: string | null): HeadersInit {
@@ -18,432 +19,209 @@ function getCorsHeaders(origin: string | null): HeadersInit {
   };
 }
 
-interface EventSource {
-  name: string
-  apiKey?: string
-  endpoint: string
-  rateLimit: number
+const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey || supabaseAnonKey);
+
+/** Canonical event shape as returned by this function and written to scheduled_events. */
+interface NormalizedEvent {
+  slug: string;
+  source: 'eventbrite' | 'predicthq';
+  source_id: string;
+  title: string;
+  description: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  city: string | null;
+  region: string | null;
+  is_virtual: boolean;
+  location: string | null;
+  registration_url: string | null;
+  image_url: string | null;
+  event_type: 'demo_day' | 'conference' | 'pitch_competition';
 }
 
-// Configuration for different event sources
-const EVENT_SOURCES: EventSource[] = [
-  {
-    name: 'eventbrite',
-    apiKey: Deno.env.get('EVENTBRITE_API_KEY'),
-    endpoint: 'https://www.eventbriteapi.com/v3/events/search/',
-    rateLimit: 1000 // per hour
-  },
-  {
-    name: 'predicthq',
-    apiKey: Deno.env.get('PREDICT_HQ_API_KEY') ?? Deno.env.get('PREDICTHQ_API_KEY'),
-    endpoint: 'https://api.predicthq.com/v1/events/',
-    rateLimit: 100 // per day
-  },
-  {
-    name: 'serpapi',
-    apiKey: Deno.env.get('SERPAPI_KEY'),
-    endpoint: 'https://serpapi.com/search',
-    rateLimit: 100 // per month
-  }
-]
+const INDIAN_CITY_HINTS = new Set([
+  'delhi', 'new delhi', 'gurugram', 'gurgaon', 'noida', 'faridabad', 'ghaziabad',
+  'bengaluru', 'bangalore', 'mumbai', 'hyderabad', 'chennai', 'pune', 'kolkata',
+]);
 
-// Initialize Supabase client
-const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+function buildLocationString(city: string | null | undefined): string {
+  if (!city) return 'San Francisco';
+  const lower = city.toLowerCase();
+  if (INDIAN_CITY_HINTS.has(lower)) return `${city}, India`;
+  return city;
+}
 
-// Fetch from Eventbrite
-async function fetchEventbriteEvents(location: string, category: string = 'technology') {
-  const apiKey = Deno.env.get('EVENTBRITE_API_KEY')
-  
-  if (!apiKey) {
-    console.log('Eventbrite API key not found, returning mock data')
-    return getMockEventbriteData(location)
-  }
+/** Map external category strings to our allowed enum. */
+function mapEventType(category?: string, title?: string): NormalizedEvent['event_type'] {
+  const c = (category || '').toLowerCase();
+  const t = (title || '').toLowerCase();
+  if (c === 'demo-day' || t.includes('demo day')) return 'demo_day';
+  if (c === 'pitch' || t.includes('pitch') || t.includes('competition')) return 'pitch_competition';
+  return 'conference';
+}
 
+async function fetchEventbrite(location: string): Promise<NormalizedEvent[]> {
+  const apiKey = Deno.env.get('EVENTBRITE_API_KEY');
+  if (!apiKey) return [];
   try {
-    const response = await fetch(
-      `https://www.eventbriteapi.com/v3/events/search/?location.address=${location}&location.within=50km&categories=102&expand=venue,organizer&sort_by=date`,
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-        }
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error(`Eventbrite API error: ${response.status}`)
+    const url = `https://www.eventbriteapi.com/v3/events/search/?location.address=${encodeURIComponent(location)}&location.within=50km&categories=102&expand=venue,organizer&sort_by=date`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+    if (!res.ok) {
+      console.error('Eventbrite non-ok:', res.status);
+      return [];
     }
-
-    const data = await response.json()
-    return transformEventbriteData(data.events || [])
-  } catch (error) {
-    console.error('Eventbrite fetch error:', error)
-    return getMockEventbriteData(location)
+    const data = await res.json();
+    const events = (data.events ?? []) as any[];
+    return events.map((e) => ({
+      slug: `eventbrite_${e.id}`,
+      source: 'eventbrite' as const,
+      source_id: String(e.id),
+      title: e.name?.text || 'Untitled Event',
+      description: e.description?.text ?? e.summary ?? null,
+      starts_at: e.start?.utc ?? e.start?.local ?? new Date().toISOString(),
+      ends_at: e.end?.utc ?? e.end?.local ?? null,
+      city: e.venue?.address?.city ?? null,
+      region: null,
+      is_virtual: !!e.online_event,
+      location: e.venue?.address?.localized_address_display ?? e.venue?.name ?? null,
+      registration_url: e.url ?? null,
+      image_url: e.logo?.url ?? null,
+      event_type: mapEventType(undefined, e.name?.text),
+    }));
+  } catch (err) {
+    console.error('Eventbrite fetch error:', err);
+    return [];
   }
 }
 
-// Fetch from PredictHQ
-async function fetchPredictHQEvents(location: string) {
-  const apiKey = Deno.env.get('PREDICT_HQ_API_KEY') ?? Deno.env.get('PREDICTHQ_API_KEY')
-  
-  if (!apiKey) {
-    return getMockPredictHQData(location)
-  }
-
+async function fetchPredictHQ(location: string): Promise<NormalizedEvent[]> {
+  const apiKey = Deno.env.get('PREDICT_HQ_API_KEY') ?? Deno.env.get('PREDICTHQ_API_KEY');
+  if (!apiKey) return [];
   try {
-    const response = await fetch(
-      `https://api.predicthq.com/v1/events/?category=conferences,expos,community&location_around.origin=${location}&location_around.offset=50km`,
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Accept': 'application/json'
-        }
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error(`PredictHQ API error: ${response.status}`)
+    const url = `https://api.predicthq.com/v1/events/?category=conferences,expos,community&q=${encodeURIComponent(location)}&limit=30`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' } });
+    if (!res.ok) {
+      console.error('PredictHQ non-ok:', res.status);
+      return [];
     }
-
-    const data = await response.json()
-    return transformPredictHQData(data.results || [])
-  } catch (error) {
-    console.error('PredictHQ fetch error:', error)
-    return getMockPredictHQData(location)
+    const data = await res.json();
+    const events = (data.results ?? []) as any[];
+    return events.map((e) => ({
+      slug: `predicthq_${e.id}`,
+      source: 'predicthq' as const,
+      source_id: String(e.id),
+      title: e.title ?? 'Untitled Event',
+      description: e.description ?? null,
+      starts_at: e.start ?? new Date().toISOString(),
+      ends_at: e.end ?? null,
+      city: e.place_hierarchies?.[0]?.[1] ?? null,
+      region: null,
+      is_virtual: false,
+      location: Array.isArray(e.location) ? null : (e.entities?.find((x: any) => x.type === 'venue')?.name ?? null),
+      registration_url: e.predicted_event_url ?? null,
+      image_url: null,
+      event_type: mapEventType(e.category, e.title),
+    }));
+  } catch (err) {
+    console.error('PredictHQ fetch error:', err);
+    return [];
   }
 }
 
-// Transform Eventbrite data to our format
-function transformEventbriteData(events: any[]) {
-  return events.map((event: any) => ({
-    id: `eventbrite_${event.id}`,
-    title: event.name?.text || 'Untitled Event',
-    description: event.description?.text || event.summary || '',
-    date: event.start?.local || new Date().toISOString(),
-    endDate: event.end?.local,
-    location: {
-      venue: event.venue?.name || 'TBA',
-      address: event.venue?.address?.localized_address_display || '',
-      city: event.venue?.address?.city || '',
-      country: event.venue?.address?.country || '',
-      isOnline: event.online_event || false,
-      coordinates: event.venue ? {
-        lat: parseFloat(event.venue.latitude),
-        lng: parseFloat(event.venue.longitude)
-      } : null
-    },
-    organizer: event.organizer?.name || 'Unknown',
-    imageUrl: event.logo?.url,
-    registrationUrl: event.url,
-    price: {
-      amount: event.is_free ? 0 : (event.ticket_availability?.minimum_ticket_price?.value || 0),
-      currency: event.currency || 'USD',
-      isFree: event.is_free || false
-    },
-    category: detectCategory(event.name?.text, event.description?.text),
-    tags: extractTags(event.name?.text + ' ' + (event.description?.text || '')),
-    source: 'eventbrite',
-    relevanceScore: calculateRelevance(event),
-    fetchedAt: new Date().toISOString()
-  }))
+async function upsertEvents(events: NormalizedEvent[], overrideCity: string | null, overrideRegion: string | null) {
+  if (events.length === 0) return { inserted: 0, updated: 0 };
+  // Force city + region on all inserted rows so tab filtering works cleanly.
+  const rows = events.map((e) => ({
+    ...e,
+    city: overrideCity ?? e.city,
+    region: overrideRegion ?? e.region,
+  }));
+  const { data, error } = await supabase
+    .from('scheduled_events')
+    .upsert(rows, { onConflict: 'slug', ignoreDuplicates: false })
+    .select('id, slug');
+  if (error) {
+    console.error('upsert error:', error);
+    return { inserted: 0, updated: 0, error: error.message };
+  }
+  return { inserted: data?.length ?? 0, updated: 0 };
 }
 
-// Transform PredictHQ data
-function transformPredictHQData(events: any[]) {
-  return events.map((event: any) => ({
-    id: `predicthq_${event.id}`,
-    title: event.title,
-    description: event.description || '',
-    date: event.start,
-    endDate: event.end,
-    location: {
-      venue: event.entities?.find((e: any) => e.type === 'venue')?.name || 'TBA',
-      address: event.location?.join(', ') || '',
-      city: event.place_hierarchies?.[0]?.[1] || '',
-      country: event.country || '',
-      isOnline: false,
-      coordinates: event.location ? {
-        lat: event.location[1],
-        lng: event.location[0]
-      } : null
-    },
-    organizer: event.entities?.find((e: any) => e.type === 'organizer')?.name || 'Unknown',
-    imageUrl: null,
-    registrationUrl: event.predicted_event_url || '',
-    price: {
-      amount: 0,
-      currency: 'USD',
-      isFree: true
-    },
-    category: event.category,
-    tags: event.labels || [],
-    source: 'predicthq',
-    relevanceScore: event.rank || 50,
-    fetchedAt: new Date().toISOString()
-  }))
-}
-
-// Detect event category
-function detectCategory(title: string = '', description: string = '') {
-  const text = (title + ' ' + description).toLowerCase()
-  
-  if (text.includes('demo day') || text.includes('pitch')) return 'demo-day'
-  if (text.includes('hackathon')) return 'hackathon'
-  if (text.includes('conference') || text.includes('summit')) return 'conference'
-  if (text.includes('workshop')) return 'workshop'
-  if (text.includes('meetup')) return 'meetup'
-  if (text.includes('webinar')) return 'webinar'
-  
-  return 'general'
-}
-
-// Extract relevant tags
-function extractTags(text: string): string[] {
-  const keywords = [
-    'ai', 'ml', 'blockchain', 'web3', 'startup', 'fintech', 
-    'saas', 'cloud', 'devops', 'product', 'design', 'growth',
-    'venture', 'funding', 'pitch', 'demo', 'networking'
-  ]
-  
-  const foundTags = keywords.filter(keyword => 
-    text.toLowerCase().includes(keyword)
-  )
-  
-  return [...new Set(foundTags)]
-}
-
-// Calculate relevance score
-function calculateRelevance(event: any): number {
-  let score = 50
-  
-  // Boost for certain keywords
-  const title = (event.name?.text || '').toLowerCase()
-  if (title.includes('demo day')) score += 30
-  if (title.includes('yc') || title.includes('y combinator')) score += 25
-  if (title.includes('pitch')) score += 20
-  if (title.includes('startup')) score += 15
-  if (title.includes('ai') || title.includes('artificial intelligence')) score += 15
-  
-  // Boost for free events
-  if (event.is_free) score += 10
-  
-  // Boost for online events (more accessible)
-  if (event.online_event) score += 5
-  
-  return Math.min(100, score)
-}
-
-// Mock data generators
-function getMockEventbriteData(location: string) {
-  return [
-    {
-      id: 'mock_eb_1',
-      title: 'Y Combinator Demo Day - Winter 2025',
-      description: 'Watch 200+ startups present to top investors',
-      date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      location: {
-        venue: 'YC Headquarters',
-        address: '335 Pioneer Way',
-        city: 'Mountain View',
-        country: 'USA',
-        isOnline: true,
-        coordinates: { lat: 37.3861, lng: -122.0839 }
-      },
-      organizer: 'Y Combinator',
-      imageUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87',
-      registrationUrl: 'https://www.ycombinator.com/demo-day',
-      price: { amount: 0, currency: 'USD', isFree: true },
-      category: 'demo-day',
-      tags: ['startup', 'investment', 'demo day', 'yc'],
-      source: 'eventbrite',
-      relevanceScore: 100,
-      fetchedAt: new Date().toISOString()
-    },
-    {
-      id: 'mock_eb_2',
-      title: 'AI Startup Founders Meetup',
-      description: 'Network with AI startup founders in your area',
-      date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-      location: {
-        venue: 'Google Campus',
-        address: '345 Spear St',
-        city: location,
-        country: 'USA',
-        isOnline: false,
-        coordinates: null
-      },
-      organizer: 'Tech Founders Network',
-      imageUrl: 'https://images.unsplash.com/photo-1515187029135-18ee286d815b',
-      registrationUrl: '#',
-      price: { amount: 0, currency: 'USD', isFree: true },
-      category: 'meetup',
-      tags: ['ai', 'startup', 'networking'],
-      source: 'eventbrite',
-      relevanceScore: 85,
-      fetchedAt: new Date().toISOString()
-    }
-  ]
-}
-
-function getMockPredictHQData(location: string) {
-  return [
-    {
-      id: 'mock_phq_1',
-      title: 'TechCrunch Disrupt 2025',
-      description: 'The premier startup conference',
-      date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      location: {
-        venue: 'Moscone Center',
-        address: '747 Howard St',
-        city: 'San Francisco',
-        country: 'USA',
-        isOnline: true,
-        coordinates: { lat: 37.7749, lng: -122.4194 }
-      },
-      organizer: 'TechCrunch',
-      imageUrl: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678',
-      registrationUrl: 'https://techcrunch.com/events/disrupt',
-      price: { amount: 1295, currency: 'USD', isFree: false },
-      category: 'conference',
-      tags: ['startup', 'conference', 'techcrunch'],
-      source: 'predicthq',
-      relevanceScore: 95,
-      fetchedAt: new Date().toISOString()
-    }
-  ]
-}
-
-// Main handler
 serve(async (req) => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
-  // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   const authContext = await requireSupabaseJwt(req, {
     supabaseUrl,
     serviceRoleKey: supabaseServiceRoleKey || null,
     anonKey: supabaseAnonKey || null,
-    corsHeaders
-  })
-  if (authContext instanceof Response) {
-    return authContext
-  }
+    corsHeaders,
+  });
+  if (authContext instanceof Response) return authContext;
 
   try {
-    const url = new URL(req.url)
-    const location = url.searchParams.get('location') || 'San Francisco'
-    const forceRefresh = url.searchParams.get('refresh') === 'true'
-    
-    // Check cache first (unless force refresh)
-    if (!forceRefresh) {
-      const { data: cachedEvents, error: cacheError } = await supabase
-        .from('event_cache')
-        .select('*')
-        .eq('location', location)
-        .gte('expires_at', new Date().toISOString())
-        .single()
+    let city: string | null = null;
+    let region: string | null = null;
 
-      if (cachedEvents && !cacheError) {
-        console.log('Returning cached events')
-        return new Response(
-          JSON.stringify({ 
-            events: cachedEvents.events,
-            cached: true,
-            cachedAt: cachedEvents.created_at
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200 
-          }
-        )
-      }
+    if (req.method === 'POST') {
+      const body = await req.json().catch(() => ({} as Record<string, unknown>));
+      if (typeof body.city === 'string') city = body.city;
+      if (typeof body.region === 'string') region = body.region;
+    } else {
+      const url = new URL(req.url);
+      city = url.searchParams.get('city') ?? url.searchParams.get('location');
+      region = url.searchParams.get('region');
     }
 
-    // Fetch fresh events from all sources
-    console.log(`Fetching fresh events for ${location}`)
-    
-    const [eventbriteEvents, predicthqEvents] = await Promise.all([
-      fetchEventbriteEvents(location),
-      fetchPredictHQEvents(location)
-    ])
+    const locationString = buildLocationString(city);
 
-    // Combine and deduplicate events
-    const allEvents = [...eventbriteEvents, ...predicthqEvents]
-    
-    // Remove duplicates based on title and date
-    const uniqueEvents = allEvents.reduce((acc: any[], event) => {
-      const isDuplicate = acc.some(e => 
-        e.title === event.title && 
-        e.date === event.date
-      )
-      if (!isDuplicate) {
-        acc.push(event)
-      }
-      return acc
-    }, [])
+    const [eb, phq] = await Promise.all([
+      fetchEventbrite(locationString),
+      fetchPredictHQ(locationString),
+    ]);
 
-    // Sort by relevance and date
-    uniqueEvents.sort((a, b) => {
-      // First by relevance
-      if (b.relevanceScore !== a.relevanceScore) {
-        return b.relevanceScore - a.relevanceScore
-      }
-      // Then by date (upcoming first)
-      return new Date(a.date).getTime() - new Date(b.date).getTime()
-    })
+    // Dedupe on slug (across sources — shouldn't collide, but defensive)
+    const combined = [...eb, ...phq];
+    const seen = new Set<string>();
+    const unique = combined.filter((e) => {
+      if (seen.has(e.slug)) return false;
+      seen.add(e.slug);
+      return true;
+    });
 
-    // Cache the results (1 hour expiry)
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
-    
-    await supabase
-      .from('event_cache')
-      .upsert({
-        location,
-        events: uniqueEvents,
-        expires_at: expiresAt,
-        created_at: new Date().toISOString()
-      }, {
-        onConflict: 'location'
-      })
+    // Only upsert events with valid future starts_at (past events pollute the feed)
+    const now = Date.now();
+    const upcoming = unique.filter((e) => {
+      const t = new Date(e.starts_at).getTime();
+      return isFinite(t) && t > now - 3600_000; // include events that started in the last hour, for edge cases
+    });
+
+    const upsertResult = await upsertEvents(upcoming, city, region);
 
     return new Response(
-      JSON.stringify({ 
-        events: uniqueEvents,
-        cached: false,
-        totalEvents: uniqueEvents.length,
-        sources: ['eventbrite', 'predicthq']
+      JSON.stringify({
+        ok: true,
+        city,
+        region,
+        fetched: combined.length,
+        upcoming: upcoming.length,
+        upserted: upsertResult.inserted,
+        upsertError: (upsertResult as { error?: string }).error,
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
-    )
-
-  } catch (error) {
-    console.error('Error in fetch-events function:', error)
-    
-    // Return mock data on error
-    const mockEvents = [
-      ...getMockEventbriteData('San Francisco'),
-      ...getMockPredictHQData('San Francisco')
-    ]
-    
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+    );
+  } catch (err) {
+    console.error('fetch-events error:', err);
     return new Response(
-      JSON.stringify({ 
-        events: mockEvents,
-        error: true,
-        message: 'Using mock data due to error'
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
-    )
+      JSON.stringify({ ok: false, error: String(err) }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 },
+    );
   }
-})
+});
