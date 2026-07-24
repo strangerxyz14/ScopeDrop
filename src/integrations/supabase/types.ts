@@ -387,11 +387,18 @@ export type Database = {
           location: string | null
           region: string | null
           registration_url: string | null
+          rejection_reason: string | null
+          relevance_category: string | null
+          relevance_reason: string | null
+          reviewed_at: string | null
           slug: string | null
           source: string | null
           source_id: string | null
           source_url: string | null
           starts_at: string
+          status: string
+          submitted_at: string | null
+          submitted_by_email: string | null
           title: string
         }
         Insert: {
@@ -406,11 +413,18 @@ export type Database = {
           location?: string | null
           region?: string | null
           registration_url?: string | null
+          rejection_reason?: string | null
+          relevance_category?: string | null
+          relevance_reason?: string | null
+          reviewed_at?: string | null
           slug?: string | null
           source?: string | null
           source_id?: string | null
           source_url?: string | null
           starts_at: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by_email?: string | null
           title: string
         }
         Update: {
@@ -425,12 +439,37 @@ export type Database = {
           location?: string | null
           region?: string | null
           registration_url?: string | null
+          rejection_reason?: string | null
+          relevance_category?: string | null
+          relevance_reason?: string | null
+          reviewed_at?: string | null
           slug?: string | null
           source?: string | null
           source_id?: string | null
           source_url?: string | null
           starts_at?: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by_email?: string | null
           title?: string
+        }
+        Relationships: []
+      }
+      event_submission_ledger: {
+        Row: {
+          id: string
+          ip_hash: string
+          submitted_at: string
+        }
+        Insert: {
+          id?: string
+          ip_hash: string
+          submitted_at?: string
+        }
+        Update: {
+          id?: string
+          ip_hash?: string
+          submitted_at?: string
         }
         Relationships: []
       }
