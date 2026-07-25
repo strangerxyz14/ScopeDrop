@@ -92,30 +92,12 @@ export function EventsGrid() {
                 .filter(Boolean)
                 .join(" · ")
                 .toUpperCase();
-              const content = (
-                <>
+              const to = `/events/${e.slug ?? e.id}`;
+              return (
+                <Link key={e.id} className="ev" to={to}>
                   <div className="d">{formatEventDate(e.starts_at)}</div>
                   <h4>{e.title}</h4>
                   {parts && <div className="loc">{parts}</div>}
-                </>
-              );
-              if (e.registration_url) {
-                return (
-                  <a
-                    key={e.id}
-                    className="ev"
-                    href={e.registration_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {content}
-                  </a>
-                );
-              }
-              // No external URL → link to the events page (same-app navigation, new UI).
-              return (
-                <Link key={e.id} className="ev" to="/events">
-                  {content}
                 </Link>
               );
             })}

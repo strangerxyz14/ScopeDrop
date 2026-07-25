@@ -20,6 +20,7 @@ const GrowthHacking = React.lazy(() => import("./pages/GrowthHacking"));
 const Search = React.lazy(() => import("./pages/Search"));
 const Newsletter = React.lazy(() => import("./pages/Newsletter"));
 const Events = React.lazy(() => import("./pages/Events"));
+const EventDetail = React.lazy(() => import("./pages/EventDetail"));
 const ErrorMonitoring = React.lazy(() => import("./pages/ErrorMonitoring"));
 const EventReview = React.lazy(() => import("./pages/admin/EventReview"));
 const ArticleView = React.lazy(() => import("./pages/ArticleView"));
@@ -157,6 +158,7 @@ const App = () => {
                 <Route path="/search" element={<Search />} />
                 <Route path="/newsletter" element={<Newsletter />} />
                 <Route path="/events" element={<Events />} />
+                <Route path="/events/:slug" element={<EventDetail />} />
                 <Route path="/admin/monitoring" element={<ErrorMonitoring />} />
                 {/* Unlinked admin route — gated server-side by ADMIN_EMAIL in admin-events edge function. Not in sitemap, not in nav. */}
                 <Route path="/admin/events" element={<EventReview />} />

@@ -217,13 +217,25 @@ function mapEventType(title: string): NormalizedEvent['event_type'] {
   return 'conference';
 }
 
-// Deterministic slug from the event link (SerpAPI events don't have a stable id).
-async function slugFromLink(link: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(link);
+// Deterministic slug from (title, starts_at date, city). SerpAPI's `link` is
+// NOT a stable identifier — the same real-world event can come back with
+// different links across runs (direct URL one time, google.com/goto?url=...
+// redirect the next). Hashing the link caused duplicates. Title+date+city
+// is stable across runs and unique enough at event-list scale.
+function normalizeTitle(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+async function slugFromEvent(title: string, startsAtIso: string, city: string | null): Promise<string> {
+  const startsDate = startsAtIso.slice(0, 10); // YYYY-MM-DD; time-of-day varies too much in SerpAPI's output to include
+  const cityKey = (city ?? '').toLowerCase().trim();
+  const key = `${normalizeTitle(title)}|${startsDate}|${cityKey}`;
+  const data = new TextEncoder().encode(key);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+  const hashHex = Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 16);
   return `serpapi_${hashHex}`;
 }
 
@@ -342,17 +354,19 @@ serve(async (req) => {
       console.error('SerpAPI error:', serpError);
     }
 
-    // Dedupe candidates on slug (link-hash) before classification, so we don't
-    // waste a Groq call on rows we've already processed.
+    // Dedupe candidates on slug (title+starts_at+city hash) before classification,
+    // so we don't waste a Groq call on rows we've already processed. The slug is
+    // computed here so we can skip already-present rows before the classifier fires.
     const seenSlugs = new Set<string>();
-    type Candidate = { serp: SerpApiEvent; slug: string };
+    type Candidate = { serp: SerpApiEvent; slug: string; starts_at: string };
     const candidates: Candidate[] = [];
     for (const evt of raw) {
-      if (!evt.link) continue;
-      const slug = await slugFromLink(evt.link);
+      if (!evt.link || !evt.title) continue;
+      const starts_at = parseSerpDate(evt.date, referenceYear);
+      const slug = await slugFromEvent(evt.title, starts_at, city);
       if (seenSlugs.has(slug)) continue;
       seenSlugs.add(slug);
-      candidates.push({ serp: evt, slug });
+      candidates.push({ serp: evt, slug, starts_at });
     }
 
     // Fast-path skip: which slugs are already in the DB? Don't reclassify.
@@ -372,7 +386,7 @@ serve(async (req) => {
     const rejections: Array<{ title: string; reason: string }> = [];
     const toInsert: NormalizedEvent[] = [];
 
-    for (const { serp, slug } of candidates) {
+    for (const { serp, slug, starts_at } of candidates) {
       if (alreadyPresent.has(slug)) continue;
 
       const title = serp.title ?? '(untitled)';
@@ -388,7 +402,6 @@ serve(async (req) => {
         continue;
       }
 
-      const starts_at = parseSerpDate(serp.date, referenceYear);
       const address = serp.address ?? [];
       const venueOrLocation = serp.venue?.name ?? address[0] ?? null;
       const registration = serp.ticket_info?.find(t => t.link)?.link ?? serp.link ?? null;

@@ -230,23 +230,11 @@ const Events = () => {
                       )}
                     </>
                   );
-                  if (e.registration_url) {
-                    return (
-                      <a
-                        key={e.id}
-                        className="ev"
-                        href={e.registration_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {content}
-                      </a>
-                    );
-                  }
+                  const to = `/events/${e.slug ?? e.id}`;
                   return (
-                    <div key={e.id} className="ev" style={{ cursor: "default" }}>
+                    <Link key={e.id} className="ev" to={to}>
                       {content}
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
