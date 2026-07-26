@@ -237,6 +237,10 @@ async function fetchRSSFeeds(): Promise<RawSignalRow[]> {
     { url: "https://www.producthunt.com/feed", source_name: "Product Hunt", suggested_category: "tech", suggested_tags: ["launch","product","saas"] },
     { url: "https://hnrss.org/launches", source_name: "HN Launches", suggested_category: "tech", suggested_tags: ["launch","developer","saas"] },
     { url: "https://venturebeat.com/feed/", source_name: "VentureBeat", suggested_category: "ai", suggested_tags: ["ai","enterprise","deeptech"] },
+    // Editorial-blog sources — pipeline may promote these to scheduled_events
+    // via the extract-structured event-detection branch when an article
+    // describes a specific dated + located event.
+    { url: "https://www.ycombinator.com/blog/feed", source_name: "Y Combinator Blog", suggested_category: "startups", suggested_tags: ["yc","funding","editorial_blog"] },
     // India-first sources
     { url: "https://yourstory.com/feed", source_name: "YourStory", suggested_category: "startups", suggested_tags: ["india","startups","funding"] },
     { url: "https://inc42.com/feed/", source_name: "Inc42", suggested_category: "funding", suggested_tags: ["india","funding","startups"] },

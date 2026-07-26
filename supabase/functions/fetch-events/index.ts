@@ -1,6 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireSupabaseJwt } from "../_shared/auth.ts";
+import {
+  classifyEventRelevance,
+  geocodeAddress,
+  extractOrganizerFromHtml,
+  extractAgendaFromHtml,
+  extractSpeakersFromHtml,
+  type AgendaEntry,
+  type Speaker,
+} from "../_shared/event-extraction.ts";
 
 // ============================================================
 // CORS
@@ -50,6 +59,12 @@ interface NormalizedEvent {
   event_type: 'demo_day' | 'conference' | 'pitch_competition';
   relevance_category: string;
   relevance_reason: string;
+  organizer_name: string | null;
+  organizer_logo_url: string | null;
+  agenda: AgendaEntry[] | null;
+  speakers: Speaker[] | null;
+  venue_lat: number | null;
+  venue_lng: number | null;
 }
 
 // ============================================================
@@ -239,71 +254,32 @@ async function slugFromEvent(title: string, startsAtIso: string, city: string | 
   return `serpapi_${hashHex}`;
 }
 
-// ============================================================
-// Groq relevance classifier. One call per candidate. Cheap because
-// title+description is a fraction of an article's tokens, and event
-// volume is tens per day (not thousands).
-// ============================================================
-interface RelevanceResult {
-  relevant: boolean;
-  category: string;
-  reason: string;
-}
+// Groq classifier now lives in _shared/event-extraction.ts — same
+// prompt used by the SerpAPI path here and the editorial-blog path
+// in extract-structured. Prompt asks for a "scope" field: a
+// founder-facing one-sentence answer to "why should I care about
+// this event?", stored in relevance_reason.
 
-const RELEVANCE_SYSTEM_PROMPT = `You are a content curator for ScopeDrop, a platform covering AI, technology, startups, crypto, and emerging tech — specifically founder-relevant and investor-relevant events (demo days, hackathons, tech conferences, startup meetups, crypto/web3 events, AI builder communities). You do NOT cover general business events, unrelated consumer events, concerts, sports, or generic networking with no tech/startup angle.
-
-Given an event's title and description, respond ONLY with JSON:
-{"relevant": true|false, "category": "ai"|"startup"|"crypto"|"emerging_tech"|"other", "reason": "one short sentence"}`;
-
-async function classifyRelevance(title: string, description: string): Promise<RelevanceResult> {
-  const apiKey = Deno.env.get('GROQ_API_KEY');
-  if (!apiKey) {
-    // Fail closed — if the classifier can't run, don't publish anything.
-    return { relevant: false, category: 'other', reason: 'GROQ_API_KEY not set' };
-  }
-
-  const userContent = `Event title: ${title}\nEvent description: ${description || '(no description)'}`;
-
+async function fetchEventPageHtml(url: string, timeoutMs = 8000): Promise<string | null> {
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+        'User-Agent': 'ScopeDrop-EventEnricher/1.0 (+https://scopedrop.itsstranger14.workers.dev)',
+        'Accept': 'text/html,application/xhtml+xml',
       },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        messages: [
-          { role: 'system', content: RELEVANCE_SYSTEM_PROMPT },
-          { role: 'user', content: userContent },
-        ],
-        temperature: 0,
-        max_tokens: 120,
-        response_format: { type: 'json_object' },
-      }),
+      redirect: 'follow',
+      signal: controller.signal,
     });
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.warn(`Groq classifier non-ok: ${res.status} ${errBody.slice(0, 200)}`);
-      return { relevant: false, category: 'other', reason: `classifier http ${res.status}` };
-    }
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (typeof content !== 'string') {
-      return { relevant: false, category: 'other', reason: 'classifier returned no content' };
-    }
-    const parsed = JSON.parse(content) as Partial<RelevanceResult>;
-    if (typeof parsed.relevant !== 'boolean') {
-      return { relevant: false, category: 'other', reason: 'classifier response malformed' };
-    }
-    return {
-      relevant: parsed.relevant,
-      category: typeof parsed.category === 'string' ? parsed.category : 'other',
-      reason: typeof parsed.reason === 'string' ? parsed.reason : '',
-    };
-  } catch (err) {
-    console.warn('Groq classifier threw:', err);
-    return { relevant: false, category: 'other', reason: 'classifier error' };
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('html') && !ct.includes('xml')) return null;
+    const text = await res.text();
+    return text.length > 2_000_000 ? text.slice(0, 2_000_000) : text;
+  } catch {
+    return null;
   }
 }
 
@@ -392,19 +368,47 @@ serve(async (req) => {
       const title = serp.title ?? '(untitled)';
       const description = serp.description ?? '';
       classifiedCount++;
-      const verdict = await classifyRelevance(title, description);
+      const verdict = await classifyEventRelevance(title, description);
 
       if (!verdict.relevant) {
         rejectedCount++;
-        rejections.push({ title, reason: verdict.reason });
-        // Explicitly do NOT insert. Log so spot-checks are possible via function logs.
-        console.log(`[classifier reject] "${title}" — ${verdict.reason}`);
+        rejections.push({ title, reason: verdict.scope });
+        console.log(`[classifier reject] "${title}" — ${verdict.scope}`);
         continue;
       }
 
       const address = serp.address ?? [];
       const venueOrLocation = serp.venue?.name ?? address[0] ?? null;
       const registration = serp.ticket_info?.find(t => t.link)?.link ?? serp.link ?? null;
+
+      // Enrich by fetching the event's own page for organizer/agenda/speakers.
+      // Best-effort — if the page 404s or isn't HTML, all extracted fields stay null.
+      let organizer_name: string | null = null;
+      let organizer_logo_url: string | null = null;
+      let agenda: AgendaEntry[] | null = null;
+      let speakers: Speaker[] | null = null;
+      const pageHtml = serp.link ? await fetchEventPageHtml(serp.link) : null;
+      if (pageHtml) {
+        const org = extractOrganizerFromHtml(pageHtml, serp.link);
+        organizer_name = org.name;
+        organizer_logo_url = org.logoUrl;
+        agenda = extractAgendaFromHtml(pageHtml);
+        speakers = extractSpeakersFromHtml(pageHtml);
+      }
+
+      // Geocode the venue address (cache-once via geocode_cache). Skipped for
+      // virtual events and when there's no address string at all.
+      let venue_lat: number | null = null;
+      let venue_lng: number | null = null;
+      const addressString = address.join(', ') || venueOrLocation;
+      const isVirtual = /virtual|online|webinar/i.test(title + ' ' + description);
+      if (!isVirtual && addressString) {
+        const coords = await geocodeAddress(supabase, addressString, city);
+        if (coords) {
+          venue_lat = coords.lat;
+          venue_lng = coords.lng;
+        }
+      }
 
       toInsert.push({
         slug,
@@ -416,13 +420,19 @@ serve(async (req) => {
         ends_at: null,
         city,
         region,
-        is_virtual: /virtual|online|webinar/i.test(title + ' ' + description),
+        is_virtual: isVirtual,
         location: venueOrLocation,
         registration_url: registration,
         image_url: serp.thumbnail ?? null,
         event_type: mapEventType(title),
         relevance_category: verdict.category,
-        relevance_reason: verdict.reason,
+        relevance_reason: verdict.scope,
+        organizer_name,
+        organizer_logo_url,
+        agenda,
+        speakers,
+        venue_lat,
+        venue_lng,
       });
       acceptedCount++;
     }

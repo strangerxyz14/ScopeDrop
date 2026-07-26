@@ -7,6 +7,12 @@
 // ============================================================
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  extractOrganizerFromHtml,
+  extractAgendaFromHtml,
+  extractSpeakersFromHtml,
+  geocodeAddress,
+} from "../_shared/event-extraction.ts";
 
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
@@ -326,6 +332,22 @@ serve(async (req) => {
 
   const parsed = parseEvent(html, url);
 
+  // Enrich via shared extractors (same as fetch-events).
+  const organizerInfo = extractOrganizerFromHtml(html, url);
+  const agenda = extractAgendaFromHtml(html);
+  const speakers = extractSpeakersFromHtml(html);
+
+  // Geocode the parsed location, cache-once. Skips silently if location is empty.
+  let venue_lat: number | null = null;
+  let venue_lng: number | null = null;
+  if (parsed.location) {
+    const coords = await geocodeAddress(supabase, parsed.location, null);
+    if (coords) {
+      venue_lat = coords.lat;
+      venue_lng = coords.lng;
+    }
+  }
+
   // Slug from source URL hash — stable across resubmissions
   const slugBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url));
   const slugHex = Array.from(new Uint8Array(slugBuf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
@@ -357,6 +379,12 @@ serve(async (req) => {
         status: 'pending',
         submitted_by_email: submittedByEmail,
         submitted_at: nowIso,
+        organizer_name: organizerInfo.name ?? parsed.organizer,
+        organizer_logo_url: organizerInfo.logoUrl,
+        agenda,
+        speakers,
+        venue_lat,
+        venue_lng,
       },
       { onConflict: 'slug', ignoreDuplicates: false },
     )

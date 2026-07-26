@@ -376,6 +376,7 @@ export type Database = {
       }
       scheduled_events: {
         Row: {
+          agenda: Json | null
           city: string | null
           created_at: string
           description: string | null
@@ -385,6 +386,8 @@ export type Database = {
           image_url: string | null
           is_virtual: boolean
           location: string | null
+          organizer_logo_url: string | null
+          organizer_name: string | null
           region: string | null
           registration_url: string | null
           rejection_reason: string | null
@@ -395,13 +398,17 @@ export type Database = {
           source: string | null
           source_id: string | null
           source_url: string | null
+          speakers: Json | null
           starts_at: string
           status: string
           submitted_at: string | null
           submitted_by_email: string | null
           title: string
+          venue_lat: number | null
+          venue_lng: number | null
         }
         Insert: {
+          agenda?: Json | null
           city?: string | null
           created_at?: string
           description?: string | null
@@ -411,6 +418,8 @@ export type Database = {
           image_url?: string | null
           is_virtual?: boolean
           location?: string | null
+          organizer_logo_url?: string | null
+          organizer_name?: string | null
           region?: string | null
           registration_url?: string | null
           rejection_reason?: string | null
@@ -421,13 +430,17 @@ export type Database = {
           source?: string | null
           source_id?: string | null
           source_url?: string | null
+          speakers?: Json | null
           starts_at: string
           status?: string
           submitted_at?: string | null
           submitted_by_email?: string | null
           title: string
+          venue_lat?: number | null
+          venue_lng?: number | null
         }
         Update: {
+          agenda?: Json | null
           city?: string | null
           created_at?: string
           description?: string | null
@@ -437,6 +450,8 @@ export type Database = {
           image_url?: string | null
           is_virtual?: boolean
           location?: string | null
+          organizer_logo_url?: string | null
+          organizer_name?: string | null
           region?: string | null
           registration_url?: string | null
           rejection_reason?: string | null
@@ -447,11 +462,62 @@ export type Database = {
           source?: string | null
           source_id?: string | null
           source_url?: string | null
+          speakers?: Json | null
           starts_at?: string
           status?: string
           submitted_at?: string | null
           submitted_by_email?: string | null
           title?: string
+          venue_lat?: number | null
+          venue_lng?: number | null
+        }
+        Relationships: []
+      }
+      event_image_templates: {
+        Row: {
+          category: string
+          created_at: string
+          format: string | null
+          id: string
+          template_url: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          format?: string | null
+          id?: string
+          template_url: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          format?: string | null
+          id?: string
+          template_url?: string
+        }
+        Relationships: []
+      }
+      geocode_cache: {
+        Row: {
+          address_norm: string
+          created_at: string
+          lat: number | null
+          lng: number | null
+          ok: boolean
+        }
+        Insert: {
+          address_norm: string
+          created_at?: string
+          lat?: number | null
+          lng?: number | null
+          ok?: boolean
+        }
+        Update: {
+          address_norm?: string
+          created_at?: string
+          lat?: number | null
+          lng?: number | null
+          ok?: boolean
         }
         Relationships: []
       }
