@@ -364,6 +364,210 @@
 }
 .sdvg .ev-cover > * { position: relative; z-index: 0; }
 
+/* EVENT HERO — full-bleed cover image with a glass-pane title overlay.
+   The hero sits above the two-column body and reads as a single, on-brand
+   surface regardless of whether the underlying image is a real hero photo,
+   a template, or the SVG fallback. */
+.sdvg .ev-hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 7;
+  min-height: 320px;
+  overflow: hidden;
+  background: var(--oxford);
+  border-bottom: 1px solid var(--line);
+}
+.sdvg .ev-hero > .ev-hero-img,
+.sdvg .ev-hero > svg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sdvg .ev-hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(90% 60% at 50% 25%, rgba(62, 207, 110, .12) 0%, rgba(62, 207, 110, 0) 60%),
+    linear-gradient(180deg,
+      rgba(10, 22, 40, .55) 0%,
+      rgba(10, 22, 40, .25) 40%,
+      rgba(10, 22, 40, .85) 100%);
+  z-index: 1;
+}
+.sdvg .ev-hero-glass {
+  position: absolute;
+  left: 50%; bottom: 40px;
+  transform: translateX(-50%);
+  z-index: 2;
+  width: min(720px, calc(100% - 48px));
+  padding: 22px 28px;
+  background: rgba(15, 40, 71, .55);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(62, 207, 110, .25);
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .35);
+}
+.sdvg .ev-hero-glass .kicker {
+  display: inline-block;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: .16em;
+  color: var(--parrot);
+  margin-bottom: 10px;
+}
+.sdvg .ev-hero-glass h1 {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: clamp(24px, 3.4vw, 40px);
+  line-height: 1.15;
+  color: var(--fg);
+  margin: 0 0 8px;
+}
+.sdvg .ev-hero-glass .dek {
+  font-size: 14px;
+  color: var(--fg-2);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* EVENT BODY — two-column layout: main content + sticky sidebar */
+.sdvg .ev-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 40px;
+  padding: 48px 0 64px;
+}
+.sdvg .ev-main { min-width: 0; }
+.sdvg .ev-side {
+  display: flex; flex-direction: column; gap: 20px;
+  align-self: start;
+  position: sticky; top: 84px;
+}
+
+/* Registration card — parrot-bordered panel with countdown + logistics */
+.sdvg .ev-card {
+  background: var(--oxford);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 22px 22px 24px;
+}
+.sdvg .ev-card--reg { border-color: rgba(62, 207, 110, .35); }
+.sdvg .ev-card h3 {
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--fg);
+  margin: 0 0 16px;
+}
+.sdvg .ev-count-label {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  color: var(--fg-mute);
+  text-align: center;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.sdvg .ev-count {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 12px;
+  background: rgba(10, 22, 40, .55);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin-bottom: 18px;
+}
+.sdvg .ev-count-cell { text-align: center; }
+.sdvg .ev-count-num {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-weight: 600;
+  font-size: 22px;
+  color: var(--parrot);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.sdvg .ev-count-unit {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 9.5px;
+  letter-spacing: .12em;
+  color: var(--fg-mute);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.sdvg .ev-facts {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 18px;
+  font-size: 13.5px;
+  color: var(--fg-2);
+  line-height: 1.5;
+}
+.sdvg .ev-facts .lbl {
+  color: var(--fg-mute);
+  font-weight: 500;
+  display: inline-block;
+  min-width: 62px;
+}
+.sdvg .btn-primary {
+  display: block; width: 100%; text-align: center;
+  background: var(--parrot); color: var(--ink);
+  padding: 12px 20px;
+  border: 0; border-radius: 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer; text-decoration: none;
+  transition: filter .15s;
+}
+.sdvg .btn-primary:hover { filter: brightness(1.08); }
+.sdvg .btn-primary[disabled], .sdvg .btn-primary.is-disabled {
+  background: var(--oxford-2); color: var(--fg-mute); cursor: not-allowed;
+}
+.sdvg .ev-reg-note {
+  margin: 10px 0 0;
+  font-size: 12px; text-align: center; color: var(--fg-mute); line-height: 1.5;
+}
+
+/* Location card — venue + Maps CTA + optional interactive map */
+.sdvg .ev-loc-venue {
+  font-size: 14px; color: var(--fg-2);
+  margin: 0 0 4px;
+}
+.sdvg .ev-loc-city {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11.5px; letter-spacing: .08em;
+  color: var(--fg-mute); text-transform: uppercase;
+  margin: 0 0 14px;
+}
+.sdvg .ev-loc-map {
+  width: 100%; aspect-ratio: 16 / 10;
+  background: var(--oxford-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.sdvg .ev-loc-map .maplibregl-map { border-radius: 6px; }
+.sdvg .ev-loc-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11.5px; letter-spacing: .06em;
+  color: var(--parrot);
+  text-decoration: none;
+}
+.sdvg .ev-loc-link:hover { text-decoration: underline; }
+
+/* Responsive collapse for the two-column layout */
+@media (max-width: 900px) {
+  .sdvg .ev-body { grid-template-columns: 1fr; gap: 28px; padding: 32px 0 48px; }
+  .sdvg .ev-side { position: static; top: auto; }
+  .sdvg .ev-hero { aspect-ratio: 4 / 3; min-height: 260px; }
+  .sdvg .ev-hero-glass { bottom: 20px; padding: 16px 18px; }
+}
+
 /* NEWSLETTER */
 .sdvg .nl { padding: 80px 0; text-align: center; border-bottom: 1px solid var(--line); position: relative; overflow: hidden; }
 .sdvg .nl::before,

@@ -204,6 +204,84 @@ export function logoDevUrl(domain: string): string {
   return `https://img.logo.dev/${domain}?token=pk_LtDkNs45SgSK-RyN7Vf7Aw&size=200&format=png`;
 }
 
+// Google Maps / Google Image search thumbnail hosts — these leak into
+// SerpAPI's `thumbnail` field for events without proper hero art and
+// render as blurry tiles or literal map screenshots. Blacklist so we
+// fall through to a real og:image scrape.
+const BAD_IMAGE_HOSTS = [
+  "google.com/maps",
+  "maps.googleapis.com",
+  "maps.gstatic.com",
+  "encrypted-tbn0.gstatic.com",
+  "encrypted-tbn1.gstatic.com",
+  "encrypted-tbn2.gstatic.com",
+  "encrypted-tbn3.gstatic.com",
+];
+
+export function isUsableImageUrl(url: string | null | undefined): boolean {
+  if (!url || typeof url !== "string") return false;
+  if (!/^https?:\/\//i.test(url)) return false;
+  const low = url.toLowerCase();
+  return !BAD_IMAGE_HOSTS.some((host) => low.includes(host));
+}
+
+// Prefer schema.org Event.image → og:image → twitter:image. Runs against
+// the same HTML we already fetched for organizer/agenda extraction, so
+// there's no extra network cost.
+export function extractCoverImageFromHtml(html: string): string | null {
+  const blocks = extractJsonLdBlocks(html);
+  const event = blocks.find(isEvent) as Record<string, unknown> | undefined;
+  if (event) {
+    const img = event.image;
+    if (typeof img === "string" && isUsableImageUrl(img)) return img;
+    if (Array.isArray(img) && img.length > 0) {
+      const first = img[0];
+      if (typeof first === "string" && isUsableImageUrl(first)) return first;
+      if (first && typeof first === "object" && typeof (first as Record<string, unknown>).url === "string") {
+        const u = (first as Record<string, unknown>).url as string;
+        if (isUsableImageUrl(u)) return u;
+      }
+    }
+  }
+  const og = extractOgTag(html, "image");
+  if (og && isUsableImageUrl(og)) return og;
+  const tw = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
+  if (tw?.[1] && isUsableImageUrl(tw[1])) return tw[1];
+  return null;
+}
+
+// Fix descriptions where the source page's HTML sections were concatenated
+// without whitespace (e.g. "About the EventMastering Generative and…" →
+// "About the Event\n\nMastering Generative and…"). Also collapses runs of
+// spaces and trims. Conservative: only inserts a break at lower→Upper
+// boundaries longer than 1 char, so acronyms like "AIStack" stay together.
+export function cleanConcatenatedText(raw: string | null | undefined): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  let out = raw
+    // Decode common HTML entities first
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    // Break lowercase→Uppercase transitions ("EventMastering" → "Event Mastering")
+    .replace(/([a-z]{2,})([A-Z][a-z])/g, "$1\n\n$2")
+    // Break all-caps acronym followed by capitalized word ("AIUnderstand" → "AI Understand")
+    .replace(/([A-Z]{2,})([A-Z][a-z])/g, "$1 $2")
+    // Break sentence-terminator directly against next capital ("action.Advanced")
+    .replace(/([.!?])([A-Z])/g, "$1 $2")
+    // Break digit-run followed by capital ("2026Introduction" → "2026 Introduction")
+    .replace(/(\d)([A-Z][a-z])/g, "$1\n\n$2")
+    // Break word directly followed by digit run ≥4 ("Workshop2026" → "Workshop 2026")
+    .replace(/([a-z])(\d{4})/g, "$1 $2")
+    // Collapse whitespace runs (but keep paragraph breaks)
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return out || null;
+}
+
 export function extractOrganizerFromHtml(html: string, sourceUrl: string | null): OrganizerInfo {
   const blocks = extractJsonLdBlocks(html);
   const event = blocks.find(isEvent);

@@ -1,15 +1,14 @@
 // ============================================================
 // EventDetail — /events/:slug (slug or UUID id).
-// Full Phase 2 spec: breadcrumb, kicker+title+summary, metadata row
-// (local timezone from city), presented-by row (organizer + logo),
-// cover image (real → template → HeroIllustration placeholder),
-// live countdown (parrot, reduced-motion aware), full prose
-// description, agenda/speakers/scope sections (all conditional —
-// hidden entirely when their fields are null), MapLibre + OpenFreeMap
-// map (skipped entirely when no geocoded coords), external Register
-// CTA, "More events in {city}" strip.
+// Layout matches the stitch mockup: full-bleed hero cover with a
+// glass-pane title/dek overlay, then a two-column body — main content
+// (description → agenda → speakers → scope) on the left and a sticky
+// sidebar on the right with a Registration Details card (D/H/M/S
+// countdown, date/time/venue/format rows, Register CTA) and a Location
+// card (always shown; interactive map if coords, always a Google Maps
+// link so users can navigate regardless).
 // ============================================================
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import SEO from "@/components/SEO";
 import { SiteHeader } from "@/components/home/SiteHeader";
@@ -50,16 +49,22 @@ function tzForCity(city: string | null): string {
   return CITY_TZ[city.toLowerCase()] ?? "UTC";
 }
 
-function formatLocalDateTime(iso: string, city: string | null): string {
+function formatDatePart(iso: string, city: string | null): string {
   const d = new Date(iso);
   if (!isFinite(d.getTime())) return "";
-  const tz = tzForCity(city);
-  const opts: Intl.DateTimeFormatOptions = {
+  return d.toLocaleDateString(undefined, {
     weekday: "short", month: "short", day: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit", timeZone: tz,
-    timeZoneName: "short",
-  };
-  return d.toLocaleString(undefined, opts).toUpperCase();
+    timeZone: tzForCity(city),
+  });
+}
+
+function formatTimePart(iso: string, city: string | null): string {
+  const d = new Date(iso);
+  if (!isFinite(d.getTime())) return "";
+  return d.toLocaleTimeString(undefined, {
+    hour: "2-digit", minute: "2-digit",
+    timeZone: tzForCity(city), timeZoneName: "short",
+  });
 }
 
 function sourceAttribution(source: string | null): string | null {
@@ -69,38 +74,46 @@ function sourceAttribution(source: string | null): string | null {
   return null;
 }
 
-function ctaLabel(url: string): string {
+function ctaLabel(url: string | null): string {
+  if (!url) return "Register";
   const u = url.toLowerCase();
-  if (u.includes("eventbrite") || u.includes("lu.ma") || u.includes("meetup") || u.includes("bookings") || u.includes("register")) {
-    return "Register";
+  if (u.includes("eventbrite") || u.includes("lu.ma") || u.includes("meetup") || u.includes("bookings") || u.includes("register") || u.includes("tickets")) {
+    return "Register Now";
   }
-  return "View event";
+  return "View Event";
 }
 
 // ------------------------------------------------------------
-// Live countdown to starts_at
+// Live countdown to starts_at — returns D/H/M/S so we can render each
+// unit in its own tile (matching the mockup).
 // ------------------------------------------------------------
-function useCountdown(target: string | null): { display: string; passed: boolean } {
+interface CountdownParts {
+  days: number; hours: number; minutes: number; seconds: number;
+  passed: boolean;
+}
+function useCountdownParts(target: string | null): CountdownParts {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    // Even under reduced-motion, update once per minute so the display isn't stuck.
     const period = reduced ? 60_000 : 1_000;
     const t = window.setInterval(() => setNow(Date.now()), period);
     return () => window.clearInterval(t);
   }, []);
-  if (!target) return { display: "", passed: false };
+  if (!target) return { days: 0, hours: 0, minutes: 0, seconds: 0, passed: true };
   const then = new Date(target).getTime();
-  if (!isFinite(then)) return { display: "", passed: false };
+  if (!isFinite(then)) return { days: 0, hours: 0, minutes: 0, seconds: 0, passed: true };
   const diff = then - now;
-  if (diff <= 0) return { display: "In progress or ended", passed: true };
-  const days = Math.floor(diff / 86_400_000);
-  const hours = Math.floor((diff % 86_400_000) / 3_600_000);
-  const minutes = Math.floor((diff % 3_600_000) / 60_000);
-  if (days > 0) return { display: `${days}d ${hours}h ${minutes}m`, passed: false };
-  if (hours > 0) return { display: `${hours}h ${minutes}m`, passed: false };
-  return { display: `${minutes}m`, passed: false };
+  if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, passed: true };
+  return {
+    days: Math.floor(diff / 86_400_000),
+    hours: Math.floor((diff % 86_400_000) / 3_600_000),
+    minutes: Math.floor((diff % 3_600_000) / 60_000),
+    seconds: Math.floor((diff % 60_000) / 1_000),
+    passed: false,
+  };
 }
+
+function pad(n: number): string { return n.toString().padStart(2, "0"); }
 
 // ------------------------------------------------------------
 // MapLibre map — lazy-loaded via dynamic imports so the page still
@@ -121,7 +134,7 @@ function EventMap({ lat, lng }: { lat: number; lng: number }) {
         container: containerRef.current,
         style: "https://tiles.openfreemap.org/styles/positron",
         center: [lng, lat],
-        zoom: 13,
+        zoom: 14,
         attributionControl: { compact: true },
       });
       new maplibregl.Marker({ color: "#3ECF6E" }).setLngLat([lng, lat]).addTo(map);
@@ -132,17 +145,15 @@ function EventMap({ lat, lng }: { lat: number; lng: number }) {
       cleanup?.();
     };
   }, [lat, lng]);
-  return (
-    <div
-      ref={containerRef}
-      style={{
-        width: "100%",
-        aspectRatio: "16 / 9",
-        background: "var(--oxford)",
-        border: "1px solid var(--line)",
-      }}
-    />
-  );
+  return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
+}
+
+function googleMapsUrl(event: ScheduledEventRow): string {
+  if (event.venue_lat != null && event.venue_lng != null) {
+    return `https://www.google.com/maps/search/?api=1&query=${event.venue_lat},${event.venue_lng}`;
+  }
+  const q = [event.location, event.city].filter(Boolean).join(", ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q || "location")}`;
 }
 
 // ------------------------------------------------------------
@@ -216,10 +227,18 @@ const EventDetail = () => {
   }, [slugParam]);
 
   const attribution = event ? sourceAttribution(event.source) : null;
-  const countdown = useCountdown(event?.starts_at ?? null);
+  const countdown = useCountdownParts(event?.starts_at ?? null);
   const agenda = (event?.agenda as unknown as AgendaEntry[] | null) ?? null;
   const speakers = (event?.speakers as unknown as Speaker[] | null) ?? null;
-  const hasCoords = event && event.venue_lat != null && event.venue_lng != null;
+  const hasCoords = !!event && event.venue_lat != null && event.venue_lng != null;
+
+  // First sentence of description → dek in the hero glass pane.
+  const dek = useMemo(() => {
+    if (!event?.description) return null;
+    const first = event.description.split(/(?<=[.!?])\s/)[0]?.trim() ?? "";
+    if (first.length < 20) return null;
+    return first.length > 160 ? first.slice(0, 160) + "…" : first;
+  }, [event?.description]);
 
   return (
     <div className="sdvg">
@@ -230,251 +249,268 @@ const EventDetail = () => {
       />
       <SiteHeader />
       <main>
-        <div className="masthead">
-          <div className="wrap mh">
-            <div className="l"><span>EVENTS</span></div>
-            {countdown.display && event && !countdown.passed && (
-              <div className="r">
-                <span className="pd" aria-hidden="true"></span>
-                <span style={{ color: "var(--parrot)" }}>{countdown.display}</span> to go
-              </div>
-            )}
+        {loading ? (
+          <div className="wrap" style={{ paddingTop: 120, paddingBottom: 80 }}>
+            <div className="sd-empty" aria-busy="true"><span className="k">Loading event…</span></div>
           </div>
-        </div>
-
-        <section className="ev-sec" style={{ paddingTop: 40 }}>
-          <div className="wrap" style={{ maxWidth: 920 }}>
-            {loading ? (
-              <div className="sd-empty" aria-busy="true"><span className="k">Loading event…</span></div>
-            ) : notFound ? (
-              <div className="sd-empty">
-                <span className="k">Event not found</span>
-                <p>It may have ended or been removed.{" "}
-                  <Link to="/events" style={{ color: "var(--parrot)" }}>Browse upcoming events →</Link>
-                </p>
-              </div>
-            ) : error ? (
-              <div className="sd-empty"><span className="k">Error</span><p>{error}</p></div>
-            ) : event ? (
-              <>
-                {/* Breadcrumb */}
-                <nav aria-label="Breadcrumb" className="mono"
-                  style={{ fontSize: 11, color: "var(--fg-mute)", letterSpacing: ".08em", marginBottom: 24 }}>
-                  <Link to="/events" style={{ color: "var(--parrot)" }}>EVENTS</Link>
-                  {event.city && (
-                    <>
-                      <span style={{ margin: "0 10px" }}>/</span>
-                      <span>{event.city.toUpperCase()}</span>
-                    </>
-                  )}
-                  <span style={{ margin: "0 10px" }}>/</span>
-                  <span style={{ color: "var(--fg-2)" }}>
-                    {event.title.length > 60 ? event.title.slice(0, 60) + "…" : event.title}
-                  </span>
-                </nav>
-
-                {/* Kicker */}
-                <div className="fmt-line" style={{ marginBottom: 12 }}>
-                  <span className="fmt">
-                    {(event.relevance_category ?? event.event_type ?? "event").toUpperCase().replace(/_/g, " ")}
-                  </span>
-                </div>
-
-                {/* Title */}
-                <h1 className="flag-h" style={{ fontSize: "clamp(28px, 3.5vw, 44px)", marginBottom: 16 }}>
-                  {event.title}
-                </h1>
-
-                {/* One-line summary (first sentence of description if short) */}
-                {event.description && event.description.length > 30 && (
-                  <p className="dek" style={{ marginBottom: 24, maxWidth: 720 }}>
-                    {(() => {
-                      const first = event.description.split(/(?<=[.!?])\s/)[0];
-                      return first.length > 200 ? first.slice(0, 200) + "…" : first;
-                    })()}
-                  </p>
-                )}
-
-                {/* Metadata row */}
-                <div className="mono" style={{
-                  fontSize: 12.5, color: "var(--fg-mute)", letterSpacing: ".04em",
-                  marginBottom: 20, display: "flex", gap: 24, flexWrap: "wrap",
-                  paddingBottom: 20, borderBottom: "1px solid var(--line)",
-                }}>
-                  <span style={{ color: "var(--amber)" }}>{formatLocalDateTime(event.starts_at, event.city)}</span>
-                  <span>
-                    {event.is_virtual
-                      ? "VIRTUAL"
-                      : [event.location, event.city].filter(Boolean).join(" · ").toUpperCase() || "LOCATION TBD"}
-                  </span>
-                  {attribution && <span style={{ color: "var(--parrot)" }}>{attribution.toUpperCase()}</span>}
-                </div>
-
-                {/* Presented-by row — hidden entirely when organizer unknown */}
-                {event.organizer_name && (
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 14,
-                    marginBottom: 28, paddingBottom: 20, borderBottom: "1px solid var(--line)",
-                  }}>
-                    {event.organizer_logo_url && (
-                      <img
-                        src={event.organizer_logo_url}
-                        alt={event.organizer_name}
-                        style={{ height: 36, width: 36, objectFit: "contain", background: "var(--oxford)", borderRadius: 4 }}
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                      />
-                    )}
-                    <div>
-                      <div className="mono" style={{ fontSize: 10.5, color: "var(--fg-mute)", letterSpacing: ".14em" }}>PRESENTED BY</div>
-                      <div style={{ fontSize: 16, fontWeight: 600, color: "var(--fg-2)" }}>{event.organizer_name}</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Cover image: real → template → HeroIllustration.
-                    .ev-cover applies the ScopeDrop brand wash (vertical fade
-                    + subtle parrot stage-light) over whatever image lands here. */}
-                <div className="ev-cover" style={{
-                  aspectRatio: "16 / 9", background: "var(--oxford)", overflow: "hidden",
-                  marginBottom: 32, borderTop: "2px solid var(--amber)",
-                }}>
-                  {event.image_url ? (
-                    <img src={event.image_url} alt={event.title} loading="lazy"
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                  ) : templateUrl ? (
-                    <img src={templateUrl} alt="" loading="lazy"
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                  ) : (
-                    <HeroIllustration />
-                  )}
-                </div>
-
-                {/* Full prose description */}
-                {event.description && (
-                  <div style={{ color: "var(--fg-2)", fontSize: 16, lineHeight: 1.7, marginBottom: 32 }}>
-                    {event.description.split(/\n\n+/).map((para, i) => (
-                      <p key={i} style={{ marginBottom: 16 }}>{para}</p>
-                    ))}
-                  </div>
-                )}
-
-                {/* Agenda — hidden entirely when null/empty */}
-                {agenda && agenda.length > 0 && (
-                  <section style={{ marginBottom: 32 }}>
-                    <h3 className="mono" style={{
-                      fontSize: 12, letterSpacing: ".16em", color: "var(--fg-mute)",
-                      textTransform: "uppercase", marginBottom: 16,
-                    }}>Agenda</h3>
-                    <div className="trk-list">
-                      {agenda.map((row, i) => (
-                        <div key={i} className="step">
-                          <span className="num">{row.time}</span>
-                          <span className="t">{row.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
-
-                {/* Speakers — hidden entirely when null */}
-                {speakers && speakers.length > 0 && (
-                  <section style={{ marginBottom: 32 }}>
-                    <h3 className="mono" style={{
-                      fontSize: 12, letterSpacing: ".16em", color: "var(--fg-mute)",
-                      textTransform: "uppercase", marginBottom: 16,
-                    }}>Speakers</h3>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
-                      {speakers.map((s, i) => (
-                        <div key={i} style={{ background: "var(--oxford)", padding: 16, display: "flex", gap: 12, alignItems: "flex-start" }}>
-                          {s.photo_url && (
-                            <img src={s.photo_url} alt={s.name} loading="lazy"
-                              style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }} />
-                          )}
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, color: "var(--fg)" }}>{s.name}</div>
-                            {s.role && <div style={{ fontSize: 12.5, color: "var(--fg-mute)", marginTop: 3 }}>{s.role}</div>}
-                            {s.bio && <div style={{ fontSize: 12.5, color: "var(--fg-mute)", marginTop: 6, lineHeight: 1.4 }}>
-                              {s.bio.length > 140 ? s.bio.slice(0, 140) + "…" : s.bio}
-                            </div>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
-
-                {/* What's the Scope — hidden when relevance_reason null */}
-                {event.relevance_reason && (
-                  <section style={{
-                    background: "var(--oxford)", padding: "20px 24px", marginBottom: 32,
-                    borderLeft: "3px solid var(--parrot)",
-                  }}>
-                    <div className="mono" style={{
-                      fontSize: 10.5, color: "var(--parrot)", letterSpacing: ".14em",
-                      textTransform: "uppercase", marginBottom: 8,
-                    }}>What's the Scope</div>
-                    <div style={{ color: "var(--fg-2)", fontSize: 15, lineHeight: 1.6 }}>{event.relevance_reason}</div>
-                  </section>
-                )}
-
-                {/* Map — skipped entirely if no coords */}
-                {hasCoords && (
-                  <section style={{ marginBottom: 32 }}>
-                    <h3 className="mono" style={{
-                      fontSize: 12, letterSpacing: ".16em", color: "var(--fg-mute)",
-                      textTransform: "uppercase", marginBottom: 12,
-                    }}>Location</h3>
-                    <EventMap lat={Number(event.venue_lat)} lng={Number(event.venue_lng)} />
-                  </section>
-                )}
-
-                {/* Register CTA */}
-                {event.registration_url && (
-                  <div style={{ marginBottom: 48 }}>
-                    <a href={event.registration_url} target="_blank" rel="noopener noreferrer" style={{
-                      display: "inline-block", background: "var(--parrot)", color: "var(--ink)",
-                      padding: "14px 32px", fontWeight: 700, fontSize: 14, textDecoration: "none",
-                      borderRadius: 4, fontFamily: "'Inter', sans-serif",
-                    }}>
-                      {ctaLabel(event.registration_url)} ↗
-                    </a>
-                    {event.source_url && event.source_url !== event.registration_url && (
-                      <a href={event.source_url} target="_blank" rel="noopener noreferrer" className="mono" style={{
-                        marginLeft: 20, color: "var(--fg-mute)", fontSize: 11.5, letterSpacing: ".06em",
-                      }}>SOURCE ↗</a>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : null}
+        ) : notFound ? (
+          <div className="wrap" style={{ paddingTop: 120, paddingBottom: 80 }}>
+            <div className="sd-empty">
+              <span className="k">Event not found</span>
+              <p>It may have ended or been removed.{" "}
+                <Link to="/events" style={{ color: "var(--parrot)" }}>Browse upcoming events →</Link>
+              </p>
+            </div>
           </div>
-        </section>
+        ) : error ? (
+          <div className="wrap" style={{ paddingTop: 120, paddingBottom: 80 }}>
+            <div className="sd-empty"><span className="k">Error</span><p>{error}</p></div>
+          </div>
+        ) : event ? (
+          <>
+            {/* HERO — full-bleed cover with glass-pane title overlay */}
+            <section className="ev-hero" style={{ marginTop: 66 }}>
+              {event.image_url ? (
+                <img className="ev-hero-img" src={event.image_url} alt={event.title} loading="eager" />
+              ) : templateUrl ? (
+                <img className="ev-hero-img" src={templateUrl} alt="" loading="eager" />
+              ) : (
+                <HeroIllustration />
+              )}
+              <div className="ev-hero-glass">
+                <span className="kicker">
+                  {(event.relevance_category ?? event.event_type ?? "event").toUpperCase().replace(/_/g, " ")}
+                </span>
+                <h1>{event.title}</h1>
+                {dek && <p className="dek">{dek}</p>}
+              </div>
+            </section>
 
-        {/* More events in same city */}
-        {event && event.city && related.length > 0 && (
-          <section className="ev-sec" style={{ paddingTop: 32, borderTop: "1px solid var(--line)" }}>
             <div className="wrap">
-              <div className="sec-h">
-                <h3>More events in {event.city}</h3>
-                <Link className="more" to="/events">All events →</Link>
-              </div>
-              <div className="ev-grid">
-                {related.map((r) => {
-                  const parts = [r.city, r.location, r.is_virtual ? "VIRTUAL" : "IN-PERSON"]
-                    .filter(Boolean).join(" · ").toUpperCase();
-                  const linkTo = `/events/${r.slug ?? r.id}`;
-                  return (
-                    <Link key={r.id} className="ev" to={linkTo}>
-                      <div className="d">{formatEventDate(r.starts_at)}</div>
-                      <h4>{r.title}</h4>
-                      {parts && <div className="loc">{parts}</div>}
-                    </Link>
-                  );
-                })}
+              {/* Breadcrumb */}
+              <nav aria-label="Breadcrumb" className="mono"
+                style={{ fontSize: 11, color: "var(--fg-mute)", letterSpacing: ".08em", paddingTop: 20 }}>
+                <Link to="/events" style={{ color: "var(--parrot)" }}>EVENTS</Link>
+                {event.city && (
+                  <>
+                    <span style={{ margin: "0 10px" }}>/</span>
+                    <span>{event.city.toUpperCase()}</span>
+                  </>
+                )}
+                {attribution && (
+                  <>
+                    <span style={{ margin: "0 10px" }}>·</span>
+                    <span style={{ color: "var(--parrot)" }}>{attribution.toUpperCase()}</span>
+                  </>
+                )}
+              </nav>
+
+              {/* BODY — main content + sticky sidebar */}
+              <div className="ev-body">
+                {/* LEFT: description → agenda → speakers → scope */}
+                <div className="ev-main">
+                  {/* Presented-by row — hidden when organizer unknown */}
+                  {event.organizer_name && (
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 14,
+                      marginBottom: 28, paddingBottom: 20, borderBottom: "1px solid var(--line)",
+                    }}>
+                      {event.organizer_logo_url && (
+                        <img
+                          src={event.organizer_logo_url}
+                          alt={event.organizer_name}
+                          style={{ height: 40, width: 40, objectFit: "contain", background: "var(--oxford)", borderRadius: 4 }}
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                        />
+                      )}
+                      <div>
+                        <div className="mono" style={{ fontSize: 10.5, color: "var(--fg-mute)", letterSpacing: ".14em" }}>PRESENTED BY</div>
+                        <div style={{ fontSize: 16, fontWeight: 600, color: "var(--fg-2)" }}>{event.organizer_name}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Full description */}
+                  {event.description && (
+                    <section style={{ marginBottom: 32 }}>
+                      <h3 className="mono" style={{
+                        fontSize: 12, letterSpacing: ".16em", color: "var(--fg-mute)",
+                        textTransform: "uppercase", marginBottom: 12,
+                      }}>Event Description</h3>
+                      <div style={{ color: "var(--fg-2)", fontSize: 15.5, lineHeight: 1.7 }}>
+                        {event.description.split(/\n\n+/).map((para, i) => (
+                          <p key={i} style={{ marginBottom: 14 }}>{para}</p>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Agenda */}
+                  {agenda && agenda.length > 0 && (
+                    <section style={{ marginBottom: 32 }}>
+                      <h3 className="mono" style={{
+                        fontSize: 12, letterSpacing: ".16em", color: "var(--fg-mute)",
+                        textTransform: "uppercase", marginBottom: 16,
+                      }}>Agenda</h3>
+                      <div className="trk-list">
+                        {agenda.map((row, i) => (
+                          <div key={i} className="step">
+                            <span className="num">{row.time}</span>
+                            <span className="t">{row.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Speakers */}
+                  {speakers && speakers.length > 0 && (
+                    <section style={{ marginBottom: 32 }}>
+                      <h3 className="mono" style={{
+                        fontSize: 12, letterSpacing: ".16em", color: "var(--fg-mute)",
+                        textTransform: "uppercase", marginBottom: 16,
+                      }}>Speakers</h3>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
+                        {speakers.map((s, i) => (
+                          <div key={i} style={{ background: "var(--oxford)", padding: 16, display: "flex", gap: 12, alignItems: "flex-start", borderRadius: 6 }}>
+                            {s.photo_url && (
+                              <img src={s.photo_url} alt={s.name} loading="lazy"
+                                style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }} />
+                            )}
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 600, color: "var(--fg)" }}>{s.name}</div>
+                              {s.role && <div style={{ fontSize: 12.5, color: "var(--fg-mute)", marginTop: 3 }}>{s.role}</div>}
+                              {s.bio && <div style={{ fontSize: 12.5, color: "var(--fg-mute)", marginTop: 6, lineHeight: 1.4 }}>
+                                {s.bio.length > 140 ? s.bio.slice(0, 140) + "…" : s.bio}
+                              </div>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* What's the Scope */}
+                  {event.relevance_reason && (
+                    <section style={{
+                      background: "var(--oxford)", padding: "18px 22px", marginBottom: 8,
+                      borderLeft: "3px solid var(--parrot)", borderRadius: 4,
+                    }}>
+                      <div className="mono" style={{
+                        fontSize: 10.5, color: "var(--parrot)", letterSpacing: ".14em",
+                        textTransform: "uppercase", marginBottom: 8,
+                      }}>What's the Scope</div>
+                      <div style={{ color: "var(--fg-2)", fontSize: 15, lineHeight: 1.6 }}>{event.relevance_reason}</div>
+                    </section>
+                  )}
+                </div>
+
+                {/* RIGHT: sticky sidebar — Registration + Location cards */}
+                <aside className="ev-side">
+                  {/* Registration card */}
+                  <div className="ev-card ev-card--reg">
+                    <h3>Registration Details</h3>
+                    {!countdown.passed ? (
+                      <>
+                        <div className="ev-count-label">Event starts in</div>
+                        <div className="ev-count" role="timer" aria-live="off">
+                          {[
+                            { n: countdown.days, u: "Days" },
+                            { n: countdown.hours, u: "Hours" },
+                            { n: countdown.minutes, u: "Minutes" },
+                            { n: countdown.seconds, u: "Seconds" },
+                          ].map((c, i) => (
+                            <div key={i} className="ev-count-cell">
+                              <div className="ev-count-num">{pad(c.n)}</div>
+                              <div className="ev-count-unit">{c.u}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="ev-count-label" style={{ marginBottom: 18 }}>Event in progress or ended</div>
+                    )}
+
+                    <div className="ev-facts">
+                      <div><span className="lbl">Date:</span> {formatDatePart(event.starts_at, event.city)}</div>
+                      <div><span className="lbl">Time:</span> {formatTimePart(event.starts_at, event.city)}</div>
+                      <div><span className="lbl">Venue:</span> {event.is_virtual ? "Virtual event" : (event.location ?? "TBD")}</div>
+                      <div><span className="lbl">Format:</span> {event.is_virtual ? "Virtual" : "In-Person"}</div>
+                    </div>
+
+                    {event.registration_url ? (
+                      <a
+                        className="btn-primary"
+                        href={event.registration_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {ctaLabel(event.registration_url)} ↗
+                      </a>
+                    ) : (
+                      <button className="btn-primary is-disabled" disabled type="button">
+                        Registration TBD
+                      </button>
+                    )}
+                    <p className="ev-reg-note">
+                      {countdown.passed
+                        ? "Registration may still be open — check the organizer page."
+                        : "Opens on the organizer's page in a new tab."}
+                    </p>
+                  </div>
+
+                  {/* Location card — always shown, with Maps link either way */}
+                  {!event.is_virtual && (event.location || event.city) && (
+                    <div className="ev-card">
+                      <h3>Location</h3>
+                      {event.location && <p className="ev-loc-venue">{event.location}</p>}
+                      {event.city && <p className="ev-loc-city">{event.city.toUpperCase()}</p>}
+                      {hasCoords && (
+                        <div className="ev-loc-map">
+                          <EventMap lat={Number(event.venue_lat)} lng={Number(event.venue_lng)} />
+                        </div>
+                      )}
+                      <a
+                        className="ev-loc-link"
+                        href={googleMapsUrl(event)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Open in Google Maps ↗
+                      </a>
+                    </div>
+                  )}
+                </aside>
               </div>
             </div>
-          </section>
-        )}
+
+            {/* More events in same city */}
+            {event.city && related.length > 0 && (
+              <section className="ev-sec" style={{ borderTop: "1px solid var(--line)" }}>
+                <div className="wrap">
+                  <div className="sec-h">
+                    <h3>More events in {event.city}</h3>
+                    <Link className="more" to="/events">All events →</Link>
+                  </div>
+                  <div className="ev-grid">
+                    {related.map((r) => {
+                      const parts = [r.city, r.location, r.is_virtual ? "VIRTUAL" : "IN-PERSON"]
+                        .filter(Boolean).join(" · ").toUpperCase();
+                      const linkTo = `/events/${r.slug ?? r.id}`;
+                      return (
+                        <Link key={r.id} className="ev" to={linkTo}>
+                          <div className="d">{formatEventDate(r.starts_at)}</div>
+                          <h4>{r.title}</h4>
+                          {parts && <div className="loc">{parts}</div>}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+            )}
+          </>
+        ) : null}
       </main>
       <SiteFooter />
       <BackToTop />

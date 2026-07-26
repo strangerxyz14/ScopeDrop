@@ -7,6 +7,9 @@ import {
   extractOrganizerFromHtml,
   extractAgendaFromHtml,
   extractSpeakersFromHtml,
+  extractCoverImageFromHtml,
+  isUsableImageUrl,
+  cleanConcatenatedText,
   type AgendaEntry,
   type Speaker,
 } from "../_shared/event-extraction.ts";
@@ -381,12 +384,14 @@ serve(async (req) => {
       const venueOrLocation = serp.venue?.name ?? address[0] ?? null;
       const registration = serp.ticket_info?.find(t => t.link)?.link ?? serp.link ?? null;
 
-      // Enrich by fetching the event's own page for organizer/agenda/speakers.
+      // Enrich by fetching the event's own page for organizer/agenda/speakers/cover.
       // Best-effort — if the page 404s or isn't HTML, all extracted fields stay null.
       let organizer_name: string | null = null;
       let organizer_logo_url: string | null = null;
       let agenda: AgendaEntry[] | null = null;
       let speakers: Speaker[] | null = null;
+      let scrapedCover: string | null = null;
+      let scrapedDescription: string | null = null;
       const pageHtml = serp.link ? await fetchEventPageHtml(serp.link) : null;
       if (pageHtml) {
         const org = extractOrganizerFromHtml(pageHtml, serp.link);
@@ -394,7 +399,21 @@ serve(async (req) => {
         organizer_logo_url = org.logoUrl;
         agenda = extractAgendaFromHtml(pageHtml);
         speakers = extractSpeakersFromHtml(pageHtml);
+        scrapedCover = extractCoverImageFromHtml(pageHtml);
+        // og:description tends to be clean paragraph text; prefer over SerpAPI's
+        // section-mashed thumbnail description when meaningfully longer.
+        const ogDesc = pageHtml.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
+        if (ogDesc?.[1] && ogDesc[1].length > (description?.length ?? 0) * 0.6) {
+          scrapedDescription = ogDesc[1].trim();
+        }
       }
+
+      // Image priority: scraped og:image/JSON-LD > SerpAPI thumbnail (if usable) > null.
+      // SerpAPI's `thumbnail` is often a Google Image search tile or literal
+      // Maps screenshot — filtered by isUsableImageUrl.
+      const image_url = scrapedCover ?? (isUsableImageUrl(serp.thumbnail) ? serp.thumbnail! : null);
+      // Description priority: cleaned scraped og:description > cleaned SerpAPI description.
+      const cleanedDesc = cleanConcatenatedText(scrapedDescription ?? description);
 
       // Geocode the venue address (cache-once via geocode_cache). Skipped for
       // virtual events and when there's no address string at all.
@@ -415,7 +434,7 @@ serve(async (req) => {
         source: 'serpapi',
         source_id: slug.replace(/^serpapi_/, ''),
         title,
-        description: description || null,
+        description: cleanedDesc,
         starts_at,
         ends_at: null,
         city,
@@ -423,7 +442,7 @@ serve(async (req) => {
         is_virtual: isVirtual,
         location: venueOrLocation,
         registration_url: registration,
-        image_url: serp.thumbnail ?? null,
+        image_url,
         event_type: mapEventType(title),
         relevance_category: verdict.category,
         relevance_reason: verdict.scope,

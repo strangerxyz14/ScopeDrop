@@ -437,8 +437,13 @@ serve(async (req) => {
       for (const signal of rows) {
         if (!signal.source_url || !signal.title) { skippedRelevance++; continue; }
 
-        // Relevance filter
-        if (!isRelevant(signal.title, signal.raw_content, signal.source_url)) {
+        // Relevance filter — bypassed for sources tagged as editorial_blog.
+        // Curated blogs (YC, TechCrunch editorial, etc.) are pre-filtered by
+        // their editors; the keyword gate is too strict for announcement-style
+        // titles like "Diana Hu Is YC's Newest Managing Partner" or
+        // "2026 Demo Day Dates" which don't naturally include our keyword set.
+        const isEditorial = signal.suggested_tags?.includes("editorial_blog") ?? false;
+        if (!isEditorial && !isRelevant(signal.title, signal.raw_content, signal.source_url)) {
           skippedRelevance++;
           continue;
         }
@@ -450,11 +455,23 @@ serve(async (req) => {
         // OG image extraction (best-effort, non-blocking)
         const image_url = await extractOgImage(signal.source_url);
 
-        const { _src: _, ...row } = signal as any;
-        const { error: insertError } = await supabase.from("raw_signals").insert({ ...row, image_url });
+        // Whitelist only columns that exist in the raw_signals table.
+        // suggested_category and suggested_tags are used by the relevance
+        // filter above (isEditorial check) and by category defaulting, but
+        // they are not persisted — the schema doesn't include them. Inserting
+        // them silently 400s and drops the row; that was the real cause of
+        // TechCrunch/YC/VentureBeat/HN/DEV.to producing zero rows for months.
+        const { error: insertError } = await supabase.from("raw_signals").insert({
+          title: signal.title,
+          raw_content: signal.raw_content,
+          source_url: signal.source_url,
+          source_name: signal.source_name,
+          status: signal.status,
+          image_url,
+        });
 
         if (insertError) {
-          console.error(`Insert error (${srcKey}):`, insertError.message);
+          console.error(`Insert error (${srcKey}) ${signal.source_url}:`, insertError.message);
           skippedDuplicate++;
         } else {
           stats[srcKey].inserted++;
