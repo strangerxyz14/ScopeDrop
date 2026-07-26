@@ -343,6 +343,27 @@
 .sdvg .ev .loc { font-size: 12.5px; color: var(--fg-mute); font-family: 'IBM Plex Mono', ui-monospace, monospace; }
 .sdvg .ev-note { margin-top: 20px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; color: var(--fg-mute); text-align: center; letter-spacing: .04em; }
 
+/* EVENT COVER — brand wash over raw stock/source imagery.
+   Vertical fade grounds the image into the ink background, radial hint
+   mimics a stage-light bloom so photos read as ScopeDrop hero art
+   instead of untreated stock. Applied via ::after so it overlays any
+   child (real img / template img / HeroIllustration). */
+.sdvg .ev-cover { position: relative; }
+.sdvg .ev-cover::after {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 70% at 50% 20%, rgba(62, 207, 110, .10) 0%, rgba(62, 207, 110, 0) 55%),
+    linear-gradient(180deg,
+      rgba(10, 22, 40, .35) 0%,
+      rgba(10, 22, 40, .08) 32%,
+      rgba(10, 22, 40, .55) 78%,
+      var(--ink) 100%);
+  mix-blend-mode: normal;
+}
+.sdvg .ev-cover > * { position: relative; z-index: 0; }
+
 /* NEWSLETTER */
 .sdvg .nl { padding: 80px 0; text-align: center; border-bottom: 1px solid var(--line); position: relative; overflow: hidden; }
 .sdvg .nl::before,

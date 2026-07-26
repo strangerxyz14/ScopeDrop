@@ -331,10 +331,12 @@ const EventDetail = () => {
                   </div>
                 )}
 
-                {/* Cover image: real → template → HeroIllustration */}
-                <div style={{
+                {/* Cover image: real → template → HeroIllustration.
+                    .ev-cover applies the ScopeDrop brand wash (vertical fade
+                    + subtle parrot stage-light) over whatever image lands here. */}
+                <div className="ev-cover" style={{
                   aspectRatio: "16 / 9", background: "var(--oxford)", overflow: "hidden",
-                  position: "relative", marginBottom: 32, borderTop: "2px solid var(--amber)",
+                  marginBottom: 32, borderTop: "2px solid var(--amber)",
                 }}>
                   {event.image_url ? (
                     <img src={event.image_url} alt={event.title} loading="lazy"
