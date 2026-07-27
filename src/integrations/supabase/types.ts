@@ -377,6 +377,7 @@ export type Database = {
       scheduled_events: {
         Row: {
           agenda: Json | null
+          ai_summary: string | null
           city: string | null
           created_at: string
           description: string | null
@@ -409,6 +410,7 @@ export type Database = {
         }
         Insert: {
           agenda?: Json | null
+          ai_summary?: string | null
           city?: string | null
           created_at?: string
           description?: string | null
@@ -441,6 +443,7 @@ export type Database = {
         }
         Update: {
           agenda?: Json | null
+          ai_summary?: string | null
           city?: string | null
           created_at?: string
           description?: string | null

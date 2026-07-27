@@ -33,6 +33,50 @@ Given an event's title and description, respond ONLY with JSON:
 
 If relevant is false, "scope" should still be one short sentence explaining WHY it's off-topic — this is useful for spot-audits.`;
 
+// ------------------------------------------------------------
+// AI event summary — 2-3 short sentences, founder-facing overview.
+// Replaces the scraped agenda block in the UI (which was often empty
+// or noisy). Called once at ingestion, stored in scheduled_events.ai_summary,
+// never regenerated for the same event (idempotent by key).
+// ------------------------------------------------------------
+const SUMMARY_SYSTEM_PROMPT = `You write concise, factual event summaries for founders and investors browsing an events directory.
+
+Given an event's title and description, output ONLY a JSON object:
+{"summary": "2 to 3 short sentences, factual, no hype adjectives, no marketing-speak, no exclamation marks. Explain what the event is and what someone attending would experience or gain. Do NOT restate the title. Do NOT include registration instructions, prices, or generic phrases like 'don't miss this'."}
+
+Aim for 40-70 words total. If the description is empty or uninformative, return a summary based on the title alone.`;
+
+export async function generateEventSummary(title: string, description: string | null): Promise<string | null> {
+  const apiKey = Deno.env.get("GROQ_API_KEY");
+  if (!apiKey) return null;
+
+  const userContent = `Event title: ${title}\nEvent description: ${description || "(no description)"}`;
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        max_tokens: 200,
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: SUMMARY_SYSTEM_PROMPT },
+          { role: "user", content: userContent },
+        ],
+      }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const raw = json.choices?.[0]?.message?.content ?? "";
+    const parsed = JSON.parse(raw);
+    const summary = typeof parsed?.summary === "string" ? parsed.summary.trim() : null;
+    return summary && summary.length >= 20 ? summary : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function classifyEventRelevance(title: string, description: string): Promise<RelevanceVerdict> {
   const apiKey = Deno.env.get("GROQ_API_KEY");
   if (!apiKey) return { relevant: false, category: "other", scope: "GROQ_API_KEY not set" };
@@ -199,9 +243,165 @@ function domainFromUrl(url: string): string | null {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return null; }
 }
 
-/** Logo.dev CDN URL for a bare domain. Never called from JS — used as an <img src> at render time. */
+// Logo.dev CDN URL — always uses the publishable key (safe to expose,
+// same as `pk_` keys from Stripe). Env-injected at edge-function
+// runtime; falls back to the demo token if the secret isn't set so
+// local dev + first-boot deploys don't produce broken images.
+const LOGO_DEV_PK_FALLBACK = "pk_LtDkNs45SgSK-RyN7Vf7Aw";
+function logoDevPk(): string {
+  try {
+    // @ts-ignore Deno namespace exists at runtime in Supabase edge functions
+    return (globalThis.Deno?.env?.get?.("LOGO_DEV_PUBLISHABLE_KEY") as string) || LOGO_DEV_PK_FALLBACK;
+  } catch {
+    return LOGO_DEV_PK_FALLBACK;
+  }
+}
+
+/** Logo.dev CDN URL for a bare domain. Cheap: just URL construction, no network call. */
 export function logoDevUrl(domain: string): string {
-  return `https://img.logo.dev/${domain}?token=pk_LtDkNs45SgSK-RyN7Vf7Aw&size=200&format=png`;
+  return `https://img.logo.dev/${domain}?token=${logoDevPk()}&size=200&format=png`;
+}
+
+// ------------------------------------------------------------
+// Organizer logo resolution — given a company/organizer NAME (not a
+// domain), find the real domain + logo. On the Logo.dev free plan the
+// Search API returns 402/403, so we degrade gracefully:
+//
+//   1. Check logo_cache by normalized name — free forever after first
+//      lookup for any given name.
+//   2. Try Logo.dev Search API with LOGO_DEV_SECRET_KEY (paid plans).
+//      Success → cache with resolved_via='search_api', return real logo.
+//   3. Fall back to `${slug(name)}.com` guess as domain, return CDN URL
+//      pointed at that guess. Cache with resolved_via='domain_guess'
+//      (so we don't keep guessing) but note that the image may 404 at
+//      render time — the frontend already has an onError hide handler.
+//   4. If everything fails, cache with resolved_via='not_found' so we
+//      don't retry until the row is manually reset.
+//
+// A per-run cap (MAX_LOGO_LOOKUPS_PER_RUN) protects against surprise
+// bills if the paid plan is enabled and something starts loop-calling.
+// ------------------------------------------------------------
+const MAX_LOGO_LOOKUPS_PER_RUN = 20;
+
+// Module-scoped counter — resets on cold start, which is exactly what
+// we want for a per-invocation cap.
+let logoLookupsThisRun = 0;
+
+export interface OrganizerLogoResolution {
+  domain: string | null;
+  logoUrl: string | null;
+  via: "search_api" | "domain_guess" | "not_found" | "cache";
+}
+
+function normalizeLogoKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
+function slugForDomainGuess(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// deno-lint-ignore no-explicit-any
+export async function resolveOrganizerLogo(supabase: any, name: string): Promise<OrganizerLogoResolution> {
+  const original = name.trim();
+  const key = normalizeLogoKey(original);
+  if (!key) return { domain: null, logoUrl: null, via: "not_found" };
+
+  // Step 1: cache
+  try {
+    const { data: cached } = await supabase
+      .from("logo_cache")
+      .select("domain, logo_url, resolved_via")
+      .eq("normalized_name", key)
+      .maybeSingle();
+    if (cached) {
+      return {
+        domain: cached.domain,
+        logoUrl: cached.logo_url,
+        via: "cache",
+      };
+    }
+  } catch { /* cache miss on error, keep going */ }
+
+  // Step 2: Search API (paid plans)
+  let searchAttempted = false;
+  let searchDomain: string | null = null;
+  const secret = (() => {
+    try {
+      // @ts-ignore
+      return (globalThis.Deno?.env?.get?.("LOGO_DEV_SECRET_KEY") as string) || "";
+    } catch { return ""; }
+  })();
+
+  if (secret && logoLookupsThisRun < MAX_LOGO_LOOKUPS_PER_RUN) {
+    logoLookupsThisRun++;
+    searchAttempted = true;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(`https://api.logo.dev/search?q=${encodeURIComponent(original)}`, {
+        headers: { "Authorization": `Bearer ${secret}` },
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (res.ok) {
+        const json = await res.json();
+        // Search API returns an array; take the top match's domain.
+        const first = Array.isArray(json) ? json[0] : (json?.results?.[0] ?? null);
+        if (first?.domain && typeof first.domain === "string") {
+          searchDomain = first.domain;
+        }
+      } else if (res.status === 402 || res.status === 403) {
+        console.warn(`Logo.dev Search API not available on this plan (HTTP ${res.status}) — falling back.`);
+      } else {
+        console.warn(`Logo.dev Search API HTTP ${res.status} for "${original}"`);
+      }
+    } catch (e) {
+      console.warn(`Logo.dev Search failed for "${original}":`, e instanceof Error ? e.message : e);
+    }
+  }
+
+  if (searchDomain) {
+    const logoUrl = logoDevUrl(searchDomain);
+    try {
+      await supabase.from("logo_cache").insert({
+        normalized_name: key,
+        original_name: original,
+        domain: searchDomain,
+        logo_url: logoUrl,
+        resolved_via: "search_api",
+      });
+    } catch { /* ignore duplicate races */ }
+    return { domain: searchDomain, logoUrl, via: "search_api" };
+  }
+
+  // Step 3: domain guess — .com is the highest hit-rate default.
+  const guess = slugForDomainGuess(original);
+  if (guess.length >= 2) {
+    const guessDomain = `${guess}.com`;
+    const guessUrl = logoDevUrl(guessDomain);
+    try {
+      await supabase.from("logo_cache").insert({
+        normalized_name: key,
+        original_name: original,
+        domain: guessDomain,
+        logo_url: guessUrl,
+        resolved_via: searchAttempted ? "domain_guess" : "domain_guess",
+      });
+    } catch { /* ignore duplicate races */ }
+    return { domain: guessDomain, logoUrl: guessUrl, via: "domain_guess" };
+  }
+
+  try {
+    await supabase.from("logo_cache").insert({
+      normalized_name: key,
+      original_name: original,
+      domain: null,
+      logo_url: null,
+      resolved_via: "not_found",
+    });
+  } catch { /* ignore */ }
+  return { domain: null, logoUrl: null, via: "not_found" };
 }
 
 // Google Maps / Google Image search thumbnail hosts — these leak into

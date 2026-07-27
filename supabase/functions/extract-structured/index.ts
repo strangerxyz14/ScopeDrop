@@ -7,6 +7,8 @@ import {
   cleanConcatenatedText,
   isUsableImageUrl,
   extractCoverImageFromHtml,
+  generateEventSummary,
+  resolveOrganizerLogo,
 } from "../_shared/event-extraction.ts";
 
 const ALLOWED_ORIGINS = [
@@ -52,6 +54,22 @@ const EVENT_TITLE_KEYWORDS = [
   "meetup", "pitch competition", "pitch day", "cohort dates",
   "batch dates", "founder retreat", "launch event",
 ];
+
+// Map an editorial source_name to the human name of the organization
+// that publishes it. Used to resolve a proper Logo.dev entry — "Y
+// Combinator Blog" as a source_name → "Y Combinator" as the organizer
+// to look up. Extend when new editorial sources are added.
+const EDITORIAL_ORGANIZER_NAMES: Record<string, string> = {
+  "Y Combinator Blog": "Y Combinator",
+};
+
+function extractEditorialOrganizerName(sourceName: string | null): string | null {
+  if (!sourceName) return null;
+  const known = EDITORIAL_ORGANIZER_NAMES[sourceName];
+  if (known) return known;
+  const stripped = sourceName.replace(/\s*(Blog|Newsroom|Press)\s*$/i, "").trim();
+  return stripped || null;
+}
 
 function looksLikeEventCandidate(sourceName: string | null, title: string | null): boolean {
   if (!sourceName || !title) return false;
@@ -397,6 +415,17 @@ async function promoteEditorialEvent(
   if (!imageUrl) imageUrl = extractCoverImageFromHtml(html);
 
   const slug = await slugFromEventFields("editorial", title, startsAt, city);
+  const cleanedDesc = cleanConcatenatedText(description);
+
+  // AI summary + resolved organizer logo — same pipeline as fetch-events
+  // so the editorial and SerpAPI paths land equivalent-shaped rows.
+  const ai_summary = await generateEventSummary(title, cleanedDesc);
+  const editorialOrganizerName = extractEditorialOrganizerName(signal.source_name);
+  let organizerLogoUrl: string | null = null;
+  if (editorialOrganizerName) {
+    const resolved = await resolveOrganizerLogo(supabase, editorialOrganizerName);
+    organizerLogoUrl = resolved.logoUrl;
+  }
 
   // Idempotent upsert on slug — reprocessing the same signal produces the same slug.
   const { error: insErr } = await supabase
@@ -407,7 +436,7 @@ async function promoteEditorialEvent(
       source_id: signal.id,
       source_url: signal.source_url,
       title,
-      description: cleanConcatenatedText(description),
+      description: cleanedDesc,
       starts_at: startsAt,
       ends_at: endsAt,
       city,
@@ -418,7 +447,10 @@ async function promoteEditorialEvent(
       image_url: imageUrl,
       event_type: "conference", // default; editorial posts rarely disclose a granular type
       relevance_category: category,
-      relevance_reason: description ? description.slice(0, 240) : null,
+      relevance_reason: cleanedDesc ? cleanedDesc.slice(0, 240) : null,
+      organizer_name: editorialOrganizerName,
+      organizer_logo_url: organizerLogoUrl,
+      ai_summary,
       status: "approved",
     }, { onConflict: "slug", ignoreDuplicates: false });
 

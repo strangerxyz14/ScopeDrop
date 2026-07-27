@@ -343,6 +343,20 @@
 .sdvg .ev .loc { font-size: 12.5px; color: var(--fg-mute); font-family: 'IBM Plex Mono', ui-monospace, monospace; }
 .sdvg .ev-note { margin-top: 20px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; color: var(--fg-mute); text-align: center; letter-spacing: .04em; }
 
+/* Organizer logo chip on event cards — top-right corner of .ev.
+   Neutral background so any logo (light/dark/transparent) reads. Hidden
+   automatically when the img errors so a 404'd guess doesn't leave a
+   blank square. */
+.sdvg .ev { position: relative; }
+.sdvg .ev-logo {
+  position: absolute; top: 14px; right: 14px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  object-fit: contain;
+  padding: 3px;
+}
+
 /* EVENT COVER — brand wash over raw stock/source imagery.
    Vertical fade grounds the image into the ink background, radial hint
    mimics a stage-light bloom so photos read as ScopeDrop hero art

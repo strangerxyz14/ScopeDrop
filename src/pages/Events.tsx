@@ -197,6 +197,15 @@ const Events = () => {
                   const source = sourceLabel(e.source);
                   const content = (
                     <>
+                      {e.organizer_logo_url && (
+                        <img
+                          className="ev-logo"
+                          src={e.organizer_logo_url}
+                          alt={e.organizer_name ?? ""}
+                          loading="lazy"
+                          onError={(err) => { (err.currentTarget as HTMLImageElement).style.display = "none"; }}
+                        />
+                      )}
                       <div className="d">{formatEventDate(e.starts_at)}</div>
                       <h4>{e.title}</h4>
                       {parts && <div className="loc">{parts}</div>}

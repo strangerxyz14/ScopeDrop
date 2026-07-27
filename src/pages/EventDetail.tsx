@@ -345,20 +345,20 @@ const EventDetail = () => {
                     </section>
                   )}
 
-                  {/* Agenda */}
-                  {agenda && agenda.length > 0 && (
+                  {/* AI-generated highlights — replaces the noisier scraped agenda.
+                      Falls back gracefully when Groq didn't produce one. */}
+                  {event.ai_summary && (
                     <section style={{ marginBottom: 32 }}>
                       <h3 className="mono" style={{
                         fontSize: 12, letterSpacing: ".16em", color: "var(--fg-mute)",
-                        textTransform: "uppercase", marginBottom: 16,
-                      }}>Agenda</h3>
-                      <div className="trk-list">
-                        {agenda.map((row, i) => (
-                          <div key={i} className="step">
-                            <span className="num">{row.time}</span>
-                            <span className="t">{row.label}</span>
-                          </div>
-                        ))}
+                        textTransform: "uppercase", marginBottom: 12,
+                      }}>Highlights</h3>
+                      <div style={{
+                        background: "var(--oxford)", padding: "16px 20px",
+                        borderLeft: "2px solid var(--acq)", borderRadius: 4,
+                        color: "var(--fg-2)", fontSize: 14.5, lineHeight: 1.65,
+                      }}>
+                        {event.ai_summary}
                       </div>
                     </section>
                   )}
@@ -499,6 +499,15 @@ const EventDetail = () => {
                       const linkTo = `/events/${r.slug ?? r.id}`;
                       return (
                         <Link key={r.id} className="ev" to={linkTo}>
+                          {r.organizer_logo_url && (
+                            <img
+                              className="ev-logo"
+                              src={r.organizer_logo_url}
+                              alt={r.organizer_name ?? ""}
+                              loading="lazy"
+                              onError={(err) => { (err.currentTarget as HTMLImageElement).style.display = "none"; }}
+                            />
+                          )}
                           <div className="d">{formatEventDate(r.starts_at)}</div>
                           <h4>{r.title}</h4>
                           {parts && <div className="loc">{parts}</div>}

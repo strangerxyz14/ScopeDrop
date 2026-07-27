@@ -11,6 +11,8 @@ import {
   isUsableImageUrl,
   cleanConcatenatedText,
   fetchEventPageHtml,
+  generateEventSummary,
+  resolveOrganizerLogo,
   type AgendaEntry,
   type Speaker,
 } from "../_shared/event-extraction.ts";
@@ -69,6 +71,7 @@ interface NormalizedEvent {
   speakers: Speaker[] | null;
   venue_lat: number | null;
   venue_lng: number | null;
+  ai_summary: string | null;
 }
 
 // ============================================================
@@ -389,12 +392,27 @@ serve(async (req) => {
         }
       }
 
+      // Upgrade organizer logo via Logo.dev resolution — the local
+      // extractor guesses domain from the source page URL, which often
+      // gives us the event platform (eventbookings.com) instead of the
+      // organizer. resolveOrganizerLogo caches results in logo_cache
+      // so repeat organizers pay zero API cost.
+      if (organizer_name) {
+        const resolved = await resolveOrganizerLogo(supabase, organizer_name);
+        if (resolved.logoUrl) organizer_logo_url = resolved.logoUrl;
+      }
+
       // Image priority: scraped og:image/JSON-LD > SerpAPI thumbnail (if usable) > null.
       // SerpAPI's `thumbnail` is often a Google Image search tile or literal
       // Maps screenshot — filtered by isUsableImageUrl.
       const image_url = scrapedCover ?? (isUsableImageUrl(serp.thumbnail) ? serp.thumbnail! : null);
       // Description priority: cleaned scraped og:description > cleaned SerpAPI description.
       const cleanedDesc = cleanConcatenatedText(scrapedDescription ?? description);
+
+      // AI summary — 2-3 sentence founder-facing overview shown on EventDetail
+      // in place of the (often empty) scraped agenda. Generated once; if the
+      // Groq call fails, ai_summary stays null and the UI hides the block.
+      const ai_summary = await generateEventSummary(title, cleanedDesc);
 
       // Geocode the venue address (cache-once via geocode_cache). Skipped for
       // virtual events and when there's no address string at all.
@@ -433,6 +451,7 @@ serve(async (req) => {
         speakers,
         venue_lat,
         venue_lng,
+        ai_summary,
       });
       acceptedCount++;
     }

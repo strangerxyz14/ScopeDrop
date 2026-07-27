@@ -95,6 +95,15 @@ export function EventsGrid() {
               const to = `/events/${e.slug ?? e.id}`;
               return (
                 <Link key={e.id} className="ev" to={to}>
+                  {e.organizer_logo_url && (
+                    <img
+                      className="ev-logo"
+                      src={e.organizer_logo_url}
+                      alt={e.organizer_name ?? ""}
+                      loading="lazy"
+                      onError={(err) => { (err.currentTarget as HTMLImageElement).style.display = "none"; }}
+                    />
+                  )}
                   <div className="d">{formatEventDate(e.starts_at)}</div>
                   <h4>{e.title}</h4>
                   {parts && <div className="loc">{parts}</div>}
