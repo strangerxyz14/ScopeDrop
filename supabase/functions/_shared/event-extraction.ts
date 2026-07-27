@@ -361,6 +361,141 @@ export interface Speaker {
   photo_url: string | null;
 }
 
+// ------------------------------------------------------------
+// Fetch an event source page. Shared between fetch-events (SerpAPI
+// enrichment) and extract-structured (editorial-blog promotion).
+// ------------------------------------------------------------
+export async function fetchEventPageHtml(url: string, timeoutMs = 8000): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "ScopeDrop-EventEnricher/1.0 (+https://scopedrop.itsstranger14.workers.dev)",
+        "Accept": "text/html,application/xhtml+xml",
+      },
+      redirect: "follow",
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("html") && !ct.includes("xml")) return null;
+    const text = await res.text();
+    return text.length > 2_000_000 ? text.slice(0, 2_000_000) : text;
+  } catch {
+    return null;
+  }
+}
+
+// ------------------------------------------------------------
+// Deterministic slug for a scheduled_events row from stable fields.
+// Same shape as fetch-events' slugFromEvent, hoisted here so the
+// editorial-blog path can share it.
+// ------------------------------------------------------------
+export async function slugFromEventFields(
+  prefix: string,
+  title: string,
+  startsAtIso: string,
+  city: string | null,
+): Promise<string> {
+  const startsDate = startsAtIso.slice(0, 10);
+  const cityKey = (city ?? "").toLowerCase().trim();
+  const norm = title.toLowerCase().replace(/\s+/g, " ").trim();
+  const key = `${norm}|${startsDate}|${cityKey}`;
+  const data = new TextEncoder().encode(key);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashHex = Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 16);
+  return `${prefix}_${hashHex}`;
+}
+
+// ------------------------------------------------------------
+// Full Event JSON-LD extraction (schema.org). Returns structured fields
+// when a source page ships explicit Event schema. Deterministic + free
+// — always try before spending a Groq call.
+// ------------------------------------------------------------
+export interface EventJsonLd {
+  title: string | null;
+  description: string | null;
+  startsAt: string | null; // ISO
+  endsAt: string | null;
+  city: string | null;
+  venueName: string | null;
+  address: string | null;
+  isVirtual: boolean;
+  registrationUrl: string | null;
+  imageUrl: string | null;
+}
+
+function coerceIsoDate(v: unknown): string | null {
+  if (typeof v !== "string" || !v.trim()) return null;
+  const d = new Date(v);
+  if (!isFinite(d.getTime())) return null;
+  return d.toISOString();
+}
+
+function readLocation(loc: unknown): { city: string | null; venueName: string | null; address: string | null; isVirtual: boolean } {
+  const out = { city: null as string | null, venueName: null as string | null, address: null as string | null, isVirtual: false };
+  if (!loc) return out;
+  const first = Array.isArray(loc) ? loc[0] : loc;
+  if (!first || typeof first !== "object") return out;
+  const rec = first as Record<string, unknown>;
+  const type = rec["@type"];
+  if (typeof type === "string" && /virtuallocation/i.test(type)) out.isVirtual = true;
+  if (typeof rec.name === "string") out.venueName = rec.name;
+  const addr = rec.address;
+  if (typeof addr === "string") out.address = addr;
+  else if (addr && typeof addr === "object") {
+    const ar = addr as Record<string, unknown>;
+    const parts = [ar.streetAddress, ar.addressLocality, ar.addressRegion, ar.postalCode, ar.addressCountry]
+      .filter((p) => typeof p === "string") as string[];
+    out.address = parts.join(", ") || null;
+    if (typeof ar.addressLocality === "string") out.city = ar.addressLocality;
+  }
+  return out;
+}
+
+export function parseEventJsonLd(html: string): EventJsonLd | null {
+  const blocks = extractJsonLdBlocks(html);
+  const event = blocks.find(isEvent) as Record<string, unknown> | undefined;
+  if (!event) return null;
+
+  const startsAt = coerceIsoDate(event.startDate);
+  if (!startsAt) return null;
+
+  const loc = readLocation(event.location);
+  const eventAttendanceMode = event.eventAttendanceMode;
+  if (typeof eventAttendanceMode === "string" && /online/i.test(eventAttendanceMode)) loc.isVirtual = true;
+
+  const offers = event.offers;
+  let registrationUrl: string | null = null;
+  const firstOffer = Array.isArray(offers) ? offers[0] : offers;
+  if (firstOffer && typeof firstOffer === "object" && typeof (firstOffer as Record<string, unknown>).url === "string") {
+    registrationUrl = (firstOffer as Record<string, unknown>).url as string;
+  }
+
+  let imageUrl: string | null = null;
+  const img = event.image;
+  if (typeof img === "string" && isUsableImageUrl(img)) imageUrl = img;
+  else if (Array.isArray(img) && img.length > 0 && typeof img[0] === "string" && isUsableImageUrl(img[0])) imageUrl = img[0];
+
+  return {
+    title: typeof event.name === "string" ? event.name : null,
+    description: typeof event.description === "string" ? event.description : null,
+    startsAt,
+    endsAt: coerceIsoDate(event.endDate),
+    city: loc.city,
+    venueName: loc.venueName,
+    address: loc.address,
+    isVirtual: loc.isVirtual,
+    registrationUrl,
+    imageUrl,
+  };
+}
+
 export function extractSpeakersFromHtml(html: string): Speaker[] | null {
   const blocks = extractJsonLdBlocks(html);
   const event = blocks.find(isEvent);

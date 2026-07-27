@@ -10,6 +10,7 @@ import {
   extractCoverImageFromHtml,
   isUsableImageUrl,
   cleanConcatenatedText,
+  fetchEventPageHtml,
   type AgendaEntry,
   type Speaker,
 } from "../_shared/event-extraction.ts";
@@ -263,28 +264,8 @@ async function slugFromEvent(title: string, startsAtIso: string, city: string | 
 // founder-facing one-sentence answer to "why should I care about
 // this event?", stored in relevance_reason.
 
-async function fetchEventPageHtml(url: string, timeoutMs = 8000): Promise<string | null> {
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'ScopeDrop-EventEnricher/1.0 (+https://scopedrop.itsstranger14.workers.dev)',
-        'Accept': 'text/html,application/xhtml+xml',
-      },
-      redirect: 'follow',
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    if (!res.ok) return null;
-    const ct = res.headers.get('content-type') || '';
-    if (!ct.includes('html') && !ct.includes('xml')) return null;
-    const text = await res.text();
-    return text.length > 2_000_000 ? text.slice(0, 2_000_000) : text;
-  } catch {
-    return null;
-  }
-}
+// fetchEventPageHtml moved to _shared/event-extraction.ts so extract-structured
+// can share it for the editorial-blog promotion path.
 
 // ============================================================
 // Main handler
