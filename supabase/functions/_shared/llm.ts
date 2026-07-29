@@ -65,9 +65,14 @@ export const MODELS = {
     LLAMA_8B: "llama-3.1-8b-instant",
   },
   cerebras: {
-    LLAMA_70B: "llama-3.3-70b",
-    LLAMA_8B: "llama-3.1-8b",
-    QWEN_32B: "qwen-3-32b",
+    // What our Cerebras account actually exposes (verified via
+    // GET /v1/models on 2026-07-29). The plan's assumed Llama and Qwen
+    // IDs returned 404 — those models aren't provisioned on this tier.
+    // If we upgrade the plan, add the Llama IDs here and update
+    // ROUTING to prefer them.
+    GPT_OSS_120B: "gpt-oss-120b",  // largest capacity — extraction, long-form
+    GEMMA_31B: "gemma-4-31b",       // mid-size — classification, short output
+    GLM_47: "zai-glm-4.7",          // alternative — analytical fallback
   },
 } as const;
 
@@ -92,28 +97,38 @@ interface ProviderModel {
 //   pending a proper A/B evaluation.
 const ROUTING: Record<TaskClass, ProviderModel[]> = {
   CLASSIFY: [
-    { provider: "cerebras", model: MODELS.cerebras.LLAMA_8B, supportsJsonMode: true },
+    // Gemma 31B is Cerebras's mid-size option — fine for enum classification
+    // and cheaper than the 120B. Groq llama-8b remains a known-good fallback.
+    { provider: "cerebras", model: MODELS.cerebras.GEMMA_31B, supportsJsonMode: true },
     { provider: "groq", model: MODELS.groq.LLAMA_8B, supportsJsonMode: true },
-    { provider: "cerebras", model: MODELS.cerebras.LLAMA_70B, supportsJsonMode: true },
+    { provider: "cerebras", model: MODELS.cerebras.GPT_OSS_120B, supportsJsonMode: true },
   ],
   EXTRACT_JSON: [
-    { provider: "cerebras", model: MODELS.cerebras.LLAMA_70B, supportsJsonMode: true },
+    // GPT-OSS-120B is the largest Cerebras option — reasonable pick for
+    // structured JSON extraction. Groq 70b as strong fallback.
+    { provider: "cerebras", model: MODELS.cerebras.GPT_OSS_120B, supportsJsonMode: true },
     { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: true },
     { provider: "groq", model: MODELS.groq.LLAMA_8B, supportsJsonMode: true },
   ],
   EXTRACT_JSON_LONG: [
+    // Cerebras skipped — 8k context can't hold long-form sources.
     { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: true },
     { provider: "groq", model: MODELS.groq.LLAMA_8B, supportsJsonMode: true },
   ],
   SHORT_GENERATIVE: [
-    { provider: "cerebras", model: MODELS.cerebras.LLAMA_70B, supportsJsonMode: false },
-    { provider: "cerebras", model: MODELS.cerebras.LLAMA_8B, supportsJsonMode: false },
+    // Gemma is cheapest for short bullet/paragraph output; escalate to GPT-OSS
+    // if it wobbles, Groq 70b as safety net.
+    { provider: "cerebras", model: MODELS.cerebras.GEMMA_31B, supportsJsonMode: false },
+    { provider: "cerebras", model: MODELS.cerebras.GPT_OSS_120B, supportsJsonMode: false },
     { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: false },
   ],
   LONG_ANALYTICAL: [
+    // Llama-70b on Groq stays primary — proven on the article pipeline.
+    // GPT-OSS-120B and GLM-4.7 on Cerebras are unvetted for long-form
+    // creative writing; keeping them as fallbacks only until an A/B.
     { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: false },
-    { provider: "cerebras", model: MODELS.cerebras.QWEN_32B, supportsJsonMode: false },
-    { provider: "cerebras", model: MODELS.cerebras.LLAMA_70B, supportsJsonMode: false },
+    { provider: "cerebras", model: MODELS.cerebras.GPT_OSS_120B, supportsJsonMode: false },
+    { provider: "cerebras", model: MODELS.cerebras.GLM_47, supportsJsonMode: false },
   ],
 };
 
@@ -224,7 +239,7 @@ export async function callLLM(
       if (msg.includes("429") || msg.toLowerCase().includes("rate")) {
         markRateLimited(entry.provider);
       }
-      await recordStat(entry.provider, taskClass, false, 0, 0);
+      await recordStat(entry.provider, taskClass, false, 0, 0, msg.slice(0, 300));
       // fall through to next chain entry
     }
   }
@@ -295,6 +310,7 @@ async function recordStat(
   success: boolean,
   tokensIn: number,
   tokensOut: number,
+  errorSample?: string,
 ) {
   try {
     const supabase = createClient(
@@ -308,6 +324,7 @@ async function recordStat(
       p_success: success,
       p_tokens_in: tokensIn,
       p_tokens_out: tokensOut,
+      p_error: errorSample ?? null,
     });
   } catch (err) {
     console.warn("recordStat failed:", err instanceof Error ? err.message : err);
