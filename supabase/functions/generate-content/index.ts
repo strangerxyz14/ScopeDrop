@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callLLM, TASK } from "../_shared/llm.ts";
 
 const ALLOWED_ORIGINS = [
   ...(Deno.env.get("ENVIRONMENT") === "development"
@@ -124,11 +125,9 @@ async function fetchImageUrl(
   return null;
 }
 
-// ── 4D: Model fallback chain ──────────────────────────────
-const MODELS = [
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
-];
+// Model + provider fallback chain lives in _shared/llm.ts under
+// TASK.LONG_ANALYTICAL (Groq llama-70b primary, Cerebras Qwen-3 32B
+// fallback, Cerebras llama-70b emergency). Deprecating the local chain.
 
 const DAILY_TOKEN_BUDGET = 450_000;
 const INTER_ARTICLE_DELAY_MS = 15_000;
@@ -171,7 +170,18 @@ Return exactly this structure:
   "tags": ["tag1", "tag2", "tag3"]
 }`;
 
-// ── Groq API call with model fallback ─────────────────────
+// LLM call — routed via _shared/llm.ts (TASK.LONG_ANALYTICAL) which
+// handles provider fallback (Groq 70b → Cerebras Qwen-3 32B → Cerebras
+// 70b), per-provider 60s rate-limit cooldown, and provider-tagged
+// telemetry into llm_stats. The old Groq-only model chain + 60s
+// blocking wait after all-model-429 have been replaced by the
+// abstraction's cross-provider fallback, which is strictly better —
+// a Groq 429 now instantly reroutes to Cerebras instead of waiting.
+//
+// The GroqResult shape (text + rate-limit header echoes) is preserved
+// so the rest of this file doesn't have to change; rate-limit fields
+// are stubbed since Cerebras and the abstraction don't propagate
+// Groq's specific x-ratelimit-* headers.
 interface GroqResult {
   text: string;
   remainingTokens: number;
@@ -179,75 +189,19 @@ interface GroqResult {
   resetTokens: string;
 }
 
-async function callGroq(
-  apiKey: string,
-  sanitizedContent: string,
-  modelIndex: number,
-  retriedFullChain: boolean
-): Promise<GroqResult> {
-  for (let i = modelIndex; i < MODELS.length; i++) {
-    const model = MODELS[i];
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1000,
-        temperature: 0.7,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content:
-              "Transform this news signal into ScopeDrop editorial content: " +
-              sanitizedContent,
-          },
-        ],
-      }),
-    });
-
-    // 4G: Handle 429
-    if (res.status === 429) {
-      console.warn(`429 from model ${model}, trying next...`);
-      continue;
-    }
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Groq ${res.status}: ${errText}`);
-    }
-
-    const json = await res.json();
-    const text = json.choices?.[0]?.message?.content ?? "";
-
-    // 4F: Read rate limit headers
-    const remainingTokens = parseInt(
-      res.headers.get("x-ratelimit-remaining-tokens") ?? "999999",
-      10
-    );
-    const remainingRequests = parseInt(
-      res.headers.get("x-ratelimit-remaining-requests") ?? "999",
-      10
-    );
-    const resetTokens =
-      res.headers.get("x-ratelimit-reset-tokens") ?? "";
-
-    return { text, remainingTokens, remainingRequests, resetTokens };
-  }
-
-  // All 3 models returned 429
-  if (!retriedFullChain) {
-    // Wait 60 seconds and retry the full chain once
-    console.warn("All models 429 — waiting 60s for retry...");
-    await new Promise((r) => setTimeout(r, 60_000));
-    return callGroq(apiKey, sanitizedContent, 0, true);
-  }
-
-  throw new Error("429_all_models_exhausted");
+async function callGroq(sanitizedContent: string): Promise<GroqResult> {
+  const res = await callLLM(
+    TASK.LONG_ANALYTICAL,
+    SYSTEM_PROMPT,
+    "Transform this news signal into ScopeDrop editorial content: " + sanitizedContent,
+    { jsonMode: true, maxTokens: 1000, temperature: 0.7 },
+  );
+  return {
+    text: res.content,
+    remainingTokens: 999_999,
+    remainingRequests: 999,
+    resetTokens: "",
+  };
 }
 
 // ── Safe JSON parse ───────────────────────────────────────
@@ -294,13 +248,14 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY");
-    const groqApiKey = Deno.env.get("GROQ_API_KEY");
+    // LLM API keys are owned by _shared/llm.ts (callLLM reads them per
+    // provider); this function no longer reads GROQ_API_KEY directly.
     const pexelsKey = Deno.env.get("PEXELS_API_KEY");
     const unsplashKey = Deno.env.get("UNSPLASH_ACCESS_TOKEN");
 
-    if (!supabaseUrl || !serviceRoleKey || !groqApiKey) {
+    if (!supabaseUrl || !serviceRoleKey) {
       return new Response(
-        JSON.stringify({ error: "Missing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, or GROQ_API_KEY" }),
+        JSON.stringify({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" }),
         { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }
@@ -399,16 +354,19 @@ serve(async (req) => {
           continue;
         }
 
-        // ── 4E: Groq API call ───────────────────────────
+        // ── 4E: LLM call via callLLM (Groq + Cerebras fallback) ─
         let groqResult: GroqResult;
         try {
-          groqResult = await callGroq(groqApiKey, sanitized, 0, false);
+          groqResult = await callGroq(sanitized);
         } catch (e) {
           const errMsg = e instanceof Error ? e.message : String(e);
-          if (errMsg === "429_all_models_exhausted") {
+          // callLLM throws LLMError with "All providers exhausted" when
+          // every entry in the routing chain fails. Treat the same as
+          // the old 429_all_models_exhausted → paused signal path.
+          if (errMsg.includes("All providers exhausted") || errMsg === "429_all_models_exhausted") {
             await supabase
               .from("raw_signals")
-              .update({ status: "paused", error_message: "429_all_models_exhausted" })
+              .update({ status: "paused", error_message: errMsg.slice(0, 500) })
               .eq("id", signal.id);
             paused++;
             // 4J: Delay

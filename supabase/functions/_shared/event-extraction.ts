@@ -16,6 +16,7 @@
 //   no network call from here (the URL itself is the CDN).
 // ============================================================
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callLLM, TASK } from "./llm.ts";
 
 // ------------------------------------------------------------
 // Relevance classifier (shared across SerpAPI + editorial-blog paths)
@@ -47,29 +48,14 @@ Given an event's title and description, output ONLY a JSON object:
 Aim for 40-70 words total. If the description is empty or uninformative, return a summary based on the title alone.`;
 
 export async function generateEventSummary(title: string, description: string | null): Promise<string | null> {
-  const apiKey = Deno.env.get("GROQ_API_KEY");
-  if (!apiKey) return null;
-
   const userContent = `Event title: ${title}\nEvent description: ${description || "(no description)"}`;
   try {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
-        max_tokens: 200,
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SUMMARY_SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
-      }),
+    const res = await callLLM(TASK.SHORT_GENERATIVE, SUMMARY_SYSTEM_PROMPT, userContent, {
+      jsonMode: true,
+      maxTokens: 200,
+      temperature: 0.2,
     });
-    if (!res.ok) return null;
-    const json = await res.json();
-    const raw = json.choices?.[0]?.message?.content ?? "";
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(res.content);
     const summary = typeof parsed?.summary === "string" ? parsed.summary.trim() : null;
     return summary && summary.length >= 20 ? summary : null;
   } catch {
@@ -78,36 +64,14 @@ export async function generateEventSummary(title: string, description: string | 
 }
 
 export async function classifyEventRelevance(title: string, description: string): Promise<RelevanceVerdict> {
-  const apiKey = Deno.env.get("GROQ_API_KEY");
-  if (!apiKey) return { relevant: false, category: "other", scope: "GROQ_API_KEY not set" };
-
   const userContent = `Event title: ${title}\nEvent description: ${description || "(no description)"}`;
   try {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
-        messages: [
-          { role: "system", content: RELEVANCE_SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
-        temperature: 0,
-        max_tokens: 160,
-        response_format: { type: "json_object" },
-      }),
+    const res = await callLLM(TASK.CLASSIFY, RELEVANCE_SYSTEM_PROMPT, userContent, {
+      jsonMode: true,
+      maxTokens: 160,
+      temperature: 0,
     });
-    if (!res.ok) {
-      const err = await res.text();
-      console.warn(`Groq classifier non-ok: ${res.status} ${err.slice(0, 200)}`);
-      return { relevant: false, category: "other", scope: `classifier http ${res.status}` };
-    }
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (typeof content !== "string") {
-      return { relevant: false, category: "other", scope: "classifier returned no content" };
-    }
-    const parsed = JSON.parse(content) as Partial<RelevanceVerdict>;
+    const parsed = JSON.parse(res.content) as Partial<RelevanceVerdict>;
     if (typeof parsed.relevant !== "boolean") {
       return { relevant: false, category: "other", scope: "classifier response malformed" };
     }
@@ -117,7 +81,7 @@ export async function classifyEventRelevance(title: string, description: string)
       scope: typeof parsed.scope === "string" ? parsed.scope : "",
     };
   } catch (err) {
-    console.warn("classifier threw:", err);
+    console.warn("classifier threw:", err instanceof Error ? err.message : err);
     return { relevant: false, category: "other", scope: "classifier error" };
   }
 }

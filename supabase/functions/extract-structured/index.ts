@@ -10,6 +10,7 @@ import {
   generateEventSummary,
   resolveOrganizerLogo,
 } from "../_shared/event-extraction.ts";
+import { callLLM, TASK, estimateTokens } from "../_shared/llm.ts";
 
 const ALLOWED_ORIGINS = [
   ...(Deno.env.get("ENVIRONMENT") === "development"
@@ -29,10 +30,12 @@ function getCorsHeaders(origin: string | null): HeadersInit {
   };
 }
 
-// Model fallback chains (same family as generate-content).
-// Classifier uses cheapest-first; extractor uses strongest-first.
-const CLASSIFY_MODELS = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"];
-const EXTRACT_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+// Model + provider routing moved to _shared/llm.ts. Classifier uses
+// TASK.CLASSIFY (cheap-first: cerebras 8b → groq 8b → cerebras 70b);
+// structured extract uses TASK.EXTRACT_JSON for short sources or
+// TASK.EXTRACT_JSON_LONG when the source blows past Cerebras's 8k
+// context (see EXTRACT_LONG_TOKENS_THRESHOLD below).
+const EXTRACT_LONG_TOKENS_THRESHOLD = 6_000;
 
 const MAX_SIGNALS_PER_RUN = 5;
 
@@ -100,46 +103,11 @@ function sanitizeLong(raw: string): string {
   return text.slice(0, 3000);
 }
 
-// ── Groq call with model fallback on 429 ──
-async function callGroq(
-  apiKey: string,
-  models: string[],
-  system: string,
-  user: string,
-  maxTokens: number
-): Promise<string> {
-  for (const model of models) {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: maxTokens,
-        temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-      }),
-    });
-
-    if (res.status === 429) {
-      console.warn(`429 from ${model}, trying next model...`);
-      continue;
-    }
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Groq ${res.status}: ${errText.slice(0, 300)}`);
-    }
-    const json = await res.json();
-    return json.choices?.[0]?.message?.content ?? "";
-  }
-  throw new Error("429_all_models_exhausted");
-}
+// Groq call helper moved to _shared/llm.ts (callLLM). Model fallback,
+// cross-provider fallback, rate-limit cooldown, and telemetry all live
+// there now. This function used to select between llama-70b and llama-8b
+// on Groq only; callLLM(TASK.CLASSIFY / TASK.EXTRACT_JSON) now spans
+// Cerebras + Groq with the right chain per class.
 
 function safeJsonParse(text: string): any {
   let cleaned = text.trim();
@@ -333,7 +301,6 @@ interface PromoteResult {
 // deno-lint-ignore no-explicit-any
 async function promoteEditorialEvent(
   supabase: any,
-  groqApiKey: string,
   signal: { id: string; title: string | null; raw_content: string | null; source_url: string | null; source_name: string | null; image_url: string | null },
 ): Promise<PromoteResult> {
   if (!signal.source_url) return { outcome: "error", usedGroq: false, reason: "no_source_url" };
@@ -373,14 +340,23 @@ async function promoteEditorialEvent(
     // date/venue in a long-form blog post.
     const body = sanitizeLong(html);
     const today = new Date().toISOString().slice(0, 10);
+    const userPrompt = `Today's date: ${today}\nArticle title: ${signal.title ?? ""}\nArticle body:\n${body}`;
+    // Route on estimated source size — long blog posts (like YC's seasonal
+    // batch page) blow past Cerebras's 8k context window, so send those
+    // straight to Groq via EXTRACT_JSON_LONG.
+    const task = estimateTokens(userPrompt) > EXTRACT_LONG_TOKENS_THRESHOLD
+      ? TASK.EXTRACT_JSON_LONG
+      : TASK.EXTRACT_JSON;
     let extractRaw: string;
     try {
-      extractRaw = await callGroq(
-        groqApiKey, EXTRACT_MODELS, EXTRACT_EVENT_SYSTEM,
-        `Today's date: ${today}\nArticle title: ${signal.title ?? ""}\nArticle body:\n${body}`, 500,
-      );
+      const res = await callLLM(task, EXTRACT_EVENT_SYSTEM, userPrompt, {
+        jsonMode: true,
+        maxTokens: 500,
+        temperature: 0,
+      });
+      extractRaw = res.content;
     } catch (err) {
-      return { outcome: "error", usedGroq: true, reason: `groq: ${err instanceof Error ? err.message : String(err)}` };
+      return { outcome: "error", usedGroq: true, reason: `llm: ${err instanceof Error ? err.message : String(err)}` };
     }
     let parsed: Record<string, unknown>;
     try { parsed = safeJsonParse(extractRaw); }
@@ -472,11 +448,12 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY");
-    const groqApiKey = Deno.env.get("GROQ_API_KEY");
+    // LLM API keys are owned by _shared/llm.ts (callLLM reads them per
+    // provider); this function no longer reads GROQ_API_KEY directly.
 
-    if (!supabaseUrl || !serviceRoleKey || !groqApiKey) {
+    if (!supabaseUrl || !serviceRoleKey) {
       return new Response(
-        JSON.stringify({ error: "Missing SUPABASE_URL, SERVICE_ROLE_KEY, or GROQ_API_KEY" }),
+        JSON.stringify({ error: "Missing SUPABASE_URL or SERVICE_ROLE_KEY" }),
         { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
     }
@@ -559,7 +536,7 @@ serve(async (req) => {
         }
 
         if (looksLikeEventCandidate(signal.source_name, signal.title)) {
-          const res = await promoteEditorialEvent(supabase, groqApiKey, signal);
+          const res = await promoteEditorialEvent(supabase, signal);
           if (res.usedGroq) { requestsMade++; tokensUsed += 900; }
           if (res.outcome === "inserted") {
             summary.editorial_events_created++;
@@ -605,17 +582,15 @@ serve(async (req) => {
           continue;
         }
 
-        // ── CALL 1: classify (cheap model) ──
-        const classifyRaw = await callGroq(
-          groqApiKey, CLASSIFY_MODELS, CLASSIFY_SYSTEM,
-          `Headline and text:\n${rawText}`, 60
-        );
+        // ── CALL 1: classify (cheap model, cross-provider fallback via callLLM) ──
+        const classifyRes = await callLLM(TASK.CLASSIFY, CLASSIFY_SYSTEM,
+          `Headline and text:\n${rawText}`, { jsonMode: true, maxTokens: 60, temperature: 0 });
         requestsMade++;
         tokensUsed += 400;
 
         let contentType: string;
         try {
-          contentType = String(safeJsonParse(classifyRaw)?.content_type ?? "narrative");
+          contentType = String(safeJsonParse(classifyRes.content)?.content_type ?? "narrative");
         } catch {
           contentType = "narrative"; // unparseable → safest is leave for narrative pipeline
         }
@@ -642,18 +617,23 @@ serve(async (req) => {
           continue; // unknown label → treat as narrative, leave alone
         }
 
-        // ── CALL 2: extract (strong model) ──
+        // ── CALL 2: extract (strong model via callLLM; routes to EXTRACT_JSON
+        // by default or EXTRACT_JSON_LONG when the source blows past
+        // Cerebras's 8k context) ──
         const extractSystem = contentType === "funding" ? EXTRACT_FUNDING_SYSTEM : EXTRACT_ACQUISITION_SYSTEM;
-        const extractRaw = await callGroq(
-          groqApiKey, EXTRACT_MODELS, extractSystem,
-          `Today's date: ${today}\nSource text:\n${rawText}`, 500
-        );
+        const extractUser = `Today's date: ${today}\nSource text:\n${rawText}`;
+        const extractTask = estimateTokens(extractUser) > EXTRACT_LONG_TOKENS_THRESHOLD
+          ? TASK.EXTRACT_JSON_LONG
+          : TASK.EXTRACT_JSON;
+        const extractRes = await callLLM(extractTask, extractSystem, extractUser, {
+          jsonMode: true, maxTokens: 500, temperature: 0,
+        });
         requestsMade++;
         tokensUsed += 900;
 
         let parsed: any;
         try {
-          parsed = safeJsonParse(extractRaw);
+          parsed = safeJsonParse(extractRes.content);
         } catch {
           await supabase
             .from("raw_signals")
