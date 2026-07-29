@@ -328,7 +328,7 @@ export async function resolveOrganizerLogo(supabase: any, name: string): Promise
   let searchDomain: string | null = null;
   const secret = (() => {
     try {
-      // @ts-ignore
+      // @ts-ignore Deno namespace at runtime in Supabase edge functions
       return (globalThis.Deno?.env?.get?.("LOGO_DEV_SECRET_KEY") as string) || "";
     } catch { return ""; }
   })();
@@ -457,7 +457,7 @@ export function extractCoverImageFromHtml(html: string): string | null {
 // boundaries longer than 1 char, so acronyms like "AIStack" stay together.
 export function cleanConcatenatedText(raw: string | null | undefined): string | null {
   if (!raw || typeof raw !== "string") return null;
-  let out = raw
+  const out = raw
     // Decode common HTML entities first
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
