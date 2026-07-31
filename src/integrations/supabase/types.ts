@@ -378,15 +378,20 @@ export type Database = {
         Row: {
           agenda: Json | null
           ai_summary: string | null
+          canonical_url: string | null
           city: string | null
           created_at: string
           description: string | null
           ends_at: string | null
+          enriched_at: string | null
           event_type: string
+          extraction_tier: string | null
+          hero_image_source: string | null
           id: string
           image_url: string | null
           is_virtual: boolean
           location: string | null
+          logo_source: string | null
           organizer_logo_url: string | null
           organizer_name: string | null
           region: string | null
@@ -404,22 +409,30 @@ export type Database = {
           status: string
           submitted_at: string | null
           submitted_by_email: string | null
+          timezone: string | null
           title: string
+          validated_at: string | null
+          validation_errors: Json | null
           venue_lat: number | null
           venue_lng: number | null
         }
         Insert: {
           agenda?: Json | null
           ai_summary?: string | null
+          canonical_url?: string | null
           city?: string | null
           created_at?: string
           description?: string | null
           ends_at?: string | null
+          enriched_at?: string | null
           event_type: string
+          extraction_tier?: string | null
+          hero_image_source?: string | null
           id?: string
           image_url?: string | null
           is_virtual?: boolean
           location?: string | null
+          logo_source?: string | null
           organizer_logo_url?: string | null
           organizer_name?: string | null
           region?: string | null
@@ -437,22 +450,30 @@ export type Database = {
           status?: string
           submitted_at?: string | null
           submitted_by_email?: string | null
+          timezone?: string | null
           title: string
+          validated_at?: string | null
+          validation_errors?: Json | null
           venue_lat?: number | null
           venue_lng?: number | null
         }
         Update: {
           agenda?: Json | null
           ai_summary?: string | null
+          canonical_url?: string | null
           city?: string | null
           created_at?: string
           description?: string | null
           ends_at?: string | null
+          enriched_at?: string | null
           event_type?: string
+          extraction_tier?: string | null
+          hero_image_source?: string | null
           id?: string
           image_url?: string | null
           is_virtual?: boolean
           location?: string | null
+          logo_source?: string | null
           organizer_logo_url?: string | null
           organizer_name?: string | null
           region?: string | null
@@ -470,7 +491,10 @@ export type Database = {
           status?: string
           submitted_at?: string | null
           submitted_by_email?: string | null
+          timezone?: string | null
           title?: string
+          validated_at?: string | null
+          validation_errors?: Json | null
           venue_lat?: number | null
           venue_lng?: number | null
         }
