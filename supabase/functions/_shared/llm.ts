@@ -95,40 +95,42 @@ interface ProviderModel {
 // - LONG_ANALYTICAL keeps Llama 70b primary (proven for the narrative
 //   article pipeline); Qwen-3 32B and Cerebras 70b are fallbacks
 //   pending a proper A/B evaluation.
+// Cerebras is currently DROPPED from all routing chains because every model
+// on the free tier returns 402 Payment required at the inference endpoint
+// (verified 2026-07-29 — GET /v1/models lists gpt-oss-120b / gemma-4-31b /
+// zai-glm-4.7 but calling any of them 402s). Every call was paying a
+// ~200-500ms Cerebras round-trip for no benefit; Groq handled 100% of
+// traffic via the fallback path anyway.
+//
+// The MODELS.cerebras and PROVIDERS.cerebras scaffolding stays. To
+// re-enable, either upgrade the Cerebras plan or paste any of the
+// prior entries back into a chain — the shape is preserved below in
+// comments as a recipe:
+//   { provider: "cerebras", model: MODELS.cerebras.GEMMA_31B, supportsJsonMode: true },        // was CLASSIFY primary
+//   { provider: "cerebras", model: MODELS.cerebras.GPT_OSS_120B, supportsJsonMode: true },     // was EXTRACT_JSON primary + CLASSIFY emergency
+//   { provider: "cerebras", model: MODELS.cerebras.GEMMA_31B, supportsJsonMode: false },       // was SHORT_GENERATIVE primary
+//   { provider: "cerebras", model: MODELS.cerebras.GPT_OSS_120B, supportsJsonMode: false },    // was SHORT_GENERATIVE fallback + LONG_ANALYTICAL fallback
+//   { provider: "cerebras", model: MODELS.cerebras.GLM_47, supportsJsonMode: false },          // was LONG_ANALYTICAL emergency
 const ROUTING: Record<TaskClass, ProviderModel[]> = {
   CLASSIFY: [
-    // Gemma 31B is Cerebras's mid-size option — fine for enum classification
-    // and cheaper than the 120B. Groq llama-8b remains a known-good fallback.
-    { provider: "cerebras", model: MODELS.cerebras.GEMMA_31B, supportsJsonMode: true },
     { provider: "groq", model: MODELS.groq.LLAMA_8B, supportsJsonMode: true },
-    { provider: "cerebras", model: MODELS.cerebras.GPT_OSS_120B, supportsJsonMode: true },
+    { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: true },
   ],
   EXTRACT_JSON: [
-    // GPT-OSS-120B is the largest Cerebras option — reasonable pick for
-    // structured JSON extraction. Groq 70b as strong fallback.
-    { provider: "cerebras", model: MODELS.cerebras.GPT_OSS_120B, supportsJsonMode: true },
     { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: true },
     { provider: "groq", model: MODELS.groq.LLAMA_8B, supportsJsonMode: true },
   ],
   EXTRACT_JSON_LONG: [
-    // Cerebras skipped — 8k context can't hold long-form sources.
     { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: true },
     { provider: "groq", model: MODELS.groq.LLAMA_8B, supportsJsonMode: true },
   ],
   SHORT_GENERATIVE: [
-    // Gemma is cheapest for short bullet/paragraph output; escalate to GPT-OSS
-    // if it wobbles, Groq 70b as safety net.
-    { provider: "cerebras", model: MODELS.cerebras.GEMMA_31B, supportsJsonMode: false },
-    { provider: "cerebras", model: MODELS.cerebras.GPT_OSS_120B, supportsJsonMode: false },
+    { provider: "groq", model: MODELS.groq.LLAMA_8B, supportsJsonMode: false },
     { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: false },
   ],
   LONG_ANALYTICAL: [
-    // Llama-70b on Groq stays primary — proven on the article pipeline.
-    // GPT-OSS-120B and GLM-4.7 on Cerebras are unvetted for long-form
-    // creative writing; keeping them as fallbacks only until an A/B.
     { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: false },
-    { provider: "cerebras", model: MODELS.cerebras.GPT_OSS_120B, supportsJsonMode: false },
-    { provider: "cerebras", model: MODELS.cerebras.GLM_47, supportsJsonMode: false },
+    { provider: "groq", model: MODELS.groq.LLAMA_8B, supportsJsonMode: false },
   ],
 };
 
