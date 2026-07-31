@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 // Universal fallback lives in public/ and is served as a plain static asset.
@@ -13,6 +14,9 @@ interface EventHeroProps {
   title: string;
   /** Optional wrapper class overrides. Aspect ratio + rounded corners come from the base. */
   className?: string;
+  /** Overlay content rendered on top of the image + gradient (e.g. glass-pane
+   *  title, organizer chip). Positioned via caller — the parent is `relative`. */
+  children?: ReactNode;
 }
 
 /**
@@ -25,7 +29,7 @@ interface EventHeroProps {
  * Not yet wired into EventsCarousel per the Phase 1 boundary — that's a
  * card-refactor concern for a later phase. Available for adoption now.
  */
-export function EventHero({ imageUrl, title, className }: EventHeroProps) {
+export function EventHero({ imageUrl, title, className, children }: EventHeroProps) {
   return (
     <div
       className={cn(
@@ -50,6 +54,7 @@ export function EventHero({ imageUrl, title, className }: EventHeroProps) {
       {/* Bottom-heavy dark wash so text sitting on the image stays legible
           without changing the underlying photo's exposure. */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0A1628]/80 via-[#0A1628]/20 to-transparent" />
+      {children}
     </div>
   );
 }

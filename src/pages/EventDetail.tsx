@@ -10,17 +10,44 @@
 // ============================================================
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { Sparkles } from "lucide-react";
 import SEO from "@/components/SEO";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/SiteFooter";
 import { BackToTop } from "@/components/home/BackToTop";
-import { HeroIllustration } from "@/components/home/HeroIllustration";
+import { EventHero } from "@/components/events/EventHero";
+import { OrganizerLogo } from "@/components/events/OrganizerLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { formatEventDate } from "@/components/home/utils";
 import { pickTemplateUrl } from "@/lib/eventImageTemplate";
 import type { ScheduledEventRow } from "@/hooks/home/useUpcomingEvents";
 import "@/components/home/theme.css";
 import "maplibre-gl/dist/maplibre-gl.css";
+
+// AI-disclosure badge — small pill sitting inline next to Highlights /
+// Scope section headers. Phase 2 spec: badge is the disclosure surface;
+// no separate footer disclosure. `tone` controls the icon color so it
+// reads against both the neutral-fg Highlights header (default) and the
+// parrot-tinted Scope callout.
+function AiBadge({ tone = "muted" }: { tone?: "muted" | "parrot" }) {
+  const color = tone === "parrot" ? "var(--parrot)" : "var(--fg-mute)";
+  return (
+    <span
+      title="AI-generated content"
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 4,
+        fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+        fontSize: 9.5, letterSpacing: ".1em",
+        color, border: `1px solid ${color}`, opacity: 0.85,
+        borderRadius: 3, padding: "1.5px 6px", textTransform: "uppercase",
+        lineHeight: 1, whiteSpace: "nowrap",
+      }}
+    >
+      <Sparkles size={10} strokeWidth={2} aria-hidden />
+      AI-generated
+    </span>
+  );
+}
 
 interface AgendaEntry { time: string; label: string; }
 interface Speaker { name: string; role?: string | null; bio?: string | null; photo_url?: string | null; }
@@ -246,6 +273,8 @@ const EventDetail = () => {
         title={event ? `${event.title} — ScopeDrop Events` : "Event — ScopeDrop"}
         description={event?.description ?? "Startup, tech, and AI event on ScopeDrop."}
         keywords={[event?.city ?? "", event?.relevance_category ?? "", "events"].filter(Boolean)}
+        image={event?.image_url ?? templateUrl ?? undefined}
+        type="article"
       />
       <SiteHeader />
       <main>
@@ -268,23 +297,26 @@ const EventDetail = () => {
           </div>
         ) : event ? (
           <>
-            {/* HERO — full-bleed cover with glass-pane title overlay */}
-            <section className="ev-hero" style={{ marginTop: 66 }}>
-              {event.image_url ? (
-                <img className="ev-hero-img" src={event.image_url} alt={event.title} loading="eager" />
-              ) : templateUrl ? (
-                <img className="ev-hero-img" src={templateUrl} alt="" loading="eager" />
-              ) : (
-                <HeroIllustration />
-              )}
-              <div className="ev-hero-glass">
-                <span className="kicker">
-                  {(event.relevance_category ?? event.event_type ?? "event").toUpperCase().replace(/_/g, " ")}
-                </span>
-                <h1>{event.title}</h1>
-                {dek && <p className="dek">{dek}</p>}
-              </div>
-            </section>
+            {/* HERO — EventHero primitive handles image loading + fallback +
+                gradient. className overrides preserve the signature full-bleed
+                16:7 aspect + hard edges (vs. the primitive's default rounded 16:9
+                for card usage). Glass pane sits in children so it composites
+                above the gradient without layout coupling. */}
+            <div style={{ marginTop: 66 }}>
+              <EventHero
+                imageUrl={event.image_url ?? templateUrl ?? undefined}
+                title={event.title}
+                className="rounded-none aspect-[16/7] min-h-[320px] border-b border-[color:var(--line)]"
+              >
+                <div className="ev-hero-glass">
+                  <span className="kicker">
+                    {(event.relevance_category ?? event.event_type ?? "event").toUpperCase().replace(/_/g, " ")}
+                  </span>
+                  <h1>{event.title}</h1>
+                  {dek && <p className="dek">{dek}</p>}
+                </div>
+              </EventHero>
+            </div>
 
             <div className="wrap">
               {/* Breadcrumb */}
@@ -309,20 +341,19 @@ const EventDetail = () => {
               <div className="ev-body">
                 {/* LEFT: description → agenda → speakers → scope */}
                 <div className="ev-main">
-                  {/* Presented-by row — hidden when organizer unknown */}
+                  {/* Presented-by row — OrganizerLogo primitive handles the
+                      img/monogram-fallback pattern. Row is still hidden when
+                      organizer_name is null (no name = nothing to attribute). */}
                   {event.organizer_name && (
                     <div style={{
                       display: "flex", alignItems: "center", gap: 14,
                       marginBottom: 28, paddingBottom: 20, borderBottom: "1px solid var(--line)",
                     }}>
-                      {event.organizer_logo_url && (
-                        <img
-                          src={event.organizer_logo_url}
-                          alt={event.organizer_name}
-                          style={{ height: 40, width: 40, objectFit: "contain", background: "var(--oxford)", borderRadius: 4 }}
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                        />
-                      )}
+                      <OrganizerLogo
+                        logoUrl={event.organizer_logo_url}
+                        organizerName={event.organizer_name}
+                        size={44}
+                      />
                       <div>
                         <div className="mono" style={{ fontSize: 10.5, color: "var(--fg-mute)", letterSpacing: ".14em" }}>PRESENTED BY</div>
                         <div style={{ fontSize: 16, fontWeight: 600, color: "var(--fg-2)" }}>{event.organizer_name}</div>
@@ -345,23 +376,27 @@ const EventDetail = () => {
                     </section>
                   )}
 
-                  {/* AI-generated highlights — replaces the noisier scraped agenda.
-                      Falls back gracefully when Groq didn't produce one. */}
-                  {event.ai_summary && (
-                    <section style={{ marginBottom: 32 }}>
+                  {/* Highlights — AI-generated overview. Section always renders
+                      (layout contract) with a placeholder when ai_summary is null,
+                      so future enrichment doesn't cause a jarring content shift. */}
+                  <section style={{ marginBottom: 32 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                       <h3 className="mono" style={{
                         fontSize: 12, letterSpacing: ".16em", color: "var(--fg-mute)",
-                        textTransform: "uppercase", marginBottom: 12,
+                        textTransform: "uppercase", margin: 0,
                       }}>Highlights</h3>
-                      <div style={{
-                        background: "var(--oxford)", padding: "16px 20px",
-                        borderLeft: "2px solid var(--acq)", borderRadius: 4,
-                        color: "var(--fg-2)", fontSize: 14.5, lineHeight: 1.65,
-                      }}>
-                        {event.ai_summary}
-                      </div>
-                    </section>
-                  )}
+                      <AiBadge />
+                    </div>
+                    <div style={{
+                      background: "var(--oxford)", padding: "16px 20px",
+                      borderLeft: "2px solid var(--acq)", borderRadius: 4,
+                      color: event.ai_summary ? "var(--fg-2)" : "var(--fg-mute)",
+                      fontSize: 14.5, lineHeight: 1.65,
+                      fontStyle: event.ai_summary ? "normal" : "italic",
+                    }}>
+                      {event.ai_summary ?? "Editorial highlights coming soon."}
+                    </div>
+                  </section>
 
                   {/* Speakers */}
                   {speakers && speakers.length > 0 && (
@@ -390,19 +425,28 @@ const EventDetail = () => {
                     </section>
                   )}
 
-                  {/* What's the Scope */}
-                  {event.relevance_reason && (
-                    <section style={{
-                      background: "var(--oxford)", padding: "18px 22px", marginBottom: 8,
-                      borderLeft: "3px solid var(--parrot)", borderRadius: 4,
-                    }}>
+                  {/* What's the Scope — AI-generated founder-facing angle.
+                      Always renders (layout contract) with a placeholder when
+                      relevance_reason is null. */}
+                  <section style={{
+                    background: "var(--oxford)", padding: "18px 22px", marginBottom: 8,
+                    borderLeft: "3px solid var(--parrot)", borderRadius: 4,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                       <div className="mono" style={{
                         fontSize: 10.5, color: "var(--parrot)", letterSpacing: ".14em",
-                        textTransform: "uppercase", marginBottom: 8,
+                        textTransform: "uppercase",
                       }}>What's the Scope</div>
-                      <div style={{ color: "var(--fg-2)", fontSize: 15, lineHeight: 1.6 }}>{event.relevance_reason}</div>
-                    </section>
-                  )}
+                      <AiBadge tone="parrot" />
+                    </div>
+                    <div style={{
+                      color: event.relevance_reason ? "var(--fg-2)" : "var(--fg-mute)",
+                      fontSize: 15, lineHeight: 1.6,
+                      fontStyle: event.relevance_reason ? "normal" : "italic",
+                    }}>
+                      {event.relevance_reason ?? "Editorial angle coming soon."}
+                    </div>
+                  </section>
                 </div>
 
                 {/* RIGHT: sticky sidebar — Registration + Location cards */}
