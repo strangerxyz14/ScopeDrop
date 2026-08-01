@@ -241,6 +241,10 @@ async function fetchRSSFeeds(): Promise<RawSignalRow[]> {
     // via the extract-structured event-detection branch when an article
     // describes a specific dated + located event.
     { url: "https://www.ycombinator.com/blog/feed", source_name: "Y Combinator Blog", suggested_category: "startups", suggested_tags: ["yc","funding","editorial_blog"] },
+    // Techmeme: tech-news aggregator. Feeds raw_signals like other RSS
+    // sources (existing 30-min ingest cadence is fine — no need for a
+    // separate daily fetcher when this list is already polled every tick).
+    { url: "https://www.techmeme.com/feed.xml", source_name: "Techmeme", suggested_category: "tech", suggested_tags: ["news","aggregator","tech"] },
     // India-first sources
     { url: "https://yourstory.com/feed", source_name: "YourStory", suggested_category: "startups", suggested_tags: ["india","startups","funding"] },
     { url: "https://inc42.com/feed/", source_name: "Inc42", suggested_category: "funding", suggested_tags: ["india","funding","startups"] },

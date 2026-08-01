@@ -81,6 +81,58 @@ ${event.source_description}
 Write the Scope block now.`;
 }
 
+// ── Hallucination guard ───────────────────────────────────────────
+// Extract multi-word Capitalized proper nouns from Highlights output
+// (patterns like "Pranav Agarwal", "Bharat Mandapam", "Y Combinator")
+// and verify each appears in the source description. Single-word
+// capitalized tokens are ignored — too many false positives (city
+// names re-cased, article-initial "The", "This", etc.).
+//
+// Motivation: smoke test on the Ideabaaz row surfaced Groq
+// hallucinating "Pranav Agarwal" as the founder — not present anywhere
+// in the source. The Highlights prompt's "name specific speakers"
+// pressure trades editorial concreteness for fabrication risk. This
+// validator catches the obvious cases (fabricated names) while
+// tolerating legitimate paraphrase (Y Combinator ↔ YC) that would
+// break a stricter equality check.
+//
+// Common-word denylist keeps things like "Bharat Mandapam" (venue,
+// legit) from getting flagged when the source only says "Bharat" or
+// omits it. Tune the list as false-positive patterns emerge.
+const NER_STOPWORDS = new Set([
+  "The", "This", "That", "These", "Those", "Ai", "AI",
+  "Startup", "Startups", "Event", "Events", "Founders", "Investors",
+  "Demo", "Day", "Days", "Pitch", "Hackathon", "Conference", "Summit",
+  "Workshop", "Meetup", "Cohort", "Batch",
+]);
+
+export function extractProperNouns(text: string): string[] {
+  if (!text) return [];
+  // Multi-word capitalized phrases: at least two Capitalized words
+  // in a row (with optional connectors like of/the/&).
+  const matches = text.match(/\b[A-Z][a-z]+(?:\s+(?:of|the|and|&|von|de)?\s*[A-Z][a-z]+)+\b/g) ?? [];
+  return matches
+    .map(m => m.trim())
+    .filter(m => !NER_STOPWORDS.has(m.split(/\s+/)[0]))
+    .filter((m, i, arr) => arr.indexOf(m) === i);
+}
+
+function normalizedContains(haystack: string, needle: string): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  return norm(haystack).includes(norm(needle));
+}
+
+/**
+ * Verify every multi-word proper noun in the generated Highlights
+ * appears in the source description. Returns list of unmatched
+ * phrases (empty array = clean).
+ */
+export function findUnsourcedProperNouns(generated: string, sourceDescription: string): string[] {
+  if (!generated || !sourceDescription) return [];
+  const nouns = extractProperNouns(generated);
+  return nouns.filter(n => !normalizedContains(sourceDescription, n));
+}
+
 // ── Result normalization ──────────────────────────────────────────
 // Normalize raw LLM output: trim, strip surrounding quotes/backticks
 // that models sometimes emit despite instructions, drop markdown

@@ -427,7 +427,13 @@ async function promoteEditorialEvent(
       organizer_name: editorialOrganizerName,
       organizer_logo_url: organizerLogoUrl,
       ai_summary,
-      status: "approved",
+      // Editorial-blog rows enter the enrichment queue so normalize-events
+      // regenerates Highlights + Scope with the plan-locked prompts (this
+      // path currently only computes ai_summary via the older classifier).
+      // raw_signals is marked 'published' upstream so this row won't be
+      // re-inserted, meaning no risk of flipping an existing 'approved'
+      // row back to awaiting.
+      status: "awaiting_enrichment",
     }, { onConflict: "slug", ignoreDuplicates: false });
 
   if (insErr) {

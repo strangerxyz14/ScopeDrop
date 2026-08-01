@@ -463,10 +463,15 @@ serve(async (req) => {
     let upserted = 0;
     let upsertError: string | undefined;
     if (upcoming.length > 0) {
+      // New serpapi rows enter the enrichment queue at status='awaiting_enrichment'
+      // so normalize-events can generate real Highlights + Scope + resolve
+      // hero/logo before the row appears on /events. The already_present skip
+      // above guarantees this upsert only ever runs for genuinely new slugs,
+      // so existing 'approved' rows are never flipped back to awaiting.
       const { data, error } = await supabase
         .from('scheduled_events')
         .upsert(
-          upcoming.map(e => ({ ...e, status: 'approved' })),
+          upcoming.map(e => ({ ...e, status: 'awaiting_enrichment' })),
           { onConflict: 'slug', ignoreDuplicates: false },
         )
         .select('id, slug');

@@ -30,6 +30,7 @@ import {
   HIGHLIGHTS_SYSTEM, buildHighlightsUser,
   SCOPE_SYSTEM, buildScopeUser,
   normalizeEditorialOutput,
+  findUnsourcedProperNouns,
 } from "../_shared/event-editorial-prompts.ts";
 
 const ALLOWED_ORIGINS = [
@@ -112,7 +113,22 @@ async function tryGenerateHighlights(row: EventRow): Promise<string | null> {
       }),
       { maxTokens: 300, temperature: 0.4 },
     );
-    return normalizeEditorialOutput(res.content, "highlights");
+    const cleaned = normalizeEditorialOutput(res.content, "highlights");
+    if (!cleaned) return null;
+
+    // Hallucination guard: reject Highlights that name a proper noun
+    // (person / venue / org phrase) the source description doesn't
+    // contain. Catches Groq inventing founder names under the "name
+    // specific speakers" prompt pressure. When the guard trips we
+    // treat it as INSUFFICIENT_SIGNAL rather than publishing fabricated
+    // prose — publish gate then blocks the row until the source has
+    // richer signal or the writer produces a cleaner take.
+    const unsourced = findUnsourcedProperNouns(cleaned, row.description ?? "");
+    if (unsourced.length > 0) {
+      console.warn(`highlights hallucination guard tripped for row ${row.id}: unsourced proper nouns = ${unsourced.join(", ")}`);
+      return null;
+    }
+    return cleaned;
   } catch (err) {
     console.warn("highlights gen failed:", err instanceof Error ? err.message : err);
     return null;
