@@ -37,7 +37,7 @@ async function fetchEvents(geoKey: string): Promise<ScheduledEventRow[]> {
   let q = supabase
     .from("scheduled_events")
     .select("*")
-    .eq("status", "approved")
+    .in("status", ["approved", "published"])
     .gte("starts_at", nowIso)
     .order("starts_at", { ascending: true })
     .limit(60);

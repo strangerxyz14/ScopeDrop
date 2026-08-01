@@ -10,7 +10,6 @@
 // ============================================================
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Sparkles } from "lucide-react";
 import SEO from "@/components/SEO";
 import { SiteHeader } from "@/components/home/SiteHeader";
 import { SiteFooter } from "@/components/home/SiteFooter";
@@ -23,31 +22,6 @@ import { pickTemplateUrl } from "@/lib/eventImageTemplate";
 import type { ScheduledEventRow } from "@/hooks/home/useUpcomingEvents";
 import "@/components/home/theme.css";
 import "maplibre-gl/dist/maplibre-gl.css";
-
-// AI-disclosure badge — small pill sitting inline next to Highlights /
-// Scope section headers. Phase 2 spec: badge is the disclosure surface;
-// no separate footer disclosure. `tone` controls the icon color so it
-// reads against both the neutral-fg Highlights header (default) and the
-// parrot-tinted Scope callout.
-function AiBadge({ tone = "muted" }: { tone?: "muted" | "parrot" }) {
-  const color = tone === "parrot" ? "var(--parrot)" : "var(--fg-mute)";
-  return (
-    <span
-      title="AI-generated content"
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 4,
-        fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
-        fontSize: 9.5, letterSpacing: ".1em",
-        color, border: `1px solid ${color}`, opacity: 0.85,
-        borderRadius: 3, padding: "1.5px 6px", textTransform: "uppercase",
-        lineHeight: 1, whiteSpace: "nowrap",
-      }}
-    >
-      <Sparkles size={10} strokeWidth={2} aria-hidden />
-      AI-generated
-    </span>
-  );
-}
 
 interface AgendaEntry { time: string; label: string; }
 interface Speaker { name: string; role?: string | null; bio?: string | null; photo_url?: string | null; }
@@ -212,7 +186,7 @@ const EventDetail = () => {
       const q = supabase
         .from("scheduled_events")
         .select("*")
-        .eq("status", "approved");
+        .in("status", ["approved", "published"]);
       const { data, error } = await (isLikelyUuid
         ? q.eq("id", slugParam)
         : q.eq("slug", slugParam)
@@ -230,7 +204,7 @@ const EventDetail = () => {
         const { data: rel } = await supabase
           .from("scheduled_events")
           .select("*")
-          .eq("status", "approved")
+          .in("status", ["approved", "published"])
           .eq("city", data.city)
           .neq("id", data.id)
           .gte("starts_at", nowIso)
@@ -376,25 +350,22 @@ const EventDetail = () => {
                     </section>
                   )}
 
-                  {/* Highlights — AI-generated overview. Section always renders
-                      (layout contract) with a placeholder when ai_summary is null,
-                      so future enrichment doesn't cause a jarring content shift. */}
+                  {/* Highlights — Phase 3's editorial-grade `highlights` column
+                      takes precedence over legacy `ai_summary`. Section always
+                      renders with a placeholder when both are null. */}
                   <section style={{ marginBottom: 32 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                      <h3 className="mono" style={{
-                        fontSize: 12, letterSpacing: ".16em", color: "var(--fg-mute)",
-                        textTransform: "uppercase", margin: 0,
-                      }}>Highlights</h3>
-                      <AiBadge />
-                    </div>
+                    <h3 className="mono" style={{
+                      fontSize: 12, letterSpacing: ".16em", color: "var(--fg-mute)",
+                      textTransform: "uppercase", marginBottom: 12,
+                    }}>Highlights</h3>
                     <div style={{
                       background: "var(--oxford)", padding: "16px 20px",
                       borderLeft: "2px solid var(--acq)", borderRadius: 4,
-                      color: event.ai_summary ? "var(--fg-2)" : "var(--fg-mute)",
+                      color: (event.highlights ?? event.ai_summary) ? "var(--fg-2)" : "var(--fg-mute)",
                       fontSize: 14.5, lineHeight: 1.65,
-                      fontStyle: event.ai_summary ? "normal" : "italic",
+                      fontStyle: (event.highlights ?? event.ai_summary) ? "normal" : "italic",
                     }}>
-                      {event.ai_summary ?? "Editorial highlights coming soon."}
+                      {event.highlights ?? event.ai_summary ?? "Editorial highlights coming soon."}
                     </div>
                   </section>
 
@@ -425,26 +396,23 @@ const EventDetail = () => {
                     </section>
                   )}
 
-                  {/* What's the Scope — AI-generated founder-facing angle.
-                      Always renders (layout contract) with a placeholder when
-                      relevance_reason is null. */}
+                  {/* What's the Scope — Phase 3's `scope_analysis` (Economist-
+                      voice analytical block) takes precedence over legacy
+                      `relevance_reason` (classifier's one-liner). */}
                   <section style={{
                     background: "var(--oxford)", padding: "18px 22px", marginBottom: 8,
                     borderLeft: "3px solid var(--parrot)", borderRadius: 4,
                   }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <div className="mono" style={{
-                        fontSize: 10.5, color: "var(--parrot)", letterSpacing: ".14em",
-                        textTransform: "uppercase",
-                      }}>What's the Scope</div>
-                      <AiBadge tone="parrot" />
-                    </div>
+                    <div className="mono" style={{
+                      fontSize: 10.5, color: "var(--parrot)", letterSpacing: ".14em",
+                      textTransform: "uppercase", marginBottom: 8,
+                    }}>What's the Scope</div>
                     <div style={{
-                      color: event.relevance_reason ? "var(--fg-2)" : "var(--fg-mute)",
+                      color: (event.scope_analysis ?? event.relevance_reason) ? "var(--fg-2)" : "var(--fg-mute)",
                       fontSize: 15, lineHeight: 1.6,
-                      fontStyle: event.relevance_reason ? "normal" : "italic",
+                      fontStyle: (event.scope_analysis ?? event.relevance_reason) ? "normal" : "italic",
                     }}>
-                      {event.relevance_reason ?? "Editorial angle coming soon."}
+                      {event.scope_analysis ?? event.relevance_reason ?? "Editorial angle coming soon."}
                     </div>
                   </section>
                 </div>

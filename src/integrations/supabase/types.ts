@@ -387,6 +387,7 @@ export type Database = {
           event_type: string
           extraction_tier: string | null
           hero_image_source: string | null
+          highlights: string | null
           id: string
           image_url: string | null
           is_virtual: boolean
@@ -400,6 +401,7 @@ export type Database = {
           relevance_category: string | null
           relevance_reason: string | null
           reviewed_at: string | null
+          scope_analysis: string | null
           slug: string | null
           source: string | null
           source_id: string | null
@@ -428,6 +430,7 @@ export type Database = {
           event_type: string
           extraction_tier?: string | null
           hero_image_source?: string | null
+          highlights?: string | null
           id?: string
           image_url?: string | null
           is_virtual?: boolean
@@ -441,6 +444,7 @@ export type Database = {
           relevance_category?: string | null
           relevance_reason?: string | null
           reviewed_at?: string | null
+          scope_analysis?: string | null
           slug?: string | null
           source?: string | null
           source_id?: string | null
@@ -469,6 +473,7 @@ export type Database = {
           event_type?: string
           extraction_tier?: string | null
           hero_image_source?: string | null
+          highlights?: string | null
           id?: string
           image_url?: string | null
           is_virtual?: boolean
@@ -482,6 +487,7 @@ export type Database = {
           relevance_category?: string | null
           relevance_reason?: string | null
           reviewed_at?: string | null
+          scope_analysis?: string | null
           slug?: string | null
           source?: string | null
           source_id?: string | null

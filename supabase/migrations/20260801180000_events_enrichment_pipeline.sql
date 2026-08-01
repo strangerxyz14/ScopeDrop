@@ -48,15 +48,24 @@ ALTER TABLE public.scheduled_events
   ));
 
 -- ── Extend event_image_templates for FLUX archetype presets ───────
+-- event_type is added alongside archetype_key so resolveHeroImage can
+-- match "give me a hero for event_type=demo_day" directly without
+-- needing to substring the archetype_key. Full UNIQUE constraint
+-- (not partial index) because ON CONFLICT (archetype_key) requires
+-- a true unique constraint — NULLs stay distinct under UNIQUE so
+-- pre-existing rows without archetype_key aren't affected.
 ALTER TABLE public.event_image_templates
   ADD COLUMN IF NOT EXISTS archetype_key text,
+  ADD COLUMN IF NOT EXISTS event_type text,
   ADD COLUMN IF NOT EXISTS prompt_version integer NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS storage_path text,
   ADD COLUMN IF NOT EXISTS public_url text,
   ADD COLUMN IF NOT EXISTS generated_at timestamptz NOT NULL DEFAULT now();
 
-CREATE UNIQUE INDEX IF NOT EXISTS event_image_templates_archetype_key_unique_idx
-  ON public.event_image_templates (archetype_key) WHERE archetype_key IS NOT NULL;
+ALTER TABLE public.event_image_templates
+  DROP CONSTRAINT IF EXISTS event_image_templates_archetype_key_unique;
+ALTER TABLE public.event_image_templates
+  ADD CONSTRAINT event_image_templates_archetype_key_unique UNIQUE (archetype_key);
 
 -- ── Storage bucket for FLUX fallbacks ─────────────────────────────
 INSERT INTO storage.buckets (id, name, public)
