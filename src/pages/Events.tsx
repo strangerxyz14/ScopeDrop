@@ -31,7 +31,9 @@ async function warmGeo(geoKey: string) {
   }
 }
 
-async function fetchEvents(geoKey: string): Promise<ScheduledEventRow[]> {
+type Completeness = "complete" | "all";
+
+async function fetchEvents(geoKey: string, completeness: Completeness): Promise<ScheduledEventRow[]> {
   const tab = GEO_TABS.find((t) => t.key === geoKey) ?? GEO_TABS[GEO_TABS.length - 1];
   const nowIso = new Date().toISOString();
   let q = supabase
@@ -49,6 +51,17 @@ async function fetchEvents(geoKey: string): Promise<ScheduledEventRow[]> {
     if (orParts.length > 0) q = q.or(orParts.join(","));
   }
 
+  // 'complete' = fully enriched. Requires all three editorial + media
+  // fields non-null so nothing half-baked lands on the default view.
+  // 'all' shows any published/approved row including manual seeds that
+  // predate the enrichment pipeline. Default is complete per the
+  // Phase 4 spec's locked decision #7.
+  if (completeness === "complete") {
+    q = q.not("highlights", "is", null)
+         .not("scope_analysis", "is", null)
+         .not("image_url", "is", null);
+  }
+
   const { data, error } = await q;
   if (error) throw error;
   return data ?? [];
@@ -63,6 +76,11 @@ function sourceLabel(source: string | null): string | null {
 
 const Events = () => {
   const [geoKey, setGeoKey] = useState<string>("global");
+  // Default 'complete' per Phase 4 locked decision #7: only fully-
+  // enriched events appear on first load. Users can flip to 'all'
+  // to see anything published (including manual seeds without
+  // editorial + rows that fell back to the universal fallback image).
+  const [completeness, setCompleteness] = useState<Completeness>("complete");
   const [rows, setRows] = useState<ScheduledEventRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +93,7 @@ const Events = () => {
     (async () => {
       const warm = warmGeo(geoKey);
       try {
-        const initial = await fetchEvents(geoKey);
+        const initial = await fetchEvents(geoKey, completeness);
         if (!cancelled) setRows(initial);
       } catch (e) {
         if (!cancelled) setError(String(e));
@@ -86,7 +104,7 @@ const Events = () => {
       await warm;
       if (cancelled) return;
       try {
-        const refreshed = await fetchEvents(geoKey);
+        const refreshed = await fetchEvents(geoKey, completeness);
         if (!cancelled) setRows(refreshed);
       } catch {
         // ignore secondary refresh failures
@@ -96,7 +114,7 @@ const Events = () => {
     return () => {
       cancelled = true;
     };
-  }, [geoKey]);
+  }, [geoKey, completeness]);
 
   const activeTab = useMemo(
     () => GEO_TABS.find((t) => t.key === geoKey) ?? GEO_TABS[GEO_TABS.length - 1],
@@ -125,6 +143,23 @@ const Events = () => {
             <div className="sec-h">
               <h3>
                 Upcoming events
+                <span className="geo" role="tablist" aria-label="Filter by completeness">
+                  {(["complete", "all"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="tab"
+                      aria-selected={mode === completeness}
+                      className={mode === completeness ? "on" : ""}
+                      onClick={() => setCompleteness(mode)}
+                      title={mode === "complete"
+                        ? "Only fully-enriched events (Highlights + Scope + hero image)"
+                        : "All events, including manual seeds and unresolved images"}
+                    >
+                      {mode === "complete" ? "Complete" : "All"}
+                    </button>
+                  ))}
+                </span>
                 <span className="geo" role="tablist" aria-label="Filter events by city">
                   {GEO_TABS.map((t) => (
                     <button
