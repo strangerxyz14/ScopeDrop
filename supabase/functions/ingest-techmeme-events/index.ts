@@ -194,15 +194,20 @@ function parseStartsAt(dateRaw: string, referenceYear: number): string | null {
 }
 
 // ── Follow /r2/ redirect to canonical URL ────────────────────────
-// Techmeme's link column uses /r2/<slug> as a 301 shortener. Fetch
-// with redirect follow to resolve; on any error, fall back to the
-// original href so we don't strand the row.
+// Techmeme's link column uses /r2/<slug> as a shortener. Contrary to
+// the earlier assumption, it does NOT use HTTP 3xx — the /r2/ path
+// returns a 200 with an HTML meta-refresh (`<meta http-equiv="refresh"
+// content="0; URL=https://actual-site.com/">`). fetch(..., {redirect:
+// 'follow'}) does not follow meta-refresh, so we have to parse the URL
+// out ourselves. Falls back to the /r2/ URL when the refresh tag isn't
+// present so the row isn't stranded.
+const META_REFRESH_RE = /<meta[^>]+http-equiv=["']refresh["'][^>]+content=["']\s*\d+\s*;\s*URL=([^"'\s>]+)/i;
+
 async function resolveCanonicalUrl(href: string): Promise<string> {
   const absolute = href.startsWith("http") ? href : `https://www.techmeme.com${href}`;
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
-    // HEAD is preferred but many hosts reject it — GET with body ignored is safer
     const res = await fetch(absolute, {
       method: "GET",
       redirect: "follow",
@@ -210,7 +215,12 @@ async function resolveCanonicalUrl(href: string): Promise<string> {
       headers: { "User-Agent": USER_AGENT, "Accept": "text/html" },
     });
     clearTimeout(timer);
-    // res.url reflects the final URL post-redirects
+    // If HTTP redirects fired, res.url is already the final destination
+    if (res.url && !res.url.includes("/r2/")) return res.url;
+    // Otherwise look for a meta-refresh in the body (Techmeme's pattern)
+    const body = await res.text();
+    const m = body.match(META_REFRESH_RE);
+    if (m?.[1]) return m[1].trim();
     return res.url || absolute;
   } catch {
     return absolute;

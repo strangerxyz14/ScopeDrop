@@ -123,9 +123,20 @@ async function tryGenerateHighlights(row: EventRow): Promise<string | null> {
     // treat it as INSUFFICIENT_SIGNAL rather than publishing fabricated
     // prose — publish gate then blocks the row until the source has
     // richer signal or the writer produces a cleaner take.
-    const unsourced = findUnsourcedProperNouns(cleaned, row.description ?? "");
+    // Guard against unsourced proper nouns, but check against a broader
+    // source context — title/organizer/city/location/venue are legit
+    // sources of names the model can reference. Only entities that appear
+    // nowhere in this combined context count as hallucination.
+    const sourceContext = [
+      row.title ?? "",
+      row.description ?? "",
+      row.organizer_name ?? "",
+      row.city ?? "",
+      row.location ?? "",
+    ].filter(Boolean).join(" | ");
+    const unsourced = findUnsourcedProperNouns(cleaned, sourceContext);
     if (unsourced.length > 0) {
-      console.warn(`highlights hallucination guard tripped for row ${row.id}: unsourced proper nouns = ${unsourced.join(", ")}`);
+      console.warn(`highlights hallucination guard tripped for row ${row.id}: unsourced = ${unsourced.join(", ")}`);
       return null;
     }
     return cleaned;
