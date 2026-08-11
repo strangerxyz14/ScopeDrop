@@ -49,12 +49,7 @@ export function EventsGrid() {
         ) : showEmptyForAll ? (
           <div className="sd-empty">
             <span className="k">No upcoming events tracked</span>
-            <p>
-              Events populate as they're added.{" "}
-              <Link to="/events" style={{ color: "var(--parrot)" }}>
-                Submit an event →
-              </Link>
-            </p>
+            <p>Events populate as they're added.</p>
           </div>
         ) : showEmptyForCity ? (
           <div className="sd-empty">
@@ -114,10 +109,7 @@ export function EventsGrid() {
         )}
 
         <div className="ev-note">
-          EVENTS SOURCED FROM PARTNER CALENDARS AND SUBMITTED LISTINGS ·{" "}
-          <Link to="/events" style={{ color: "var(--parrot)" }}>
-            SUBMIT AN EVENT →
-          </Link>
+          EVENTS SOURCED FROM PARTNER CALENDARS AND SUBMITTED LISTINGS
         </div>
       </div>
     </section>
