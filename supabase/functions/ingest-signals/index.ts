@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { offTopicReason } from "../_shared/relevance.ts";
 
 const ALLOWED_ORIGINS = [
   ...(Deno.env.get("ENVIRONMENT") === "development"
@@ -57,12 +58,6 @@ async function extractOgImage(url: string): Promise<string | null> {
 // ─────────────────────────────────────────────────────────────
 // RELEVANCE FILTER
 // ─────────────────────────────────────────────────────────────
-const REJECT_TITLE_WORDS = [
-  "celebrity","music","artist","travel","food","sport","sports",
-  "entertainment","movie","film","recipe","fashion","beauty",
-  "lifestyle","gossip","bollywood","box office","nfl","nba","cricket",
-];
-
 const REJECT_DOMAINS = [
   "tmz.com","billboard.com","espn.com","buzzfeed.com",
   "dailymail.co.uk","people.com","eonline.com",
@@ -83,8 +78,10 @@ function isRelevant(title: string, rawContent: string, sourceUrl: string): boole
   const titleLow = title.toLowerCase();
   const combined = (titleLow + " " + rawContent.toLowerCase());
 
-  // Reject by title keywords
-  if (REJECT_TITLE_WORDS.some((w) => titleLow.includes(w))) return false;
+  // Reject off-topic subjects (gaming, gadget reviews, sports, medical
+  // research, lifestyle...) unless there's a funding/M&A angle. Replaces
+  // the old substring title blacklist ("sport" matched "transport").
+  if (offTopicReason(title, rawContent)) return false;
 
   // Reject by domain
   try {

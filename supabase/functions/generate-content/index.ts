@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callLLM, TASK } from "../_shared/llm.ts";
+import { offTopicReason, CLASSIFIED_RELEVANT } from "../_shared/relevance.ts";
 
 const ALLOWED_ORIGINS = [
   ...(Deno.env.get("ENVIRONMENT") === "development"
@@ -292,11 +293,16 @@ serve(async (req) => {
       );
     }
 
-    // ── 4B: Fetch pending signals ─────────────────────────
+    // ── 4B: Fetch classified pending signals ──────────────
+    // Only signals extract-structured's classifier accepted. This function
+    // used to take any pending row, and since it runs ~3x as often as the
+    // classifier most articles skipped classification entirely — that's
+    // how gadget reviews and game news reached the homepage.
     const { data: pendingSignals, error: fetchError } = await supabase
       .from("raw_signals")
       .select("*")
       .eq("status", "pending")
+      .eq("error_message", CLASSIFIED_RELEVANT)
       .order("created_at", { ascending: true })
       .limit(3);
 
@@ -351,6 +357,17 @@ serve(async (req) => {
           if (idx < pendingSignals.length - 1) {
             await new Promise((r) => setTimeout(r, INTER_ARTICLE_DELAY_MS));
           }
+          continue;
+        }
+
+        // ── 4D: Deterministic off-topic backstop ────────
+        const offTopic = offTopicReason(signal.title, sanitized);
+        if (offTopic) {
+          await supabase
+            .from("raw_signals")
+            .update({ status: "rejected", error_message: `off_topic: ${offTopic}` })
+            .eq("id", signal.id);
+          rejected++;
           continue;
         }
 
@@ -454,10 +471,10 @@ serve(async (req) => {
           continue;
         }
 
-        // Mark signal as published
+        // Mark signal as published (and drop the classifier tag)
         await supabase
           .from("raw_signals")
-          .update({ status: "published", processed_at: new Date().toISOString() })
+          .update({ status: "published", processed_at: new Date().toISOString(), error_message: null })
           .eq("id", signal.id);
 
         // Update pipeline stats

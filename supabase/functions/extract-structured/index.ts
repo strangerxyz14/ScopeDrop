@@ -11,6 +11,7 @@ import {
   resolveOrganizerLogo,
 } from "../_shared/event-extraction.ts";
 import { callLLM, TASK, estimateTokens } from "../_shared/llm.ts";
+import { offTopicReason, CLASSIFIED_RELEVANT } from "../_shared/relevance.ts";
 
 const ALLOWED_ORIGINS = [
   ...(Deno.env.get("ENVIRONMENT") === "development"
@@ -37,7 +38,10 @@ function getCorsHeaders(origin: string | null): HeadersInit {
 // context (see EXTRACT_LONG_TOKENS_THRESHOLD below).
 const EXTRACT_LONG_TOKENS_THRESHOLD = 6_000;
 
-const MAX_SIGNALS_PER_RUN = 5;
+// generate-content only writes articles for signals this function has
+// tagged CLASSIFIED_RELEVANT, so this batch size caps article throughput
+// (2 runs/hour). Deterministic off-topic rejections don't cost an LLM call.
+const MAX_SIGNALS_PER_RUN = 10;
 
 // ── Editorial-event promotion (blog post → scheduled_events) ──
 // Source names allowed to promote posts as editorial events. Kept small
@@ -118,7 +122,20 @@ function safeJsonParse(text: string): any {
 }
 
 // ── Prompts ──
-const CLASSIFY_SYSTEM = `You are a classifier for a startup news pipeline. Given a headline and article text, output ONLY a JSON object: {"content_type": X} where X is exactly one of: "funding" (a specific company raising a specific round), "acquisition" (a company being acquired, merging, or IPOing), "narrative" (startup/tech news, analysis, trends, profiles), "irrelevant" (not startup/tech related). If the text merely mentions funding in passing but is not primarily announcing a round, classify as "narrative". Never guess "funding" without an explicit company + round.`;
+const CLASSIFY_SYSTEM = `You are the relevance gate and classifier for ScopeDrop, a news product for startup founders and investors. It covers startups, venture funding, M&A and IPOs, the AI industry, and the business and policy of technology. Given a headline and article text, output ONLY a JSON object: {"content_type": X} where X is exactly one of:
+- "funding": a specific company announcing a specific funding round (company and round explicitly stated).
+- "acquisition": a company being acquired, merging, or IPOing.
+- "narrative": other news a founder or investor would act on: startup and venture ecosystem news, AI labs and AI-industry moves, big-tech strategy, earnings or leadership changes, enterprise software and developer tools, chips and cloud infrastructure, layoffs, tech regulation, antitrust and policy.
+- "irrelevant": everything else, including:
+  * consumer product coverage: gadget, phone, laptop, headphone, keyboard or wearable reviews, launches, leaks, specs, deals, OS betas
+  * video games: game releases and reviews, consoles, game studios' and franchises' news, trailers
+  * sports, entertainment, celebrities, music, film and TV, lifestyle, wellness, travel
+  * medical, health or scientific research findings (studies, trials, discoveries) with no company funding, deal or business story
+  * general politics, geopolitics and world news with no technology-policy angle
+  * stock picking, technical analysis, commodity markets, and earnings of non-tech companies
+  * hobbyist projects, retro computing and nostalgia pieces
+Decision test: would a startup founder or VC need this story for a business decision? Being about a technology product is not enough. A consumer, gaming, sports or medical story is "narrative" only when its main subject is a business event: funding, an acquisition, layoffs, company strategy or revenue, or regulation.
+If the text mentions funding only in passing and isn't mainly announcing a round, classify as "narrative". Never guess "funding" without an explicit company and round.`;
 
 const EXTRACT_FUNDING_SYSTEM = `You extract structured funding data for a startup intelligence platform. Extract ONLY facts explicitly stated in the source text. If a field is not stated, return null. Never estimate or infer amounts, valuations, or investor names.
 
@@ -480,14 +497,19 @@ serve(async (req) => {
       .from("raw_signals")
       .select("*")
       .eq("status", "pending")
+      .or("error_message.is.null,error_message.like.extract*")
       .in("source_name", editorialWhitelist)
       .order("created_at", { ascending: true })
       .limit(MAX_EDITORIAL_PER_RUN);
 
+    // Unclassified only: signals already tagged CLASSIFIED_RELEVANT are
+    // waiting for generate-content. A previous classify failure leaves an
+    // "extract: ..." error_message and is retried.
     const { data: regularSignals, error: fetchError } = await supabase
       .from("raw_signals")
       .select("*")
       .eq("status", "pending")
+      .or("error_message.is.null,error_message.like.extract*")
       .not("source_name", "in", `(${editorialWhitelist.map((s) => `"${s}"`).join(",")})`)
       .order("created_at", { ascending: true })
       .limit(MAX_SIGNALS_PER_RUN);
@@ -508,6 +530,7 @@ serve(async (req) => {
       classified_acquisition: 0,
       classified_narrative: 0,
       classified_irrelevant: 0,
+      rejected_off_topic: 0,
       events_created: 0,
       editorial_events_created: 0,
       editorial_not_event: 0,
@@ -518,7 +541,16 @@ serve(async (req) => {
     let tokensUsed = 0;
     let requestsMade = 0;
 
+    // Hand a relevant signal to generate-content. Status stays 'pending'
+    // (the status CHECK only allows pending/published/rejected/paused);
+    // the error_message tag is what generate-content selects on.
+    const markRelevant = (id: string) =>
+      supabase.from("raw_signals").update({ error_message: CLASSIFIED_RELEVANT }).eq("id", id);
+
     for (const signal of pendingSignals ?? []) {
+      // Set once the classifier says the signal is on-topic; the catch
+      // below uses it to still hand the story to generate-content.
+      let classifiedRelevant = false;
       try {
         // ── Editorial-event pre-branch ──
         // Whitelisted blog + event-shaped title → try to promote to
@@ -583,8 +615,25 @@ serve(async (req) => {
 
         const rawText = `${signal.title ?? ""}\n${sanitizeContent(signal.raw_content ?? "")}`.trim();
         if (rawText.length < 30) {
-          // Too thin to classify — leave for generate-content's own rejection path
-          summary.classified_narrative++;
+          // Too thin to classify or to write up (generate-content needs 50+
+          // chars). Reject so it doesn't sit at the head of the queue.
+          await supabase
+            .from("raw_signals")
+            .update({ status: "rejected", error_message: "insufficient_content" })
+            .eq("id", signal.id);
+          summary.processed++;
+          continue;
+        }
+
+        // ── Deterministic off-topic gate (no LLM call) ──
+        const offTopic = offTopicReason(signal.title, sanitizeContent(signal.raw_content ?? ""));
+        if (offTopic) {
+          await supabase
+            .from("raw_signals")
+            .update({ status: "rejected", error_message: `off_topic: ${offTopic}` })
+            .eq("id", signal.id);
+          summary.rejected_off_topic++;
+          summary.processed++;
           continue;
         }
 
@@ -604,7 +653,8 @@ serve(async (req) => {
         summary.processed++;
 
         if (contentType === "narrative") {
-          // Leave untouched for generate-content — do NOT change status
+          // Hand to generate-content (status stays pending)
+          await markRelevant(signal.id);
           summary.classified_narrative++;
           continue;
         }
@@ -619,9 +669,11 @@ serve(async (req) => {
         }
 
         if (contentType !== "funding" && contentType !== "acquisition") {
+          await markRelevant(signal.id);
           summary.classified_narrative++;
-          continue; // unknown label → treat as narrative, leave alone
+          continue; // unknown label → treat as narrative
         }
+        classifiedRelevant = true;
 
         // ── CALL 2: extract (strong model via callLLM; routes to EXTRACT_JSON
         // by default or EXTRACT_JSON_LONG when the source blows past
@@ -641,10 +693,8 @@ serve(async (req) => {
         try {
           parsed = safeJsonParse(extractRes.content);
         } catch {
-          await supabase
-            .from("raw_signals")
-            .update({ status: "rejected", error_message: "extract_invalid_json" })
-            .eq("id", signal.id);
+          // Relevant story, just not structurable — still worth an article.
+          await markRelevant(signal.id);
           summary.errors++;
           continue;
         }
@@ -657,10 +707,7 @@ serve(async (req) => {
           const announcedAt = typeof parsed.announced_at === "string" && DATE_RE.test(parsed.announced_at)
             ? parsed.announced_at : "";
           if (!companyName || !announcedAt) {
-            await supabase
-              .from("raw_signals")
-              .update({ status: "rejected", error_message: "extract_missing_required: company_name/announced_at" })
-              .eq("id", signal.id);
+            await markRelevant(signal.id); // no event, but still an article
             summary.errors++;
             continue;
           }
@@ -727,10 +774,7 @@ serve(async (req) => {
             ? parsed.announced_at : "";
           const dealType = parsed.deal_type === "ipo" ? "ipo" : "acquisition";
           if (!acquiredName || !announcedAt) {
-            await supabase
-              .from("raw_signals")
-              .update({ status: "rejected", error_message: "extract_missing_required: acquired_name/announced_at" })
-              .eq("id", signal.id);
+            await markRelevant(signal.id); // no event, but still an article
             summary.errors++;
             continue;
           }
@@ -766,17 +810,19 @@ serve(async (req) => {
           summary.events_created++;
         }
 
-        // Mark signal consumed
-        await supabase
-          .from("raw_signals")
-          .update({ status: "published", processed_at: new Date().toISOString() })
-          .eq("id", signal.id);
+        // Event recorded; hand the story to generate-content for the
+        // article too. Before the generate-content gate existed, funding
+        // and M&A articles came from generate-content racing this function
+        // for the same pending rows — keep them on the homepage.
+        await markRelevant(signal.id);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`extract-structured signal ${signal.id} failed:`, msg);
+        // Classified relevant → still hand it to generate-content.
+        // Otherwise (classify itself failed) tag for a retry next run.
         await supabase
           .from("raw_signals")
-          .update({ error_message: `extract: ${msg}`.slice(0, 500) })
+          .update({ error_message: classifiedRelevant ? CLASSIFIED_RELEVANT : `extract: ${msg}`.slice(0, 500) })
           .eq("id", signal.id);
         summary.errors++;
         // continue with the rest — never let one bad signal kill the batch
