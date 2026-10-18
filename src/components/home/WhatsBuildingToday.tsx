@@ -1,11 +1,17 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useFreshFlow } from "@/hooks/home/useFreshFlow";
+import { useDailyFlagship } from "@/hooks/home/useDailyFlagship";
 import { StoryFlow } from "./StoryCards";
 import { useRevealAll } from "@/hooks/home/useRevealAll";
 
 export function WhatsBuildingToday() {
-  const { data: rows = [], isLoading } = useFreshFlow(5);
+  // One extra row: when the hero falls back to the newest story (no
+  // flagship picked), drop it here so it isn't shown twice.
+  const { data: fetched = [], isLoading } = useFreshFlow(6);
+  const { data: flagship } = useDailyFlagship();
+  const heroId = flagship?.kind === "latest" ? flagship.article?.id : undefined;
+  const rows = useMemo(() => fetched.filter((r) => r.id !== heroId).slice(0, 5), [fetched, heroId]);
   const containerRef = useRef<HTMLDivElement>(null);
   useRevealAll(containerRef, [rows]);
 

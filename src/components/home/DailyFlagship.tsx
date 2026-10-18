@@ -6,7 +6,7 @@ import { bylineFromArticle, estimateReadTime, kickerFromArticle } from "./utils"
 export function DailyFlagship() {
   const { data, isLoading } = useDailyFlagship();
   const article = data?.article ?? null;
-  const isYesterday = data?.isYesterday ?? false;
+  const kind = data?.kind ?? null;
 
   if (isLoading) {
     return (
@@ -67,7 +67,8 @@ export function DailyFlagship() {
   const kicker = kickerFromArticle(article);
   const byline = bylineFromArticle(article);
   const readTime = estimateReadTime(article.content_html, article.read_time_minutes);
-  const numLabel = isYesterday ? "Yesterday's flagship" : "Today's flagship";
+  const numLabel =
+    kind === "today" ? "Today's flagship" : kind === "yesterday" ? "Yesterday's flagship" : "Latest story";
   const to = `/article/${article.id}`;
 
   return (
