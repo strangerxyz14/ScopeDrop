@@ -61,8 +61,12 @@ export const PROVIDERS: Record<ProviderName, ProviderConfig> = {
 // Model IDs live here so a provider deprecation is a single-file swap.
 export const MODELS = {
   groq: {
-    LLAMA_70B: "llama-3.3-70b-versatile",
-    LLAMA_8B: "llama-3.1-8b-instant",
+    // Groq shut down llama-3.3-70b-versatile and llama-3.1-8b-instant on
+    // 2026-08-16 (console.groq.com/docs/deprecations); every call 404'd
+    // with model_not_found from 2026-08-17. These are Groq's named
+    // replacements. Both are reasoning models — see REASONING_MODELS.
+    GPT_OSS_120B: "openai/gpt-oss-120b",
+    GPT_OSS_20B: "openai/gpt-oss-20b",
   },
   cerebras: {
     // What our Cerebras account actually exposes (verified via
@@ -113,28 +117,35 @@ interface ProviderModel {
 //   { provider: "cerebras", model: MODELS.cerebras.GLM_47, supportsJsonMode: false },          // was LONG_ANALYTICAL emergency
 const ROUTING: Record<TaskClass, ProviderModel[]> = {
   CLASSIFY: [
-    { provider: "groq", model: MODELS.groq.LLAMA_8B, supportsJsonMode: true },
-    { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: true },
+    { provider: "groq", model: MODELS.groq.GPT_OSS_20B, supportsJsonMode: true },
+    { provider: "groq", model: MODELS.groq.GPT_OSS_120B, supportsJsonMode: true },
   ],
   EXTRACT_JSON: [
-    { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: true },
-    { provider: "groq", model: MODELS.groq.LLAMA_8B, supportsJsonMode: true },
+    { provider: "groq", model: MODELS.groq.GPT_OSS_120B, supportsJsonMode: true },
+    { provider: "groq", model: MODELS.groq.GPT_OSS_20B, supportsJsonMode: true },
   ],
   EXTRACT_JSON_LONG: [
-    { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: true },
-    { provider: "groq", model: MODELS.groq.LLAMA_8B, supportsJsonMode: true },
+    { provider: "groq", model: MODELS.groq.GPT_OSS_120B, supportsJsonMode: true },
+    { provider: "groq", model: MODELS.groq.GPT_OSS_20B, supportsJsonMode: true },
   ],
   SHORT_GENERATIVE: [
-    { provider: "groq", model: MODELS.groq.LLAMA_8B, supportsJsonMode: false },
-    { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: false },
+    { provider: "groq", model: MODELS.groq.GPT_OSS_20B, supportsJsonMode: false },
+    { provider: "groq", model: MODELS.groq.GPT_OSS_120B, supportsJsonMode: false },
   ],
   LONG_ANALYTICAL: [
-    { provider: "groq", model: MODELS.groq.LLAMA_70B, supportsJsonMode: false },
-    { provider: "groq", model: MODELS.groq.LLAMA_8B, supportsJsonMode: false },
+    { provider: "groq", model: MODELS.groq.GPT_OSS_120B, supportsJsonMode: false },
+    { provider: "groq", model: MODELS.groq.GPT_OSS_20B, supportsJsonMode: false },
   ],
 };
 
 const CEREBRAS_CONTEXT_CUTOFF_TOKENS = 7_500;
+
+// gpt-oss spends completion tokens on hidden reasoning before it writes
+// `content`. Keep effort low (callers want fast, short outputs) and add
+// headroom on top of the caller's maxTokens so reasoning can't starve
+// the visible answer.
+const REASONING_MODELS = new Set<string>([MODELS.groq.GPT_OSS_120B, MODELS.groq.GPT_OSS_20B]);
+const REASONING_TOKEN_HEADROOM = 1024;
 const RATE_LIMIT_COOLDOWN_MS = 60_000;
 
 // ------------------------------------------------------------
@@ -238,7 +249,10 @@ export async function callLLM(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`${entry.provider}/${entry.model}:${msg}`);
-      if (msg.includes("429") || msg.toLowerCase().includes("rate")) {
+      // Errors are formatted "<status> <body>" by callProviderEndpoint.
+      // Match the status only: a body like "Failed to generate JSON"
+      // contains "rate" and used to bench the whole provider for 60s.
+      if (msg.startsWith("429")) {
         markRateLimited(entry.provider);
       }
       await recordStat(entry.provider, taskClass, false, 0, 0, msg.slice(0, 300));
@@ -268,6 +282,10 @@ async function callProviderEndpoint(
     temperature: opts.temperature ?? 0.3,
     max_tokens: opts.maxTokens ?? 1024,
   };
+  if (REASONING_MODELS.has(entry.model)) {
+    body.reasoning_effort = "low";
+    body.max_tokens = (opts.maxTokens ?? 1024) + REASONING_TOKEN_HEADROOM;
+  }
   if (opts.jsonMode && entry.supportsJsonMode) {
     body.response_format = { type: "json_object" };
   }

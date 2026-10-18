@@ -437,6 +437,9 @@ serve(async (req) => {
           source_signal_id: signal.id,
           image_url: image_url ?? (signal as any).image_url ?? null,
           status: "published",
+          // Feeds sort on published_at; rows inserted without it sank
+          // below every backfilled row and the homepage froze.
+          published_at: new Date().toISOString(),
         });
 
         if (insertError) {
