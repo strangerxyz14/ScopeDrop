@@ -14,6 +14,9 @@ dist-ssr
 .env
 .env.*
 
+# Local audit reports (scopedrop-audit skill)
+audits/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
