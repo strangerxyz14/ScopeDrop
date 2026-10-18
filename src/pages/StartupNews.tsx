@@ -1,108 +1,145 @@
+// ============================================================
+// StartupNews — /startups/news, the "All stories" listing, in the
+// home v-g design system. Category filter lives in ?c= so article
+// breadcrumbs can deep-link into it. First page opens with the home
+// flow layout (lead + 4 side cards); everything after is a grid.
+// ============================================================
+import { useRef } from "react";
+import { useSearchParams } from "react-router-dom";
+import SEO from "@/components/SEO";
+import { SiteHeader } from "@/components/home/SiteHeader";
+import { SiteFooter } from "@/components/home/SiteFooter";
+import { BackToTop } from "@/components/home/BackToTop";
+import { StoryCard, StoryFlow } from "@/components/home/StoryCards";
+import { useRevealAll } from "@/hooks/home/useRevealAll";
+import { formatRelativeTime } from "@/components/home/utils";
+import { useStories } from "@/hooks/home/useStories";
+import "@/components/home/theme.css";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Header } from "@/components/Header/Header";
-import Footer from "@/components/Footer";
-import FilterBar from "@/components/FilterBar";
-import NewsCard from "@/components/NewsCard";
-import type { Sector, Region, FundingStage, NewsType } from "@/types/news";
-import ErrorMonitor from "@/components/ErrorMonitor";
-import { supabase } from "@/integrations/supabase/client";
-import { mapDbArticleToNewsArticle } from "@/services/articlesService";
-
-interface Filters {
-  stages: FundingStage[];
-  sectors: Sector[];
-  regions: Region[];
-  types: NewsType[];
-}
+const CATEGORIES: { key: string | null; label: string }[] = [
+  { key: null, label: "All" },
+  { key: "startups", label: "Startups" },
+  { key: "ai", label: "AI" },
+  { key: "funding", label: "Funding" },
+  { key: "markets", label: "Markets" },
+  { key: "policy", label: "Policy" },
+];
 
 const StartupNews = () => {
-  const [filters, setFilters] = useState<Filters>({
-    stages: [],
-    sectors: [],
-    regions: [],
-    types: [],
-  });
+  const [params, setParams] = useSearchParams();
+  const category = params.get("c");
+  const active = CATEGORIES.find((c) => c.key === category) ?? CATEGORIES[0];
 
-  const { data: articles, isLoading } = useQuery({
-    queryKey: ["articles", filters],
-    queryFn: async () => {
-      try {
-        let query = supabase
-          .from("articles")
-          .select("*")
-          .order("created_at", { ascending: false });
+  const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useStories(category);
+  const rows = data?.pages.flat() ?? [];
+  const lead = rows.slice(0, 5);
+  const rest = rows.slice(5);
 
-        // Apply Category/Type filter (server-side)
-        if (filters.types.length > 0) {
-          const typeFilters = filters.types.map((t) => `category.ilike.%${t}%`).join(",");
-          query = query.or(typeFilters);
-        }
+  const flowRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  useRevealAll(flowRef, [category, lead.length]);
+  useRevealAll(gridRef, [category, rest.length]);
 
-        const { data, error } = await query.limit(30);
-        if (error) throw error;
-        return (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
-      } catch (e) {
-        console.warn("Supabase articles fetch failed.", e);
-        return [];
-      }
-    },
-  });
-
-  const handleFilterChange = (newFilters: Filters) => {
-    setFilters(newFilters);
+  const setCategory = (key: string | null) => {
+    const next = new URLSearchParams(params);
+    if (key) next.set("c", key);
+    else next.delete("c");
+    setParams(next, { replace: true });
   };
 
-  const displayArticles = articles || [];
+  const latest = rows[0] ? formatRelativeTime(rows[0].published_at ?? rows[0].created_at) : null;
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
-      <Header />
-      
-      <main className="flex-grow">
-        {/* Page Header */}
-        <div className="bg-gradient-to-r from-oxford to-oxford-400 text-white py-12">
-          <div className="container mx-auto px-4">
-            <h1 className="text-3xl md:text-4xl font-display font-bold mb-2">Startup News</h1>
-            <p className="text-blue-100 max-w-2xl">
-              The latest updates from the startup ecosystem: funding rounds, product launches, 
-              acquisitions, and founder stories that are shaping the future of business and technology.
+    <div className="sdvg">
+      <SEO
+        title={category ? `${active.label} stories — ScopeDrop` : "All stories — ScopeDrop"}
+        description="The latest startup, funding, AI and market stories, decoded daily by ScopeDrop."
+        keywords={["startup news", "funding", "AI", "venture capital"]}
+      />
+      <SiteHeader />
+      <main>
+        <header className="st-head">
+          <div className="wrap">
+            <span className="kick">
+              ALL STORIES{latest ? ` · LAST UPDATED ${latest}` : ""}
+            </span>
+            <h1>What's building, as it happens</h1>
+            <p>
+              Funding rounds, launches, acquisitions and the moves shaping startups, tech and AI —
+              decoded by the ScopeDrop desk.
             </p>
+            <div className="st-filters" role="tablist" aria-label="Filter by category">
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c.label}
+                  type="button"
+                  role="tab"
+                  aria-selected={c.key === active.key}
+                  className={c.key === active.key ? "on" : undefined}
+                  onClick={() => setCategory(c.key)}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        
-        {/* Filter Bar */}
-        <FilterBar onFilterChange={handleFilterChange} />
-        
-        {/* News Grid */}
-        <div className="container mx-auto px-4 py-8">
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array(9).fill(0).map((_, i) => (
-                <div key={i} className="bg-white animate-pulse h-80 rounded-lg shadow"></div>
-              ))}
-            </div>
-          ) : displayArticles.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayArticles.map((article, index) => (
-                <NewsCard
-                  key={article.id ?? article.slug ?? index}
-                  article={article}
-                  articleId={(article.slug ?? article.id ?? "").toString()}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-white rounded-lg shadow">
-              <p className="text-gray-500">No articles match your filters. Try adjusting your criteria.</p>
-            </div>
-          )}
-        </div>
+        </header>
+
+        <section className="flow-sec">
+          <div className="wrap">
+            {isLoading ? (
+              <div className="st-grid" aria-busy="true">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="sd-skel" style={{ height: 280 }} />
+                ))}
+              </div>
+            ) : error ? (
+              <div className="sd-empty">
+                <span className="k">Couldn't load stories</span>
+                <p>Refresh the page to try again.</p>
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="sd-empty">
+                <span className="k">No {active.key ? active.label : ""} stories yet</span>
+                <p>The feed populates as stories publish. Check back soon.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flow" ref={flowRef}>
+                  <StoryFlow rows={lead} />
+                </div>
+
+                {rest.length > 0 && (
+                  <>
+                    <div className="sec-h st-more-h">
+                      <h3>More stories</h3>
+                    </div>
+                    <div className="st-grid" ref={gridRef}>
+                      {rest.map((a) => (
+                        <StoryCard key={a.id} article={a} />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {hasNextPage && (
+                  <div className="st-load">
+                    <button
+                      type="button"
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                    >
+                      {isFetchingNextPage ? "Loading…" : "Load more stories"}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </section>
       </main>
-      
-      <Footer />
-      <ErrorMonitor />
+      <SiteFooter />
+      <BackToTop />
     </div>
   );
 };

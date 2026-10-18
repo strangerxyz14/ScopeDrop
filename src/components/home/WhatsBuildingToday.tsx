@@ -1,102 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { Link } from "react-router-dom";
-import { useFreshFlow, type FreshFlowArticle } from "@/hooks/home/useFreshFlow";
-import { LeadThumbFallback } from "./HeroIllustration";
-import { bylineFromArticle, estimateReadTime, kickerFromArticle } from "./utils";
-
-function useRevealAll<T extends HTMLElement>(container: React.RefObject<T | null>) {
-  useEffect(() => {
-    const root = container.current;
-    if (!root) return;
-
-    const reduced =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-
-    const items = Array.from(root.querySelectorAll<HTMLElement>(".f-item"));
-    if (reduced || typeof IntersectionObserver === "undefined") {
-      items.forEach((el) => el.classList.add("rev"));
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) {
-            e.target.classList.add("rev");
-            io.unobserve(e.target);
-          }
-        }
-      },
-      { threshold: 0.18 },
-    );
-    items.forEach((el) => io.observe(el));
-    return () => io.disconnect();
-  }, [container]);
-}
-
-function LeadCard({ article }: { article: FreshFlowArticle }) {
-  const kicker = kickerFromArticle(article);
-  const byline = bylineFromArticle(article);
-  const readTime = estimateReadTime(article.content_html, article.read_time_minutes);
-  return (
-    <Link className="f-lead f-item" to={`/article/${article.id}`}>
-      <div className="thumb">
-        {article.image_url ? (
-          <img src={article.image_url} alt={article.headline} loading="lazy" />
-        ) : (
-          <LeadThumbFallback />
-        )}
-      </div>
-      <div>
-        <span className={`kick${kicker.isAcq ? " acq" : ""}`}>{kicker.text}</span>
-        <h4>{article.headline}</h4>
-        <p className="dek-sm">{article.summary}</p>
-        <div
-          className="byline"
-          style={{
-            marginTop: 14,
-            fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
-            fontSize: "10.5px",
-            letterSpacing: ".06em",
-          }}
-        >
-          BY {byline.toUpperCase()} · {readTime} MIN
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function SideCard({
-  article,
-  hideTopBorder,
-}: {
-  article: FreshFlowArticle;
-  hideTopBorder?: boolean;
-}) {
-  const kicker = kickerFromArticle(article);
-  const byline = bylineFromArticle(article);
-  const readTime = estimateReadTime(article.content_html, article.read_time_minutes);
-  return (
-    <Link
-      className="f-side f-item"
-      to={`/article/${article.id}`}
-      style={hideTopBorder ? { borderTop: 0, paddingTop: 0 } : undefined}
-    >
-      <span className={`kick${kicker.isAcq ? " acq" : ""}`}>{kicker.text}</span>
-      <h4>{article.headline}</h4>
-      <p className="dek-sm">{article.summary}</p>
-      <div className="m">
-        {byline.replace(/^The /, "").toUpperCase()} · {readTime} MIN
-      </div>
-    </Link>
-  );
-}
+import { useFreshFlow } from "@/hooks/home/useFreshFlow";
+import { StoryFlow } from "./StoryCards";
+import { useRevealAll } from "@/hooks/home/useRevealAll";
 
 export function WhatsBuildingToday() {
   const { data: rows = [], isLoading } = useFreshFlow(5);
   const containerRef = useRef<HTMLDivElement>(null);
-  useRevealAll(containerRef);
+  useRevealAll(containerRef, [rows]);
 
   return (
     <section className="flow-sec">
@@ -132,13 +43,7 @@ export function WhatsBuildingToday() {
           </div>
         ) : (
           <div className="flow" ref={containerRef}>
-            {rows[0] && <LeadCard article={rows[0]} />}
-            {rows.slice(1, 3).map((a, i) => (
-              <SideCard key={a.id} article={a} hideTopBorder={i < 2} />
-            ))}
-            {rows.slice(3, 5).map((a) => (
-              <SideCard key={a.id} article={a} />
-            ))}
+            <StoryFlow rows={rows} />
           </div>
         )}
       </div>

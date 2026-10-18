@@ -702,3 +702,131 @@
   .sdvg .nl-form { display: flex; flex-direction: column; width: 100%; max-width: 360px; margin: 0 auto; }
   .sdvg .nl button { width: 100%; }
 }
+
+/* STORY META — mono line under lead cards (home + listing) */
+.sdvg .st-meta { margin-top: 14px; font-size: 10.5px; letter-spacing: .06em; }
+
+/* STORIES LISTING — /startups/news */
+.sdvg .st-head { margin-top: 66px; padding: 52px 0 32px; border-bottom: 1px solid var(--line); }
+.sdvg .st-head h1 {
+  font-family: 'Inter', sans-serif; font-size: 44px; font-weight: 700;
+  line-height: 1.1; letter-spacing: -.02em; color: var(--fg); margin: 4px 0 14px; max-width: 760px;
+}
+.sdvg .st-head p { font-size: 16px; color: var(--fg-mute); line-height: 1.6; max-width: 620px; }
+.sdvg .st-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 28px; }
+.sdvg .st-filters button {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11.5px;
+  padding: 6px 14px; border: 1px solid var(--line); color: var(--fg-mute);
+  letter-spacing: .06em; text-transform: uppercase; background: transparent;
+  cursor: pointer; transition: all .15s;
+}
+.sdvg .st-filters button:hover { color: var(--fg-2); border-color: var(--fg-mute); }
+.sdvg .st-filters button.on { color: var(--parrot); border-color: #1e4a34; background: rgba(62, 207, 110, .06); }
+.sdvg .st-more-h { margin-top: 56px; padding-top: 32px; border-top: 1px solid var(--line); }
+.sdvg .st-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px 32px; }
+.sdvg .st-card { display: flex; flex-direction: column; }
+.sdvg .st-card .thumb { aspect-ratio: 16/10; background: var(--oxford); overflow: hidden; margin-bottom: 16px; }
+.sdvg .st-card .thumb img,
+.sdvg .st-card .thumb svg { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s; }
+.sdvg .st-card:hover .thumb img { transform: scale(1.03); }
+.sdvg .st-card h4 {
+  font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 600;
+  line-height: 1.3; color: var(--fg); transition: color .15s; margin-bottom: 8px;
+}
+.sdvg .st-card:hover h4 { color: var(--parrot); }
+.sdvg .st-card .dek-sm {
+  font-size: 13.5px; color: var(--fg-mute); line-height: 1.55;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.sdvg .st-card .m {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px; color: var(--fg-mute); margin-top: 12px; letter-spacing: .08em;
+}
+.sdvg .st-load { display: flex; justify-content: center; margin-top: 48px; }
+.sdvg .st-load button {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12px;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--parrot);
+  border: 1px solid #1e4a34; background: transparent; padding: 12px 28px; cursor: pointer;
+  transition: background .15s;
+}
+.sdvg .st-load button:hover { background: rgba(62, 207, 110, .06); }
+.sdvg .st-load button:disabled { opacity: .6; cursor: default; }
+
+/* ARTICLE — /article/:id */
+.sdvg .ar-top { margin-top: 66px; padding-top: 44px; }
+.sdvg .ar-col { max-width: 740px; margin: 0 auto; }
+.sdvg .crumb {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px;
+  color: var(--fg-mute); letter-spacing: .08em; margin-bottom: 22px;
+}
+.sdvg .crumb a { color: var(--parrot); }
+.sdvg .crumb a:hover { text-decoration: underline; }
+.sdvg .crumb .sep { margin: 0 10px; }
+.sdvg .ar-h1 {
+  font-family: 'Inter', sans-serif; font-size: 42px; font-weight: 700;
+  line-height: 1.14; letter-spacing: -.02em; color: var(--fg); margin: 2px 0 18px;
+}
+.sdvg .ar-dek { font-size: 18px; color: var(--fg-mute); line-height: 1.6; }
+.sdvg .ar-meta {
+  display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 26px;
+  padding: 14px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  font-size: 11px; letter-spacing: .08em;
+}
+.sdvg .ar-hero {
+  max-width: 1040px; margin: 36px auto 44px; aspect-ratio: 16/8;
+  background: var(--oxford); overflow: hidden;
+}
+.sdvg .ar-hero img,
+.sdvg .ar-hero svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sdvg .ar-body { font-size: 17px; line-height: 1.78; color: var(--fg-2); }
+.sdvg .ar-body > *:first-child { margin-top: 0; }
+.sdvg .ar-body h2 {
+  font-family: 'Inter', sans-serif; font-size: 25px; font-weight: 600;
+  line-height: 1.25; letter-spacing: -.01em; color: var(--fg); margin: 44px 0 14px;
+}
+.sdvg .ar-body h3 {
+  font-family: 'Inter', sans-serif; font-size: 19px; font-weight: 600;
+  line-height: 1.3; color: var(--fg); margin: 34px 0 10px;
+}
+.sdvg .ar-body p { margin: 0 0 22px; }
+.sdvg .ar-body a { color: var(--parrot); text-decoration: underline; text-underline-offset: 3px; }
+.sdvg .ar-body strong, .sdvg .ar-body b { color: var(--fg); font-weight: 600; }
+.sdvg .ar-body ul, .sdvg .ar-body ol { margin: 0 0 22px; padding-left: 22px; }
+.sdvg .ar-body ul { list-style: disc; }
+.sdvg .ar-body ol { list-style: decimal; }
+.sdvg .ar-body li { margin: 8px 0; padding-left: 4px; }
+.sdvg .ar-body li::marker { color: var(--parrot); }
+.sdvg .ar-body blockquote {
+  margin: 32px 0; padding: 4px 0 4px 22px; border-left: 2px solid var(--parrot);
+  font-size: 19px; line-height: 1.6; color: var(--fg);
+}
+.sdvg .ar-body img { max-width: 100%; height: auto; margin: 28px 0; }
+.sdvg .ar-body hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0; }
+.sdvg .ar-tags {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin: 44px 0 64px; padding-top: 22px; border-top: 1px solid var(--line);
+}
+.sdvg .ar-tags .lbl {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10.5px;
+  color: var(--fg-mute); letter-spacing: .14em;
+}
+.sdvg .ar-related { border-top: 1px solid var(--line); background: #0C1B33; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sdvg .st-card .thumb img { transition: none; }
+}
+
+@media (max-width: 1024px) {
+  .sdvg .st-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .sdvg .st-grid { grid-template-columns: 1fr; }
+  .sdvg .st-head { padding: 36px 0 24px; }
+  .sdvg .st-head h1 { font-size: 32px; }
+  .sdvg .ar-top { padding-top: 28px; }
+  .sdvg .ar-h1 { font-size: 30px; }
+  .sdvg .ar-dek { font-size: 16px; }
+  .sdvg .ar-hero { margin: 24px -20px 32px; aspect-ratio: 16/10; }
+  .sdvg .ar-body { font-size: 16px; }
+}

@@ -13,7 +13,9 @@ export function useFreshFlow(limit = 5) {
         .select("*")
         .eq("status", "published")
         .eq("is_flagship", false)
-        .order("published_at", { ascending: false, nullsFirst: false })
+        // created_at, not published_at: generate-content inserted rows
+        // without published_at until 2026-10, so a published_at sort
+        // pinned the feed to the July backfill (which set both columns).
         .order("created_at", { ascending: false })
         .limit(limit);
       if (error) throw error;
