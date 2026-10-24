@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callLLM, TASK } from "../_shared/llm.ts";
 import { offTopicReason, CLASSIFIED_RELEVANT } from "../_shared/relevance.ts";
+import { routeSection, decisionColumns } from "../_shared/section-router.ts";
 
 const ALLOWED_ORIGINS = [
   ...(Deno.env.get("ENVIRONMENT") === "development"
@@ -152,6 +153,8 @@ function sanitizeContent(raw: string): string {
 }
 
 // ── System prompt ─────────────────────────────────────────
+// No "category" field: the section is picked by _shared/section-router.ts
+// from the source text, not by this copywriting call.
 const SYSTEM_PROMPT = `You are an editorial AI for ScopeDrop, an intelligence platform for startup founders and tech professionals. Transform raw news signals into original, plagiarism-free editorial content.
 
 STRICT RULES:
@@ -166,7 +169,6 @@ Return exactly this structure:
   "homepage_headline": "punchy headline under 12 words",
   "homepage_summary": "2 sentences, founder perspective, no fluff",
   "article_html": "full article as HTML, min 3 paragraphs, <h2> subheadings, original insight",
-  "category": "one of: funding | ai | markets | startups | policy",
   "read_time_minutes": 3,
   "tags": ["tag1", "tag2", "tag3"]
 }`;
@@ -221,7 +223,6 @@ function validateResponse(parsed: any): string | null {
     "homepage_headline",
     "homepage_summary",
     "article_html",
-    "category",
     "read_time_minutes",
     "tags",
   ];
@@ -233,7 +234,6 @@ function validateResponse(parsed: any): string | null {
   if (typeof parsed.homepage_headline !== "string") return "homepage_headline not string";
   if (typeof parsed.homepage_summary !== "string") return "homepage_summary not string";
   if (typeof parsed.article_html !== "string") return "article_html not string";
-  if (typeof parsed.category !== "string") return "category not string";
   if (!Array.isArray(parsed.tags)) return "tags not array";
   return null;
 }
@@ -431,21 +431,29 @@ serve(async (req) => {
           continue;
         }
 
-        // ── 4I: Generate image (Pollinations → Pexels → Unsplash) ─
+        // ── 4I: Route to a section (rules, then LLM) ────
+        // Source headline and text, not the rewrite. Never throws: an LLM
+        // failure falls back to "startups" with status "review".
+        const section = await routeSection({
+          headline: signal.title ?? parsed.homepage_headline,
+          body: rawText,
+          verdict: (signal as any).classifier_verdict ?? null,
+        });
+
+        // ── 4J: Generate image (Pollinations → Pexels → Unsplash) ─
         const image_url = await fetchImageUrl(
           parsed.homepage_headline,
-          parsed.category,
+          section.section,
           Array.isArray(parsed.tags) ? parsed.tags : [],
           pexelsKey,
           unsplashKey,
         );
 
-        // ── 4J: Insert article ──────────────────────────
-        const { error: insertError } = await supabase.from("articles").insert({
+        // ── 4K: Insert article ──────────────────────────
+        const articleRow = {
           headline: parsed.homepage_headline,
           summary: parsed.homepage_summary,
           content_html: parsed.article_html,
-          category: parsed.category,
           tags: Array.isArray(parsed.tags) ? parsed.tags : [],
           read_time_minutes:
             typeof parsed.read_time_minutes === "number"
@@ -457,7 +465,17 @@ serve(async (req) => {
           // Feeds sort on published_at; rows inserted without it sank
           // below every backfilled row and the homepage froze.
           published_at: new Date().toISOString(),
-        });
+        };
+        let { error: insertError } = await supabase
+          .from("articles")
+          .insert({ ...articleRow, ...decisionColumns(section) });
+        // Before migration 20261025130000 adds the section_* columns, the
+        // insert above fails on them; keep publishing with the category.
+        if (insertError && /section_|router_version/.test(insertError.message)) {
+          ({ error: insertError } = await supabase
+            .from("articles")
+            .insert({ ...articleRow, category: section.section }));
+        }
 
         if (insertError) {
           await supabase
@@ -478,11 +496,13 @@ serve(async (req) => {
           .eq("id", signal.id);
 
         // Update pipeline stats
+        // The router's LLM call is ~600 tokens and one more request.
+        const routerUsedLLM = section.source !== "rule";
         await supabase.rpc("increment_pipeline_stats_safe", {
           p_date: today,
-          p_tokens: 1200,
+          p_tokens: 1200 + (routerUsedLLM ? 600 : 0),
           p_articles: 1,
-          p_requests: 1,
+          p_requests: 1 + (routerUsedLLM ? 1 : 0),
         }).then(({ error }) => {
           // Fallback if RPC doesn't exist yet
           if (error) {
