@@ -2,7 +2,7 @@ import React from "react";
 import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
 import { ArticleGrid } from "@/components/ArticleGrid";
-import { supabase } from "@/integrations/supabase/client";
+import { fetchSection } from "@/services/sectionFeed";
 
 const AIToolsPage = () => (
   <div className="flex flex-col min-h-screen">
@@ -20,16 +20,7 @@ const AIToolsPage = () => (
       <div className="container mx-auto px-4 py-10 max-w-6xl">
         <ArticleGrid
           queryKey={["articles-ai-tools"]}
-          queryFn={async () => {
-            const { data, error } = await supabase
-              .from("articles")
-              .select("*")
-              .eq("category", "ai" as any)
-              .order("created_at", { ascending: false })
-              .limit(12);
-            if (error) throw error;
-            return data ?? [];
-          }}
+          queryFn={() => fetchSection(["ai"])}
         />
       </div>
     </main>
