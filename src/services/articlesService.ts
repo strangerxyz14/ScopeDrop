@@ -60,6 +60,7 @@ export async function fetchLatestArticles(limit: number = 20): Promise<DbArticle
   const { data, error } = await supabase
     .from("articles")
     .select("*")
+    .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -71,6 +72,7 @@ export async function fetchArticlesByCategory(category: string, limit: number = 
   const { data, error } = await supabase
     .from("articles")
     .select("*")
+    .eq("status", "published")
     .eq("category", category)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -103,6 +105,7 @@ export async function fetchArticleById(id: string): Promise<DbArticleRow | null>
     .from("articles")
     .select("*")
     .eq("id", trimmed)
+    .eq("status", "published")
     .maybeSingle();
 
   if (error) throw error;

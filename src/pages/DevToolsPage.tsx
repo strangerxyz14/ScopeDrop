@@ -3,33 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/Header/Header";
 import Footer from "@/components/Footer";
 import { ArticleGrid } from "@/components/ArticleGrid";
-import { supabase } from "@/integrations/supabase/client";
+import { fetchSectionPreferTag } from "@/services/sectionFeed";
 
 const DevToolsPage = () => {
-  const queryFn = async () => {
-    // Try developer-tagged tech articles first
-    const { data: devData, error: devError } = await (supabase as any)
-      .from("articles")
-      .select("*")
-      .eq("category", "tech")
-      .contains("tags", ["developer"])
-      .order("created_at", { ascending: false })
-      .limit(12);
-
-    if (!devError && devData && devData.length > 0) {
-      return devData;
-    }
-
-    // Fallback: all tech
-    const { data, error } = await supabase
-      .from("articles")
-      .select("*")
-      .eq("category", "tech" as any)
-      .order("created_at", { ascending: false })
-      .limit(12);
-    if (error) throw error;
-    return data ?? [];
-  };
+  const queryFn = () => fetchSectionPreferTag(["tech"], "developer");
 
   return (
     <div className="flex flex-col min-h-screen">
