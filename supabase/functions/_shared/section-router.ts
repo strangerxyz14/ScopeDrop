@@ -12,7 +12,12 @@
 //      rules and examples. The output is validated against SECTIONS.
 //   3. Fallback when the LLM fails: the legacy category if it maps,
 //      else "startups". Always status "review" so route-section retries.
+//      rateLimited marks a fallback caused by a 429/cooldown, so
+//      route-section can stop instead of writing it.
 // Below REVIEW_CONFIDENCE, the decision is kept but marked "review".
+//
+// legacyDecision() is a fourth, free path that route-section uses for old
+// articles: keep the existing category when it maps to a section.
 //
 // Used by generate-content (new articles) and route-section (reruns).
 // ─────────────────────────────────────────────────────────────
@@ -21,7 +26,7 @@ import { isSectionKey, normalizeSection, SECTION_KEYS, SECTIONS, type SectionKey
 
 // Bump when the prompt, examples or rules change; route-section reruns
 // every article whose router_version differs.
-export const ROUTER_VERSION = "2026-10-25.1";
+export const ROUTER_VERSION = "2026-10-25.2";
 export const REVIEW_CONFIDENCE = 0.7;
 const SOURCE_CHARS = 1500;
 
@@ -49,10 +54,12 @@ export interface SectionDecision {
   section: SectionKey;
   secondary: SectionKey | null;
   confidence: number;
-  source: "rule" | "llm" | "fallback";
+  source: "rule" | "llm" | "fallback" | "legacy";
   reason: string;
   status: "routed" | "review";
   version: string;
+  /** Set on a fallback caused by a rate limit; not written to the DB. */
+  rateLimited?: boolean;
 }
 
 /** Columns route-section and generate-content write on articles. */
@@ -105,9 +112,10 @@ Examples:
 "Y Combinator cuts its batch size" -> startups
 "Fintech startup Bench shuts down abruptly" -> startups
 "Apple's services revenue hits a record in Q3" -> markets
-"Anthropic CEO's pay revealed ahead of IPO plans" -> markets
+"A chipmaker's CEO pay package is disclosed in its proxy filing" -> markets
 "EU fines Meta under the Digital Markets Act" -> policy
 "US tightens export controls on AI chips to China" -> policy
+"Google limits free access to its top Gemini models" -> ai
 "Vercel ships a new edge runtime for Next.js" -> tech
 "CrowdStrike outage grounds airlines worldwide" -> tech
 
@@ -140,6 +148,25 @@ export function parseRouterOutput(text: string): Omit<SectionDecision, "source" 
   };
 }
 
+/**
+ * Free routing for old articles: keep the existing category when it maps
+ * to a section. Null when it doesn't (e.g. "fashion"); those need the LLM.
+ */
+export function legacyDecision(category: string | null | undefined): SectionDecision | null {
+  const section = normalizeSection(category);
+  if (!section) return null;
+  return {
+    section,
+    secondary: null,
+    // The copywriting call's guess, never checked; not a measured value.
+    confidence: 0.5,
+    source: "legacy",
+    status: "routed",
+    reason: `kept legacy category "${category}"`,
+    version: ROUTER_VERSION,
+  };
+}
+
 export async function routeSection(input: RouteInput): Promise<SectionDecision> {
   const base = { version: ROUTER_VERSION };
 
@@ -162,6 +189,7 @@ export async function routeSection(input: RouteInput): Promise<SectionDecision> 
     verdictHint(input.verdict),
   ].filter(Boolean).join("\n");
 
+  let rateLimited = false;
   try {
     const res = await callLLM(TASK.CLASSIFY, ROUTER_SYSTEM, user, {
       jsonMode: true, maxTokens: 120, temperature: 0,
@@ -177,7 +205,10 @@ export async function routeSection(input: RouteInput): Promise<SectionDecision> 
     }
     console.warn("section-router: unusable LLM output:", res.content.slice(0, 200));
   } catch (e) {
-    console.warn("section-router: LLM failed:", e instanceof Error ? e.message : e);
+    const msg = e instanceof Error ? e.message : String(e);
+    // callLLM lists each chain entry's error: "…:429 {…}" or "…:cooldown".
+    rateLimited = /:429\b|:cooldown\b/.test(msg);
+    console.warn("section-router: LLM failed:", msg);
   }
 
   return {
@@ -187,6 +218,7 @@ export async function routeSection(input: RouteInput): Promise<SectionDecision> 
     confidence: 0,
     source: "fallback",
     status: "review",
-    reason: "router LLM unavailable or invalid output",
+    reason: rateLimited ? "router LLM rate limited" : "router LLM unavailable or invalid output",
+    ...(rateLimited ? { rateLimited } : {}),
   };
 }

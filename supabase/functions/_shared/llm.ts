@@ -3,7 +3,7 @@
 //
 // Every LLM call in ScopeDrop's edge functions goes through callLLM().
 // The abstraction owns: model selection per task class, provider
-// fallback on 429/5xx, in-memory rate-limit cooldown per provider,
+// fallback on 429/5xx, in-memory rate-limit cooldown per model,
 // pre-flight context estimation (Cerebras has an 8k cap), and
 // provider-tagged telemetry via increment_llm_stat on the llm_stats
 // table.
@@ -160,17 +160,25 @@ export function estimateTokens(text: string): number {
 
 // Per-instance rate-limit tracker. Resets on cold start — exactly the
 // intended lifetime for a "back off for 60s after we saw a 429".
-const rateLimitCooldowns: Map<ProviderName, number> = new Map();
+// Keyed by provider AND model: Groq's limits are per model ("Rate limit
+// reached for model `openai/gpt-oss-20b` … TPM: Limit 8000"), so a 429
+// on gpt-oss-20b must not bench the gpt-oss-120b fallback behind it.
+const rateLimitCooldowns: Map<string, number> = new Map();
 
-function markRateLimited(provider: ProviderName) {
-  rateLimitCooldowns.set(provider, Date.now() + RATE_LIMIT_COOLDOWN_MS);
+function cooldownKey(entry: ProviderModel): string {
+  return `${entry.provider}/${entry.model}`;
 }
 
-function isProviderCoolingDown(provider: ProviderName): boolean {
-  const cooldownUntil = rateLimitCooldowns.get(provider);
+function markRateLimited(entry: ProviderModel) {
+  rateLimitCooldowns.set(cooldownKey(entry), Date.now() + RATE_LIMIT_COOLDOWN_MS);
+}
+
+function isCoolingDown(entry: ProviderModel): boolean {
+  const key = cooldownKey(entry);
+  const cooldownUntil = rateLimitCooldowns.get(key);
   if (!cooldownUntil) return false;
   if (Date.now() >= cooldownUntil) {
-    rateLimitCooldowns.delete(provider);
+    rateLimitCooldowns.delete(key);
     return false;
   }
   return true;
@@ -231,8 +239,8 @@ export async function callLLM(
       continue;
     }
 
-    if (isProviderCoolingDown(entry.provider)) {
-      errors.push(`${entry.provider}:cooldown`);
+    if (isCoolingDown(entry)) {
+      errors.push(`${cooldownKey(entry)}:cooldown`);
       continue;
     }
 
@@ -253,7 +261,7 @@ export async function callLLM(
       // Match the status only: a body like "Failed to generate JSON"
       // contains "rate" and used to bench the whole provider for 60s.
       if (msg.startsWith("429")) {
-        markRateLimited(entry.provider);
+        markRateLimited(entry);
       }
       await recordStat(entry.provider, taskClass, false, 0, 0, msg.slice(0, 300));
       // fall through to next chain entry

@@ -39,7 +39,7 @@ export const SECTIONS = {
   policy: {
     label: "Policy",
     definition:
-      "Regulation, antitrust, export controls, data protection, courts and government action aimed at tech.",
+      "Action by governments, regulators or courts aimed at tech: regulation, antitrust, export controls, data-protection rules, government lawsuits and fines. A company changing its own terms, pricing or product access is not policy.",
   },
   tech: {
     label: "Tech",
