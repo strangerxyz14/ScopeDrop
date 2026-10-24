@@ -44,8 +44,8 @@ export class SmartSearchService {
       // Query Supabase for relevant content
       const { data: articles, error } = await (supabase
         .from('articles')
-        .select('id, title, summary, category, created_at') as any)
-        .or(`title.ilike.%${query}%,summary.ilike.%${query}%`)
+        .select('id, headline, summary, category, created_at') as any)
+        .or(`headline.ilike.%${query}%,summary.ilike.%${query}%`)
         .order('created_at', { ascending: false })
         .limit(10);
 
@@ -56,7 +56,7 @@ export class SmartSearchService {
 
       const suggestions: SearchSuggestion[] = articles?.map((article, index) => ({
         id: article.id ?? `article_${index}`,
-        text: article.title,
+        text: article.headline,
         type: this.categorizeContent(article.category, article.summary),
         relevance: 0.8 - (index * 0.1),
         source: 'database',
@@ -158,26 +158,23 @@ export class SmartSearchService {
         // ignore missing table
       }
 
-      // AI momentum (recent articles containing "AI" in title)
-      const { data: aiRows } = await supabase
+      // AI momentum and recent acquisitions, by section. (This used to
+      // select a nonexistent `title` column, so the query 400'd and the
+      // badges never showed; it also matched "ai" inside "said".)
+      const { data: recentRows } = await supabase
         .from("articles")
-        .select("id, title, created_at")
+        .select("id, category, created_at")
+        .eq("status", "published")
         .order("created_at", { ascending: false })
         .limit(30);
-      const recentAi = (aiRows ?? []).some((r: any) => {
-        const title = String(r.title ?? "").toLowerCase();
+      const isRecent = (r: { created_at: string | null }) => {
         const t = new Date(String(r.created_at ?? "")).getTime();
-        return title.includes("ai") && Number.isFinite(t) && now - t <= 24 * 60 * 60 * 1000;
-      });
+        return Number.isFinite(t) && now - t <= 24 * 60 * 60 * 1000;
+      };
+      const recentAi = (recentRows ?? []).some((r) => r.category === "ai" && isRecent(r));
       if (recentAi) badges.aiTrends = "Live";
 
-      // Recent acquisitions (title match)
-      const recentAcq = (aiRows ?? []).some((r: any) => {
-        const title = String(r.title ?? "").toLowerCase();
-        const t = new Date(String(r.created_at ?? "")).getTime();
-        return (title.includes("acquisition") || title.includes("acquire") || title.includes("merger")) &&
-          Number.isFinite(t) && now - t <= 24 * 60 * 60 * 1000;
-      });
+      const recentAcq = (recentRows ?? []).some((r) => r.category === "acquisitions" && isRecent(r));
       if (recentAcq) badges.acquisitions = "New";
 
       return badges;

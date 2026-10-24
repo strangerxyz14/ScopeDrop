@@ -1,20 +1,14 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { DbArticleRow } from "@/services/articlesService";
+import type { SectionKey } from "../../supabase/functions/_shared/sections";
 
 // Every section page reads through here so none can forget the status
 // filter again. RLS (20261025120000_articles_rls_published.sql) enforces
 // the same rule server-side; this keeps the intent visible in the client.
 
-// Category values the section pages read. Phase 1 of the routing plan
-// replaces this with a shared list imported by the pipeline too.
-export type SectionKey =
-  | "funding"
-  | "acquisitions"
-  | "ai"
-  | "startups"
-  | "markets"
-  | "policy"
-  | "tech";
+// The section list is shared with the pipeline, which writes these keys
+// into articles.category.
+export type { SectionKey };
 
 export interface SectionFeedOptions {
   /** Narrow to rows in these sections that also carry this tag. */

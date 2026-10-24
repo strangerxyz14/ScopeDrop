@@ -15,14 +15,11 @@ import { useRevealAll } from "@/hooks/home/useRevealAll";
 import { formatRelativeTime } from "@/components/home/utils";
 import { useStories } from "@/hooks/home/useStories";
 import "@/components/home/theme.css";
+import { SECTIONS, SECTION_KEYS } from "../../supabase/functions/_shared/sections";
 
 const CATEGORIES: { key: string | null; label: string }[] = [
   { key: null, label: "All" },
-  { key: "startups", label: "Startups" },
-  { key: "ai", label: "AI" },
-  { key: "funding", label: "Funding" },
-  { key: "markets", label: "Markets" },
-  { key: "policy", label: "Policy" },
+  ...SECTION_KEYS.map((key) => ({ key, label: SECTIONS[key].label })),
 ];
 
 const StartupNews = () => {

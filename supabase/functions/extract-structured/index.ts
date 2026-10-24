@@ -12,6 +12,7 @@ import {
 } from "../_shared/event-extraction.ts";
 import { callLLM, TASK, estimateTokens } from "../_shared/llm.ts";
 import { offTopicReason, CLASSIFIED_RELEVANT } from "../_shared/relevance.ts";
+import type { ClassifierVerdict } from "../_shared/section-router.ts";
 
 const ALLOWED_ORIGINS = [
   ...(Deno.env.get("ENVIRONMENT") === "development"
@@ -544,13 +545,26 @@ serve(async (req) => {
     // Hand a relevant signal to generate-content. Status stays 'pending'
     // (the status CHECK only allows pending/published/rejected/paused);
     // the error_message tag is what generate-content selects on.
-    const markRelevant = (id: string) =>
-      supabase.from("raw_signals").update({ error_message: CLASSIFIED_RELEVANT }).eq("id", id);
+    // classifier_verdict feeds the section router's rules (a recorded
+    // round → Funding, a recorded deal → Acquisitions); see ClassifierVerdict
+    // in _shared/section-router.ts.
+    const markRelevant = async (id: string, verdict: ClassifierVerdict) => {
+      const { error } = await supabase
+        .from("raw_signals")
+        .update({ error_message: CLASSIFIED_RELEVANT, classifier_verdict: verdict })
+        .eq("id", id);
+      // Before migration 20261025130000 adds the column; never let that
+      // stall the handoff.
+      if (error) {
+        await supabase.from("raw_signals").update({ error_message: CLASSIFIED_RELEVANT }).eq("id", id);
+      }
+    };
 
     for (const signal of pendingSignals ?? []) {
       // Set once the classifier says the signal is on-topic; the catch
       // below uses it to still hand the story to generate-content.
       let classifiedRelevant = false;
+      let unconfirmedVerdict: ClassifierVerdict = "narrative";
       try {
         // ── Editorial-event pre-branch ──
         // Whitelisted blog + event-shaped title → try to promote to
@@ -654,7 +668,7 @@ serve(async (req) => {
 
         if (contentType === "narrative") {
           // Hand to generate-content (status stays pending)
-          await markRelevant(signal.id);
+          await markRelevant(signal.id, "narrative");
           summary.classified_narrative++;
           continue;
         }
@@ -669,11 +683,12 @@ serve(async (req) => {
         }
 
         if (contentType !== "funding" && contentType !== "acquisition") {
-          await markRelevant(signal.id);
+          await markRelevant(signal.id, "narrative");
           summary.classified_narrative++;
           continue; // unknown label → treat as narrative
         }
         classifiedRelevant = true;
+        unconfirmedVerdict = contentType === "funding" ? "funding_unconfirmed" : "acquisition_unconfirmed";
 
         // ── CALL 2: extract (strong model via callLLM; routes to EXTRACT_JSON
         // by default or EXTRACT_JSON_LONG when the source blows past
@@ -694,7 +709,7 @@ serve(async (req) => {
           parsed = safeJsonParse(extractRes.content);
         } catch {
           // Relevant story, just not structurable — still worth an article.
-          await markRelevant(signal.id);
+          await markRelevant(signal.id, unconfirmedVerdict);
           summary.errors++;
           continue;
         }
@@ -707,7 +722,7 @@ serve(async (req) => {
           const announcedAt = typeof parsed.announced_at === "string" && DATE_RE.test(parsed.announced_at)
             ? parsed.announced_at : "";
           if (!companyName || !announcedAt) {
-            await markRelevant(signal.id); // no event, but still an article
+            await markRelevant(signal.id, unconfirmedVerdict); // no event, but still an article
             summary.errors++;
             continue;
           }
@@ -774,7 +789,7 @@ serve(async (req) => {
             ? parsed.announced_at : "";
           const dealType = parsed.deal_type === "ipo" ? "ipo" : "acquisition";
           if (!acquiredName || !announcedAt) {
-            await markRelevant(signal.id); // no event, but still an article
+            await markRelevant(signal.id, unconfirmedVerdict); // no event, but still an article
             summary.errors++;
             continue;
           }
@@ -814,16 +829,20 @@ serve(async (req) => {
         // article too. Before the generate-content gate existed, funding
         // and M&A articles came from generate-content racing this function
         // for the same pending rows — keep them on the homepage.
-        await markRelevant(signal.id);
+        await markRelevant(signal.id, contentType === "funding" ? "funding" : "acquisition");
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`extract-structured signal ${signal.id} failed:`, msg);
         // Classified relevant → still hand it to generate-content.
         // Otherwise (classify itself failed) tag for a retry next run.
-        await supabase
-          .from("raw_signals")
-          .update({ error_message: classifiedRelevant ? CLASSIFIED_RELEVANT : `extract: ${msg}`.slice(0, 500) })
-          .eq("id", signal.id);
+        if (classifiedRelevant) {
+          await markRelevant(signal.id, unconfirmedVerdict);
+        } else {
+          await supabase
+            .from("raw_signals")
+            .update({ error_message: `extract: ${msg}`.slice(0, 500) })
+            .eq("id", signal.id);
+        }
         summary.errors++;
         // continue with the rest — never let one bad signal kill the batch
       }

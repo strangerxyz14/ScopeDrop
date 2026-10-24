@@ -1,0 +1,192 @@
+// ─────────────────────────────────────────────────────────────
+// Section router: picks articles.category for a story.
+//
+// The section used to come from the copywriting call (temperature 0.7,
+// no section definitions, any string accepted). That's how executive
+// pay ended up under Funding and why ~40 junk categories exist. Routing
+// is now its own step, cheapest and most certain first:
+//   1. Rules: extract-structured recorded a funding round or an
+//      M&A/IPO event for the signal → funding / acquisitions.
+//   2. LLM: TASK.CLASSIFY at temperature 0 over the SOURCE headline and
+//      text (not the rewrite), with section definitions, precedence
+//      rules and examples. The output is validated against SECTIONS.
+//   3. Fallback when the LLM fails: the legacy category if it maps,
+//      else "startups". Always status "review" so route-section retries.
+// Below REVIEW_CONFIDENCE, the decision is kept but marked "review".
+//
+// Used by generate-content (new articles) and route-section (reruns).
+// ─────────────────────────────────────────────────────────────
+import { callLLM, TASK } from "./llm.ts";
+import { isSectionKey, normalizeSection, SECTION_KEYS, SECTIONS, type SectionKey } from "./sections.ts";
+
+// Bump when the prompt, examples or rules change; route-section reruns
+// every article whose router_version differs.
+export const ROUTER_VERSION = "2026-10-25.1";
+export const REVIEW_CONFIDENCE = 0.7;
+const SOURCE_CHARS = 1500;
+
+// raw_signals.classifier_verdict, written by extract-structured. Only
+// the bare "funding" / "acquisition" values mean an event was recorded;
+// "*_unconfirmed" means the classifier said so but extraction failed.
+export type ClassifierVerdict =
+  | "funding"
+  | "acquisition"
+  | "funding_unconfirmed"
+  | "acquisition_unconfirmed"
+  | "narrative";
+
+export interface RouteInput {
+  /** Source headline (raw_signals.title), not the generated one. */
+  headline: string;
+  /** Source text; HTML is stripped here. */
+  body: string;
+  verdict?: string | null;
+  /** Legacy articles.category, used only when the LLM fails. */
+  fallback?: string | null;
+}
+
+export interface SectionDecision {
+  section: SectionKey;
+  secondary: SectionKey | null;
+  confidence: number;
+  source: "rule" | "llm" | "fallback";
+  reason: string;
+  status: "routed" | "review";
+  version: string;
+}
+
+/** Columns route-section and generate-content write on articles. */
+export function decisionColumns(d: SectionDecision) {
+  return {
+    category: d.section,
+    section_secondary: d.secondary,
+    section_confidence: d.confidence,
+    section_source: d.source,
+    section_reason: d.reason,
+    section_status: d.status,
+    router_version: d.version,
+  };
+}
+
+export function sourceText(raw: string): string {
+  return raw
+    .replace(/<(script|style|nav|footer|header|aside)[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, SOURCE_CHARS);
+}
+
+export function ruleSection(verdict: string | null | undefined): SectionKey | null {
+  if (verdict === "funding") return "funding";
+  if (verdict === "acquisition") return "acquisitions";
+  return null;
+}
+
+const ROUTER_SYSTEM = `You route news stories into exactly one section of ScopeDrop, a news product for startup founders and investors.
+
+Sections:
+${SECTION_KEYS.map((k) => `- ${k}: ${SECTIONS[k].definition}`).join("\n")}
+
+When a story fits more than one section:
+1. A named company announcing its own funding round is "funding", even when it is an AI company.
+2. An acquisition, merger, IPO or listing is "acquisitions".
+3. Otherwise pick what the story is mainly about, and put the runner-up in "secondary".
+Executive pay, public-company valuations and stock moves are "markets", not "funding". A product launch by an AI lab is "ai"; a launch by a developer-tools, cloud or security company is "tech". Layoffs and shutdowns at startups are "startups".
+
+Examples:
+"Mistral raises €600M Series C led by General Catalyst" -> funding
+"Ramp closes a $150M venture debt facility" -> funding
+"Salesforce agrees to buy Informatica for $8B" -> acquisitions
+"Figma files for an IPO on the NYSE" -> acquisitions
+"OpenAI releases a new reasoning model" -> ai
+"GPU shortage pushes up AI cloud rental prices" -> ai
+"Y Combinator cuts its batch size" -> startups
+"Fintech startup Bench shuts down abruptly" -> startups
+"Apple's services revenue hits a record in Q3" -> markets
+"Anthropic CEO's pay revealed ahead of IPO plans" -> markets
+"EU fines Meta under the Digital Markets Act" -> policy
+"US tightens export controls on AI chips to China" -> policy
+"Vercel ships a new edge runtime for Next.js" -> tech
+"CrowdStrike outage grounds airlines worldwide" -> tech
+
+Output ONLY a JSON object: {"section": "<key>", "secondary": "<key>" or null, "confidence": <number from 0 to 1>, "reason": "<at most 20 words>"}`;
+
+function verdictHint(verdict: string | null | undefined): string {
+  if (verdict === "funding_unconfirmed") return "An upstream classifier thought this is a funding round, but no round could be extracted.";
+  if (verdict === "acquisition_unconfirmed") return "An upstream classifier thought this is an acquisition or IPO, but no deal could be extracted.";
+  return "";
+}
+
+export function parseRouterOutput(text: string): Omit<SectionDecision, "source" | "status" | "version"> | null {
+  let parsed: any;
+  try {
+    parsed = JSON.parse(text.trim().replace(/^```(?:json)?\s*|\s*```$/g, ""));
+  } catch {
+    return null;
+  }
+  const section = typeof parsed?.section === "string" ? parsed.section.trim().toLowerCase() : "";
+  if (!isSectionKey(section)) return null;
+
+  const secondaryRaw = typeof parsed?.secondary === "string" ? parsed.secondary.trim().toLowerCase() : "";
+  const secondary = isSectionKey(secondaryRaw) && secondaryRaw !== section ? secondaryRaw : null;
+  const conf = Number(parsed?.confidence);
+  return {
+    section,
+    secondary,
+    confidence: Number.isFinite(conf) ? Math.min(1, Math.max(0, conf)) : 0.5,
+    reason: String(parsed?.reason ?? "").slice(0, 200),
+  };
+}
+
+export async function routeSection(input: RouteInput): Promise<SectionDecision> {
+  const base = { version: ROUTER_VERSION };
+
+  const ruled = ruleSection(input.verdict);
+  if (ruled) {
+    return {
+      ...base,
+      section: ruled,
+      secondary: null,
+      confidence: 1,
+      source: "rule",
+      status: "routed",
+      reason: ruled === "funding" ? "funding round recorded by extract-structured" : "M&A/IPO event recorded by extract-structured",
+    };
+  }
+
+  const user = [
+    `Headline: ${input.headline.trim()}`,
+    `Text: ${sourceText(input.body)}`,
+    verdictHint(input.verdict),
+  ].filter(Boolean).join("\n");
+
+  try {
+    const res = await callLLM(TASK.CLASSIFY, ROUTER_SYSTEM, user, {
+      jsonMode: true, maxTokens: 120, temperature: 0,
+    });
+    const parsed = parseRouterOutput(res.content);
+    if (parsed) {
+      return {
+        ...base,
+        ...parsed,
+        source: "llm",
+        status: parsed.confidence >= REVIEW_CONFIDENCE ? "routed" : "review",
+      };
+    }
+    console.warn("section-router: unusable LLM output:", res.content.slice(0, 200));
+  } catch (e) {
+    console.warn("section-router: LLM failed:", e instanceof Error ? e.message : e);
+  }
+
+  return {
+    ...base,
+    section: normalizeSection(input.fallback) ?? "startups",
+    secondary: null,
+    confidence: 0,
+    source: "fallback",
+    status: "review",
+    reason: "router LLM unavailable or invalid output",
+  };
+}
