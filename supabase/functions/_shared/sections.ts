@@ -15,12 +15,12 @@ export const SECTIONS = {
   startups: {
     label: "Startups",
     definition:
-      "The startup ecosystem: launches, pivots, shutdowns, layoffs, founder and executive moves, accelerators and VC firms themselves.",
+      "The startup ecosystem: startups' product launches (AI-built ones included), pivots, shutdowns, layoffs, founder and executive moves, accelerators and VC firms themselves.",
   },
   ai: {
     label: "AI",
     definition:
-      "AI labs, foundation models, AI-native companies and products, and the economics of AI compute and infrastructure.",
+      "The AI industry: AI labs and model builders (OpenAI, Anthropic, Google DeepMind, Mistral and peers), model releases, the economics of AI compute and infrastructure, and industry-wide AI trends and safety.",
   },
   funding: {
     label: "Funding",

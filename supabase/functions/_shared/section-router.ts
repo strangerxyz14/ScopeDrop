@@ -26,7 +26,7 @@ import { isSectionKey, normalizeSection, SECTION_KEYS, SECTIONS, type SectionKey
 
 // Bump when the prompt, examples or rules change; route-section reruns
 // every article whose router_version differs.
-export const ROUTER_VERSION = "2026-10-25.2";
+export const ROUTER_VERSION = "2026-10-25.3";
 export const REVIEW_CONFIDENCE = 0.7;
 const SOURCE_CHARS = 1500;
 
@@ -100,7 +100,7 @@ When a story fits more than one section:
 1. A named company announcing its own funding round is "funding", even when it is an AI company.
 2. An acquisition, merger, IPO or listing is "acquisitions".
 3. Otherwise pick what the story is mainly about, and put the runner-up in "secondary".
-Executive pay, public-company valuations and stock moves are "markets", not "funding". A product launch by an AI lab is "ai"; a launch by a developer-tools, cloud or security company is "tech". Layoffs and shutdowns at startups are "startups".
+Executive pay, public-company valuations and stock moves are "markets", not "funding". A model or product release by an AI lab is "ai". A product launch by any other startup is "startups", even when the product is built on AI. A launch by an established developer-tools, cloud or security company is "tech". Layoffs and shutdowns at startups are "startups".
 
 Examples:
 "Mistral raises €600M Series C led by General Catalyst" -> funding
@@ -111,6 +111,7 @@ Examples:
 "GPU shortage pushes up AI cloud rental prices" -> ai
 "Y Combinator cuts its batch size" -> startups
 "Fintech startup Bench shuts down abruptly" -> startups
+"A seed-stage startup launches an AI agent for sales teams" -> startups
 "Apple's services revenue hits a record in Q3" -> markets
 "A chipmaker's CEO pay package is disclosed in its proxy filing" -> markets
 "EU fines Meta under the Digital Markets Act" -> policy
