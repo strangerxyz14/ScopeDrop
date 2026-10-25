@@ -58,7 +58,8 @@ export interface SectionDecision {
   section: SectionKey;
   secondary: SectionKey | null;
   confidence: number;
-  source: "rule" | "llm" | "fallback" | "legacy";
+  /** classifier = picked by extract-structured's relevance call (one LLM call for both). */
+  source: "rule" | "llm" | "classifier" | "fallback" | "legacy";
   reason: string;
   status: "routed" | "review";
   version: string;
@@ -95,9 +96,12 @@ export function ruleSection(verdict: string | null | undefined): SectionKey | nu
   return null;
 }
 
-const ROUTER_SYSTEM = `You route news stories into exactly one section of ScopeDrop, a news product for startup founders and investors.
-
-Sections:
+/**
+ * Section definitions, tie-break rules and examples. Shared by the router
+ * prompt below and extract-structured's relevance call (which picks the
+ * section in the same request), so both decide the same way.
+ */
+export const SECTION_GUIDE = `Sections:
 ${SECTION_KEYS.map((k) => `- ${k}: ${SECTIONS[k].definition}`).join("\n")}
 
 When a story fits more than one section:
@@ -122,7 +126,11 @@ Examples:
 "US tightens export controls on AI chips to China" -> policy
 "Google limits free access to its top Gemini models" -> ai
 "Vercel ships a new edge runtime for Next.js" -> tech
-"CrowdStrike outage grounds airlines worldwide" -> tech
+"CrowdStrike outage grounds airlines worldwide" -> tech`;
+
+const ROUTER_SYSTEM = `You route news stories into exactly one section of ScopeDrop, a news product for startup founders and investors.
+
+${SECTION_GUIDE}
 
 Output ONLY a JSON object: {"section": "<key>", "secondary": "<key>" or null, "confidence": <number from 0 to 1>, "reason": "<at most 20 words>"}`;
 
@@ -132,24 +140,65 @@ function verdictHint(verdict: string | null | undefined): string {
   return "";
 }
 
-export function parseRouterOutput(text: string): Omit<SectionDecision, "source" | "status" | "version"> | null {
-  let parsed: any;
-  try {
-    parsed = JSON.parse(text.trim().replace(/^```(?:json)?\s*|\s*```$/g, ""));
-  } catch {
-    return null;
-  }
-  const section = typeof parsed?.section === "string" ? parsed.section.trim().toLowerCase() : "";
-  if (!isSectionKey(section)) return null;
+type SectionFields = Omit<SectionDecision, "source" | "status" | "version" | "rateLimited">;
 
-  const secondaryRaw = typeof parsed?.secondary === "string" ? parsed.secondary.trim().toLowerCase() : "";
+/** Validates section / secondary / confidence / reason from any model output. */
+export function sectionFields(raw: { section?: unknown; secondary?: unknown; confidence?: unknown; reason?: unknown } | null | undefined): SectionFields | null {
+  const section = typeof raw?.section === "string" ? raw.section.trim().toLowerCase() : "";
+  if (!isSectionKey(section)) return null;
+  const secondaryRaw = typeof raw?.secondary === "string" ? raw.secondary.trim().toLowerCase() : "";
   const secondary = isSectionKey(secondaryRaw) && secondaryRaw !== section ? secondaryRaw : null;
-  const conf = Number(parsed?.confidence);
+  const conf = Number(raw?.confidence);
   return {
     section,
     secondary,
     confidence: Number.isFinite(conf) ? Math.min(1, Math.max(0, conf)) : 0.5,
-    reason: String(parsed?.reason ?? "").slice(0, 200),
+    reason: String(raw?.reason ?? "").slice(0, 200),
+  };
+}
+
+export function parseRouterOutput(text: string): SectionFields | null {
+  try {
+    return sectionFields(JSON.parse(text.trim().replace(/^```(?:json)?\s*|\s*```$/g, "")));
+  } catch {
+    return null;
+  }
+}
+
+function ruleDecision(section: SectionKey): SectionDecision {
+  return {
+    section,
+    secondary: null,
+    confidence: 1,
+    source: "rule",
+    status: "routed",
+    reason: section === "funding" ? "funding round recorded by extract-structured" : "M&A/IPO event recorded by extract-structured",
+    version: ROUTER_VERSION,
+  };
+}
+
+/**
+ * The section extract-structured's relevance call already picked (stored
+ * on raw_signals.classifier_section*), so generate-content can skip its
+ * own router call. A recorded funding/M&A event still wins. Null when the
+ * classifier gave no valid section; the caller then runs routeSection().
+ */
+export function classifierDecision(input: {
+  verdict?: string | null;
+  section?: string | null;
+  secondary?: string | null;
+  confidence?: number | null;
+  reason?: string | null;
+}): SectionDecision | null {
+  const ruled = ruleSection(input.verdict);
+  if (ruled) return ruleDecision(ruled);
+  const fields = sectionFields(input);
+  if (!fields) return null;
+  return {
+    ...fields,
+    source: "classifier",
+    status: fields.confidence >= REVIEW_CONFIDENCE ? "routed" : "review",
+    version: ROUTER_VERSION,
   };
 }
 
@@ -176,17 +225,7 @@ export async function routeSection(input: RouteInput): Promise<SectionDecision> 
   const base = { version: ROUTER_VERSION };
 
   const ruled = ruleSection(input.verdict);
-  if (ruled) {
-    return {
-      ...base,
-      section: ruled,
-      secondary: null,
-      confidence: 1,
-      source: "rule",
-      status: "routed",
-      reason: ruled === "funding" ? "funding round recorded by extract-structured" : "M&A/IPO event recorded by extract-structured",
-    };
-  }
+  if (ruled) return ruleDecision(ruled);
 
   const user = [
     `Headline: ${input.headline.trim()}`,

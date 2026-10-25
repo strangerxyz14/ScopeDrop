@@ -12,7 +12,9 @@ import {
 } from "../_shared/event-extraction.ts";
 import { callLLM, TASK, estimateTokens } from "../_shared/llm.ts";
 import { offTopicReason, CLASSIFIED_RELEVANT } from "../_shared/relevance.ts";
-import type { ClassifierVerdict } from "../_shared/section-router.ts";
+import { SECTION_GUIDE, sectionFields, type ClassifierVerdict } from "../_shared/section-router.ts";
+
+type SectionFields = NonNullable<ReturnType<typeof sectionFields>>;
 
 const ALLOWED_ORIGINS = [
   ...(Deno.env.get("ENVIRONMENT") === "development"
@@ -43,6 +45,21 @@ const EXTRACT_LONG_TOKENS_THRESHOLD = 6_000;
 // tagged CLASSIFIED_RELEVANT, so this batch size caps article throughput
 // (2 runs/hour). Deterministic off-topic rejections don't cost an LLM call.
 const MAX_SIGNALS_PER_RUN = 10;
+
+// Classify the newest pending signals from the last FRESH_HOURS. Until
+// 2026-10-25 this pulled the oldest pending signal first; at ~480 classify
+// slots a day against ~450 new signals the backlog never drained (8,224
+// unclassified, back to 10-07), so the median article was written from a
+// source 426 hours old. Older pending signals are simply left alone.
+const FRESH_HOURS = 48;
+
+// Same story from another outlet: pg_trgm similarity of source titles
+// against signals already accepted in the last DUPLICATE_HOURS. 0.6 caught
+// 91 of 1,313 articles (6.9%) over 7 days; samples at that level were
+// re-reports ("Nvidia-backed Reflection unveils..."), plus a few templated
+// stock-comparison and daily-roundup titles.
+const DUPLICATE_HOURS = 72;
+const DUPLICATE_SIMILARITY = 0.6;
 
 // ── Editorial-event promotion (blog post → scheduled_events) ──
 // Source names allowed to promote posts as editorial events. Kept small
@@ -123,7 +140,9 @@ function safeJsonParse(text: string): any {
 }
 
 // ── Prompts ──
-const CLASSIFY_SYSTEM = `You are the relevance gate and classifier for ScopeDrop, a news product for startup founders and investors. It covers startups, venture funding, M&A and IPOs, the AI industry, and the business and policy of technology. Given a headline and article text, output ONLY a JSON object: {"content_type": X} where X is exactly one of:
+// The relevance rules are unchanged; the section part reuses the section
+// router's SECTION_GUIDE so generate-content can skip a second LLM call.
+const CLASSIFY_SYSTEM = `You are the relevance gate and classifier for ScopeDrop, a news product for startup founders and investors. It covers startups, venture funding, M&A and IPOs, the AI industry, and the business and policy of technology. Given a headline and article text, output ONLY the JSON object described at the end. Its "content_type" is exactly one of:
 - "funding": a specific company announcing a specific funding round (company and round explicitly stated).
 - "acquisition": a company being acquired, merging, or IPOing.
 - "narrative": other news a founder or investor would act on: startup and venture ecosystem news, AI labs and AI-industry moves, big-tech strategy, earnings or leadership changes, enterprise software and developer tools, chips and cloud infrastructure, layoffs, tech regulation, antitrust and policy.
@@ -136,7 +155,13 @@ const CLASSIFY_SYSTEM = `You are the relevance gate and classifier for ScopeDrop
   * stock picking, technical analysis, commodity markets, and earnings of non-tech companies
   * hobbyist projects, retro computing and nostalgia pieces
 Decision test: would a startup founder or VC need this story for a business decision? Being about a technology product is not enough. A consumer, gaming, sports or medical story is "narrative" only when its main subject is a business event: funding, an acquisition, layoffs, company strategy or revenue, or regulation.
-If the text mentions funding only in passing and isn't mainly announcing a round, classify as "narrative". Never guess "funding" without an explicit company and round.`;
+If the text mentions funding only in passing and isn't mainly announcing a round, classify as "narrative". Never guess "funding" without an explicit company and round.
+
+For "funding", "acquisition" and "narrative" stories, also pick the ScopeDrop section the story belongs in. For "irrelevant", set section to null.
+
+${SECTION_GUIDE}
+
+Output ONLY: {"content_type": "<type>", "section": "<section key>" or null, "secondary": "<section key>" or null, "confidence": <number from 0 to 1 for the section>, "reason": "<at most 15 words on the section>"}`;
 
 const EXTRACT_FUNDING_SYSTEM = `You extract structured funding data for a startup intelligence platform. Extract ONLY facts explicitly stated in the source text. If a field is not stated, return null. Never estimate or infer amounts, valuations, or investor names.
 
@@ -490,17 +515,20 @@ serve(async (req) => {
     // - editorial candidates from whitelisted sources are processed
     //   separately, up to MAX_EDITORIAL_PER_RUN — otherwise the older
     //   TechCrunch/HN queue would starve them for hours.
-    // - regular batch is the existing FIFO pending pull for the classifier.
+    // - regular batch is the classifier's pull: newest first, last
+    //   FRESH_HOURS only (see FRESH_HOURS).
     // Total per run is bounded at MAX_SIGNALS_PER_RUN + MAX_EDITORIAL_PER_RUN.
     const MAX_EDITORIAL_PER_RUN = 3;
     const editorialWhitelist = Array.from(EDITORIAL_EVENT_SOURCES);
+    const freshCutoff = new Date(Date.now() - FRESH_HOURS * 60 * 60 * 1000).toISOString();
     const { data: editorialSignals } = await supabase
       .from("raw_signals")
       .select("*")
       .eq("status", "pending")
       .or("error_message.is.null,error_message.like.extract*")
       .in("source_name", editorialWhitelist)
-      .order("created_at", { ascending: true })
+      .gte("created_at", freshCutoff)
+      .order("created_at", { ascending: false })
       .limit(MAX_EDITORIAL_PER_RUN);
 
     // Unclassified only: signals already tagged CLASSIFIED_RELEVANT are
@@ -512,7 +540,8 @@ serve(async (req) => {
       .eq("status", "pending")
       .or("error_message.is.null,error_message.like.extract*")
       .not("source_name", "in", `(${editorialWhitelist.map((s) => `"${s}"`).join(",")})`)
-      .order("created_at", { ascending: true })
+      .gte("created_at", freshCutoff)
+      .order("created_at", { ascending: false })
       .limit(MAX_SIGNALS_PER_RUN);
 
     if (fetchError) {
@@ -537,6 +566,7 @@ serve(async (req) => {
       editorial_not_event: 0,
       editorial_past: 0,
       duplicates: 0,
+      duplicate_stories: 0,
       errors: 0,
     };
     let tokensUsed = 0;
@@ -547,16 +577,28 @@ serve(async (req) => {
     // the error_message tag is what generate-content selects on.
     // classifier_verdict feeds the section router's rules (a recorded
     // round → Funding, a recorded deal → Acquisitions); see ClassifierVerdict
-    // in _shared/section-router.ts.
-    const markRelevant = async (id: string, verdict: ClassifierVerdict) => {
+    // in _shared/section-router.ts. The classifier_section* columns carry
+    // the section this same call picked, so generate-content skips its own
+    // router call (classifierDecision()).
+    const markRelevant = async (id: string, verdict: ClassifierVerdict, section: SectionFields | null) => {
+      const base = { error_message: CLASSIFIED_RELEVANT, classifier_verdict: verdict };
       const { error } = await supabase
         .from("raw_signals")
-        .update({ error_message: CLASSIFIED_RELEVANT, classifier_verdict: verdict })
+        .update(section
+          ? {
+            ...base,
+            classifier_section: section.section,
+            classifier_section_secondary: section.secondary,
+            classifier_section_confidence: section.confidence,
+            classifier_section_reason: section.reason,
+          }
+          : base)
         .eq("id", id);
-      // Before migration 20261025130000 adds the column; never let that
-      // stall the handoff.
+      // Before migrations 20261025130000 / 20261025170000 add the columns;
+      // never let that stall the handoff.
       if (error) {
-        await supabase.from("raw_signals").update({ error_message: CLASSIFIED_RELEVANT }).eq("id", id);
+        const { error: retryErr } = await supabase.from("raw_signals").update(base).eq("id", id);
+        if (retryErr) await supabase.from("raw_signals").update({ error_message: CLASSIFIED_RELEVANT }).eq("id", id);
       }
     };
 
@@ -565,6 +607,7 @@ serve(async (req) => {
       // below uses it to still hand the story to generate-content.
       let classifiedRelevant = false;
       let unconfirmedVerdict: ClassifierVerdict = "narrative";
+      let classifiedSection: SectionFields | null = null;
       try {
         // ── Editorial-event pre-branch ──
         // Whitelisted blog + event-shaped title → try to promote to
@@ -651,17 +694,37 @@ serve(async (req) => {
           continue;
         }
 
-        // ── CALL 1: classify (cheap model, cross-provider fallback via callLLM) ──
+        // ── Duplicate story (no LLM call) ──
+        // Fails open: if the RPC is missing or errors, classify as usual.
+        if (signal.title) {
+          const { data: dupRows, error: dupErr } = await supabase.rpc("find_duplicate_signal", {
+            p_signal_id: signal.id, p_title: signal.title, p_hours: DUPLICATE_HOURS, p_threshold: DUPLICATE_SIMILARITY,
+          });
+          const dup = !dupErr && Array.isArray(dupRows) ? dupRows[0] : null;
+          if (dup) {
+            await supabase
+              .from("raw_signals")
+              .update({ status: "rejected", error_message: `duplicate_story: ${dup.id} (${Number(dup.similarity).toFixed(2)})` })
+              .eq("id", signal.id);
+            summary.duplicate_stories++;
+            summary.processed++;
+            continue;
+          }
+        }
+
+        // ── CALL 1: classify + section (one call, cross-provider fallback via callLLM) ──
         // Priority "extraction", not CLASSIFY's default "router": this is
         // the gate every article passes, so it ranks just below writing.
         const classifyRes = await callLLM(TASK.CLASSIFY, CLASSIFY_SYSTEM,
-          `Headline and text:\n${rawText}`, { jsonMode: true, maxTokens: 60, temperature: 0, priority: "extraction" });
+          `Headline and text:\n${rawText}`, { jsonMode: true, maxTokens: 150, temperature: 0, priority: "extraction" });
         requestsMade++;
-        tokensUsed += 400;
+        tokensUsed += 450;
 
         let contentType: string;
         try {
-          contentType = String(safeJsonParse(classifyRes.content)?.content_type ?? "narrative");
+          const classified = safeJsonParse(classifyRes.content);
+          contentType = String(classified?.content_type ?? "narrative");
+          classifiedSection = sectionFields(classified);
         } catch {
           contentType = "narrative"; // unparseable → safest is leave for narrative pipeline
         }
@@ -670,7 +733,7 @@ serve(async (req) => {
 
         if (contentType === "narrative") {
           // Hand to generate-content (status stays pending)
-          await markRelevant(signal.id, "narrative");
+          await markRelevant(signal.id, "narrative", classifiedSection);
           summary.classified_narrative++;
           continue;
         }
@@ -685,7 +748,7 @@ serve(async (req) => {
         }
 
         if (contentType !== "funding" && contentType !== "acquisition") {
-          await markRelevant(signal.id, "narrative");
+          await markRelevant(signal.id, "narrative", classifiedSection);
           summary.classified_narrative++;
           continue; // unknown label → treat as narrative
         }
@@ -711,7 +774,7 @@ serve(async (req) => {
           parsed = safeJsonParse(extractRes.content);
         } catch {
           // Relevant story, just not structurable — still worth an article.
-          await markRelevant(signal.id, unconfirmedVerdict);
+          await markRelevant(signal.id, unconfirmedVerdict, classifiedSection);
           summary.errors++;
           continue;
         }
@@ -724,7 +787,7 @@ serve(async (req) => {
           const announcedAt = typeof parsed.announced_at === "string" && DATE_RE.test(parsed.announced_at)
             ? parsed.announced_at : "";
           if (!companyName || !announcedAt) {
-            await markRelevant(signal.id, unconfirmedVerdict); // no event, but still an article
+            await markRelevant(signal.id, unconfirmedVerdict, classifiedSection); // no event, but still an article
             summary.errors++;
             continue;
           }
@@ -791,7 +854,7 @@ serve(async (req) => {
             ? parsed.announced_at : "";
           const dealType = parsed.deal_type === "ipo" ? "ipo" : "acquisition";
           if (!acquiredName || !announcedAt) {
-            await markRelevant(signal.id, unconfirmedVerdict); // no event, but still an article
+            await markRelevant(signal.id, unconfirmedVerdict, classifiedSection); // no event, but still an article
             summary.errors++;
             continue;
           }
@@ -831,14 +894,14 @@ serve(async (req) => {
         // article too. Before the generate-content gate existed, funding
         // and M&A articles came from generate-content racing this function
         // for the same pending rows — keep them on the homepage.
-        await markRelevant(signal.id, contentType === "funding" ? "funding" : "acquisition");
+        await markRelevant(signal.id, contentType === "funding" ? "funding" : "acquisition", classifiedSection);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`extract-structured signal ${signal.id} failed:`, msg);
         // Classified relevant → still hand it to generate-content.
         // Otherwise (classify itself failed) tag for a retry next run.
         if (classifiedRelevant) {
-          await markRelevant(signal.id, unconfirmedVerdict);
+          await markRelevant(signal.id, unconfirmedVerdict, classifiedSection);
         } else {
           await supabase
             .from("raw_signals")

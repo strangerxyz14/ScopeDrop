@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callLLM, hasBudget, TASK } from "../_shared/llm.ts";
 import { offTopicReason, CLASSIFIED_RELEVANT } from "../_shared/relevance.ts";
-import { routeSection, decisionColumns } from "../_shared/section-router.ts";
+import { classifierDecision, routeSection, decisionColumns } from "../_shared/section-router.ts";
 
 const ALLOWED_ORIGINS = [
   ...(Deno.env.get("ENVIRONMENT") === "development"
@@ -398,13 +398,24 @@ serve(async (req) => {
           continue;
         }
 
-        // ── 4I: Route to a section (rules, then LLM) ────
-        // Source headline and text, not the rewrite. Never throws: an LLM
+        // ── 4I: Route to a section ──────────────────────
+        // A recorded funding/M&A event wins (rule); otherwise the section
+        // extract-structured's relevance call already picked, so no extra
+        // LLM call. Only signals without one (classified before
+        // 2026-10-25, or an invalid section) go through the router, on the
+        // source headline and text, not the rewrite. Never throws: a router
         // failure falls back to "startups" with status "review".
-        const section = await routeSection({
+        const s = signal as any;
+        const section = classifierDecision({
+          verdict: s.classifier_verdict ?? null,
+          section: s.classifier_section ?? null,
+          secondary: s.classifier_section_secondary ?? null,
+          confidence: s.classifier_section_confidence ?? null,
+          reason: s.classifier_section_reason ?? null,
+        }) ?? await routeSection({
           headline: signal.title ?? parsed.homepage_headline,
           body: rawText,
-          verdict: (signal as any).classifier_verdict ?? null,
+          verdict: s.classifier_verdict ?? null,
         });
 
         // ── 4J: Generate image (Pollinations → Pexels → Unsplash) ─
@@ -463,8 +474,9 @@ serve(async (req) => {
           .eq("id", signal.id);
 
         // Update pipeline stats
-        // The router's LLM call is ~600 tokens and one more request.
-        const routerUsedLLM = section.source !== "rule";
+        // The router's LLM call is ~600 tokens and one more request; rule and
+        // classifier decisions cost nothing here.
+        const routerUsedLLM = section.source === "llm" || section.source === "fallback";
         await supabase.rpc("increment_pipeline_stats_safe", {
           p_date: today,
           p_tokens: 1200 + (routerUsedLLM ? 600 : 0),
