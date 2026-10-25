@@ -24,7 +24,9 @@
 //         or budget stop ends the batch without writing; the rest waits.
 //
 // POST body (all optional):
-//   {"mode": "auto"}       free pass, then llm with any time left (default)
+//   {"mode": "auto"}       free pass, then llm with any time left; when no
+//                          row needs a first routing, retries fallback rows
+//                          (default; what the nightly cron sends)
 //   {"mode": "free"}       free pass only; never calls the LLM
 //   {"mode": "llm"}        llm pass only
 //   {"mode": "fallback"}   retry section_source = 'fallback' rows (llm)
@@ -200,7 +202,7 @@ serve(async (req) => {
 
     const started = Date.now();
     const llmCutoff = started - LLM_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-    const bySource: Record<SectionDecision["source"], number> = { rule: 0, llm: 0, fallback: 0, legacy: 0 };
+    const bySource: Record<SectionDecision["source"], number> = { rule: 0, llm: 0, classifier: 0, fallback: 0, legacy: 0 };
     const free = { scanned: 0, routed: 0, needs_llm: 0, exhausted: false };
     let review = 0;
     let changed = 0;
@@ -292,14 +294,21 @@ serve(async (req) => {
     // ── LLM pass ────────────────────────────────────────────
     const runLlm = mode === "llm" || mode === "fallback" || mode === "ids" || (mode === "auto" && free.exhausted);
     if (runLlm && Date.now() - started < TIME_BUDGET_MS) {
-      let q = supabase.from("articles").select(ARTICLE_COLUMNS).eq("status", "published");
-      if (mode === "ids") q = q.in("id", ids.slice(0, MAX_LIMIT));
-      else if (mode === "fallback") q = q.eq("section_source", "fallback");
-      else q = q.is("router_version", null).eq("section_status", "needs_llm");
-      const { data, error } = await q
-        .order("created_at", { ascending: false })
-        .limit(mode === "ids" ? MAX_LIMIT : limit);
+      const select = (which: "ids" | "fallback" | "needs_llm") => {
+        let q = supabase.from("articles").select(ARTICLE_COLUMNS).eq("status", "published");
+        if (which === "ids") q = q.in("id", ids.slice(0, MAX_LIMIT));
+        else if (which === "fallback") q = q.eq("section_source", "fallback");
+        else q = q.is("router_version", null).eq("section_status", "needs_llm");
+        return q.order("created_at", { ascending: false }).limit(which === "ids" ? MAX_LIMIT : limit);
+      };
+      let { data, error } = await select(mode === "ids" ? "ids" : mode === "fallback" ? "fallback" : "needs_llm");
       if (error) throw error;
+      // auto: once nothing needs a first routing, retry fallback rows (new
+      // articles whose router call hit the daily limit during the day).
+      if (mode === "auto" && (data ?? []).length === 0) {
+        ({ data, error } = await select("fallback"));
+        if (error) throw error;
+      }
       const batch = (data ?? []) as ArticleRow[];
       const ctx = await loadContext(supabase, batch, true);
 
