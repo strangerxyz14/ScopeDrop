@@ -652,8 +652,10 @@ serve(async (req) => {
         }
 
         // ── CALL 1: classify (cheap model, cross-provider fallback via callLLM) ──
+        // Priority "extraction", not CLASSIFY's default "router": this is
+        // the gate every article passes, so it ranks just below writing.
         const classifyRes = await callLLM(TASK.CLASSIFY, CLASSIFY_SYSTEM,
-          `Headline and text:\n${rawText}`, { jsonMode: true, maxTokens: 60, temperature: 0 });
+          `Headline and text:\n${rawText}`, { jsonMode: true, maxTokens: 60, temperature: 0, priority: "extraction" });
         requestsMade++;
         tokensUsed += 400;
 
@@ -844,7 +846,10 @@ serve(async (req) => {
             .eq("id", signal.id);
         }
         summary.errors++;
-        // continue with the rest — never let one bad signal kill the batch
+        // No LLM capacity at all (rate limit, cooldown or budget): the rest
+        // of the batch would fail the same way, so stop and let the next
+        // run pick them up. Any other error only affects this signal.
+        if (msg.includes("All providers exhausted")) break;
       }
     }
 

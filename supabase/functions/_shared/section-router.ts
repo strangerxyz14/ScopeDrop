@@ -21,11 +21,13 @@
 //
 // Used by generate-content (new articles) and route-section (reruns).
 // ─────────────────────────────────────────────────────────────
-import { callLLM, TASK } from "./llm.ts";
+import { callLLM, type Priority, TASK } from "./llm.ts";
 import { isSectionKey, normalizeSection, SECTION_KEYS, SECTIONS, type SectionKey } from "./sections.ts";
 
-// Bump when the prompt, examples or rules change; route-section reruns
-// every article whose router_version differs.
+// Bump when the prompt, examples or rules change. A bump only labels new
+// decisions: route-section no longer reruns everything with an older
+// version (on 2026-10-24 that meant ~1,000 LLM calls per bump and used up
+// Groq's daily tokens). Re-route deliberately with route-section {"ids": …}.
 export const ROUTER_VERSION = "2026-10-25.3";
 export const REVIEW_CONFIDENCE = 0.7;
 const SOURCE_CHARS = 1500;
@@ -48,6 +50,8 @@ export interface RouteInput {
   verdict?: string | null;
   /** Legacy articles.category, used only when the LLM fails. */
   fallback?: string | null;
+  /** Budget priority for the LLM call; route-section passes "backfill". */
+  priority?: Priority;
 }
 
 export interface SectionDecision {
@@ -193,7 +197,7 @@ export async function routeSection(input: RouteInput): Promise<SectionDecision> 
   let rateLimited = false;
   try {
     const res = await callLLM(TASK.CLASSIFY, ROUTER_SYSTEM, user, {
-      jsonMode: true, maxTokens: 120, temperature: 0,
+      jsonMode: true, maxTokens: 120, temperature: 0, priority: input.priority ?? "router",
     });
     const parsed = parseRouterOutput(res.content);
     if (parsed) {
@@ -207,8 +211,9 @@ export async function routeSection(input: RouteInput): Promise<SectionDecision> 
     console.warn("section-router: unusable LLM output:", res.content.slice(0, 200));
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    // callLLM lists each chain entry's error: "…:429 {…}" or "…:cooldown".
-    rateLimited = /:429\b|:cooldown\b/.test(msg);
+    // callLLM lists each chain entry's error: "…:429 {…}", "…:cooldown",
+    // or "…:budget" (the allocator held the call back).
+    rateLimited = /:429\b|:cooldown\b|:budget\b/.test(msg);
     console.warn("section-router: LLM failed:", msg);
   }
 

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callLLM, TASK } from "../_shared/llm.ts";
+import { callLLM, hasBudget, TASK } from "../_shared/llm.ts";
 import { offTopicReason, CLASSIFIED_RELEVANT } from "../_shared/relevance.ts";
 import { routeSection, decisionColumns } from "../_shared/section-router.ts";
 
@@ -131,7 +131,6 @@ async function fetchImageUrl(
 // TASK.LONG_ANALYTICAL (Groq llama-70b primary, Cerebras Qwen-3 32B
 // fallback, Cerebras llama-70b emergency). Deprecating the local chain.
 
-const DAILY_TOKEN_BUDGET = 450_000;
 const INTER_ARTICLE_DELAY_MS = 15_000;
 
 // ── 4C: Sanitize raw content ──────────────────────────────
@@ -173,38 +172,17 @@ Return exactly this structure:
   "tags": ["tag1", "tag2", "tag3"]
 }`;
 
-// LLM call — routed via _shared/llm.ts (TASK.LONG_ANALYTICAL) which
-// handles provider fallback (Groq 70b → Cerebras Qwen-3 32B → Cerebras
-// 70b), per-provider 60s rate-limit cooldown, and provider-tagged
-// telemetry into llm_stats. The old Groq-only model chain + 60s
-// blocking wait after all-model-429 have been replaced by the
-// abstraction's cross-provider fallback, which is strictly better —
-// a Groq 429 now instantly reroutes to Cerebras instead of waiting.
-//
-// The GroqResult shape (text + rate-limit header echoes) is preserved
-// so the rest of this file doesn't have to change; rate-limit fields
-// are stubbed since Cerebras and the abstraction don't propagate
-// Groq's specific x-ratelimit-* headers.
-interface GroqResult {
-  text: string;
-  remainingTokens: number;
-  remainingRequests: number;
-  resetTokens: string;
-}
-
-async function callGroq(sanitizedContent: string): Promise<GroqResult> {
+// LLM call: _shared/llm.ts TASK.LONG_ANALYTICAL at priority "article",
+// the top of the budget allocator, so articles can use a model's whole
+// daily allowance. Model fallback, 429 cooldowns and telemetry live there.
+async function writeArticle(sanitizedContent: string): Promise<string> {
   const res = await callLLM(
     TASK.LONG_ANALYTICAL,
     SYSTEM_PROMPT,
     "Transform this news signal into ScopeDrop editorial content: " + sanitizedContent,
-    { jsonMode: true, maxTokens: 1000, temperature: 0.7 },
+    { jsonMode: true, maxTokens: 1000, temperature: 0.7, priority: "article" },
   );
-  return {
-    text: res.content,
-    remainingTokens: 999_999,
-    remainingRequests: 999,
-    resetTokens: "",
-  };
+  return res.content;
 }
 
 // ── Safe JSON parse ───────────────────────────────────────
@@ -265,7 +243,11 @@ serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // ── 4A: Daily budget guard ────────────────────────────
+    // ── 4A: Budget guard ──────────────────────────────────
+    // Real per-model token budget (_shared/llm.ts allocator). The old
+    // guard compared fixed 1,200-token estimates against a 450K figure
+    // that matched no actual Groq limit. Signals stay queued when there's
+    // no budget; nothing is marked paused or lost.
     const today = new Date().toISOString().slice(0, 10);
     const { data: statsRow } = await supabase
       .from("pipeline_stats")
@@ -278,16 +260,14 @@ serve(async (req) => {
     }
 
     const tokensUsedToday = statsRow?.tokens_used ?? 0;
-    if (tokensUsedToday >= DAILY_TOKEN_BUDGET) {
+    if (!(await hasBudget(TASK.LONG_ANALYTICAL, "article"))) {
       return new Response(
         JSON.stringify({
           processed: 0,
           published: 0,
           rejected: 0,
-          paused: 0,
-          tokens_used_today: tokensUsedToday,
-          tokens_remaining_today: 0,
-          reason: "daily_budget_reached",
+          waiting: 0,
+          reason: "llm_budget_exhausted",
         }),
         { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
       );
@@ -319,9 +299,7 @@ serve(async (req) => {
           processed: 0,
           published: 0,
           rejected: 0,
-          paused: 0,
-          tokens_used_today: tokensUsedToday,
-          tokens_remaining_today: DAILY_TOKEN_BUDGET - tokensUsedToday,
+          waiting: 0,
           reason: "no_pending_signals",
         }),
         { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
@@ -331,7 +309,7 @@ serve(async (req) => {
     // ── Process each signal ───────────────────────────────
     let published = 0;
     let rejected = 0;
-    let paused = 0;
+    let waiting = 0;
     let stopEarly = false;
 
     for (let idx = 0; idx < pendingSignals.length; idx++) {
@@ -371,41 +349,30 @@ serve(async (req) => {
           continue;
         }
 
-        // ── 4E: LLM call via callLLM (Groq + Cerebras fallback) ─
-        let groqResult: GroqResult;
+        // ── 4E: LLM call ────────────────────────────────
+        let articleText: string;
         try {
-          groqResult = await callGroq(sanitized);
+          articleText = await writeArticle(sanitized);
         } catch (e) {
           const errMsg = e instanceof Error ? e.message : String(e);
-          // callLLM throws LLMError with "All providers exhausted" when
-          // every entry in the routing chain fails. Treat the same as
-          // the old 429_all_models_exhausted → paused signal path.
-          if (errMsg.includes("All providers exhausted") || errMsg === "429_all_models_exhausted") {
-            await supabase
-              .from("raw_signals")
-              .update({ status: "paused", error_message: errMsg.slice(0, 500) })
-              .eq("id", signal.id);
-            paused++;
-            // 4J: Delay
-            if (idx < pendingSignals.length - 1) {
-              await new Promise((r) => setTimeout(r, INTER_ARTICLE_DELAY_MS));
-            }
+          // Every model in the chain was rate limited, cooling down or out
+          // of budget. Leave the signal pending + tagged so the next run
+          // retries it, and stop: the rest of the batch would fail too.
+          // (These used to be set to 'paused', which nothing ever read,
+          // so the stories were lost.)
+          if (errMsg.includes("All providers exhausted")) {
+            console.warn(`generate-content: no LLM capacity, ${signal.id} stays queued:`, errMsg.slice(0, 300));
+            waiting++;
+            stopEarly = true;
             continue;
           }
           throw e;
         }
 
-        // ── 4F: Rate limit headroom check ───────────────
-        if (groqResult.remainingTokens < 2000 || groqResult.remainingRequests < 2) {
-          console.warn("Rate limit headroom low — stopping early");
-          stopEarly = true;
-          // Still process THIS signal's response, just don't do more after
-        }
-
         // ── 4H: Parse and validate ──────────────────────
         let parsed: any;
         try {
-          parsed = safeJsonParse(groqResult.text);
+          parsed = safeJsonParse(articleText);
         } catch {
           await supabase
             .from("raw_signals")
@@ -511,7 +478,7 @@ serve(async (req) => {
               .update({
                 tokens_used: (statsRow?.tokens_used ?? 0) + 1200 * (published + 1),
                 articles_generated: (statsRow?.articles_generated ?? 0) + published + 1,
-                requests_made: (statsRow?.requests_made ?? 0) + published + rejected + paused + 1,
+                requests_made: (statsRow?.requests_made ?? 0) + published + rejected + 1,
                 last_updated: new Date().toISOString(),
               })
               .eq("date", today);
@@ -547,12 +514,11 @@ serve(async (req) => {
     // ── 4K: Return summary ──────────────────────────────
     return new Response(
       JSON.stringify({
-        processed: published + rejected + paused,
+        processed: published + rejected,
         published,
         rejected,
-        paused,
+        waiting,
         tokens_used_today: finalTokensUsed,
-        tokens_remaining_today: Math.max(0, DAILY_TOKEN_BUDGET - finalTokensUsed),
       }),
       { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
     );
