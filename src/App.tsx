@@ -30,9 +30,9 @@ const MarketMapView = React.lazy(() => import("./pages/MarketMapView"));
 const TopicFeedPage = React.lazy(() => import("./pages/TopicFeedPage"));
 const MarketsPage = React.lazy(() => import("./pages/MarketsPage"));
 const StartupsPage = React.lazy(() => import("./pages/StartupsPage"));
-const AcquisitionsPage = React.lazy(() => import("./pages/AcquisitionsPage"));
 const FounderStoriesPage = React.lazy(() => import("./pages/FounderStoriesPage"));
-const FundingPage = React.lazy(() => import("./pages/FundingPage"));
+const Directory = React.lazy(() => import("./pages/Directory"));
+const Learn = React.lazy(() => import("./pages/Learn"));
 const AIToolsPage = React.lazy(() => import("./pages/AIToolsPage"));
 const DevToolsPage = React.lazy(() => import("./pages/DevToolsPage"));
 
@@ -130,7 +130,8 @@ const App = () => {
                 <Route path="/markets" element={<MarketsPage />} />
                 <Route path="/startups" element={<StartupsPage />} />
                 <Route path="/founder-stories" element={<FounderStoriesPage />} />
-                <Route path="/funding" element={<FundingPage />} />
+                {/* Funding and Acquisitions are All stories tabs now; keep the old URLs. */}
+                <Route path="/funding" element={<Navigate to="/startups/news?c=funding" replace />} />
                 <Route path="/tech/ai-tools" element={<AIToolsPage />} />
                 <Route path="/tech/dev-tools" element={<DevToolsPage />} />
                 
@@ -149,7 +150,8 @@ const App = () => {
                     />
                   }
                 />
-                <Route path="/acquisitions" element={<AcquisitionsPage />} />
+                <Route path="/acquisitions" element={<Navigate to="/startups/news?c=acquisitions" replace />} />
+                <Route path="/learn" element={<Learn />} />
                 <Route path="/founders" element={<Navigate to="/founder-spotlights" replace />} />
                 <Route path="/tech-stacks" element={<Navigate to="/tech/tech-stacks" replace />} />
                 <Route path="/funding/rounds" element={<FundingRounds />} />
@@ -189,16 +191,7 @@ const App = () => {
                     />
                   }
                 />
-                <Route
-                  path="/directory"
-                  element={
-                    <TopicFeedPage
-                      title="Directory"
-                      description="Company and ecosystem discovery (currently backed by the live feed)."
-                      heroImage="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&q=80"
-                    />
-                  }
-                />
+                <Route path="/directory" element={<Directory />} />
                 
                 {/* Resource Pages */}
                 <Route path="/blog" element={<Blog />} />

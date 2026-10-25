@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 type Status = "idle" | "loading" | "ok" | "err";
 
-export function NewsletterBlock() {
+/** `source` is stored on the subscriber row to tell the signup surfaces apart. */
+export function NewsletterBlock({ source = "home" }: { source?: string }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -20,7 +21,7 @@ export function NewsletterBlock() {
     setMessage(null);
     const { error } = await supabase
       .from("subscribers")
-      .insert({ email: trimmed, source: "home" });
+      .insert({ email: trimmed, source });
     if (error) {
       const isDup = /duplicate|unique/i.test(error.message);
       setStatus(isDup ? "ok" : "err");

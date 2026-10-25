@@ -1,35 +1,53 @@
-import React from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Header } from "@/components/Header/Header";
-import Footer from "@/components/Footer";
-import { ArticleGrid } from "@/components/ArticleGrid";
-import { fetchSectionPreferTag } from "@/services/sectionFeed";
+import SEO from "@/components/SEO";
+import { PageHead, PageShell, StoryGrid } from "@/components/home/PageShell";
+import type { StoryArticle } from "@/components/home/StoryCards";
+import { fetchSection } from "@/services/sectionFeed";
+import { SECTION_KEYS } from "../../supabase/functions/_shared/sections";
+
+const LIMIT = 24;
+
+/** Founder-tagged stories from any section first, topped up with the latest startup stories. */
+async function fetchFounderStories(): Promise<StoryArticle[]> {
+  const [tagged, startups] = await Promise.all([
+    fetchSection([...SECTION_KEYS], { withTag: "founder", limit: LIMIT }),
+    fetchSection(["startups"], { limit: LIMIT }),
+  ]);
+  const seen = new Set<string>();
+  return ([...tagged, ...startups] as unknown as StoryArticle[])
+    .filter((a) => !seen.has(a.id) && seen.add(a.id))
+    .slice(0, LIMIT);
+}
 
 const FounderStoriesPage = () => {
-  const queryFn = () => fetchSectionPreferTag(["startups"], "founder");
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["founder-stories"],
+    queryFn: fetchFounderStories,
+    staleTime: 60 * 1000,
+  });
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <main className="flex-grow">
-        <div className="bg-oxford text-white py-14 px-4">
-          <div className="container mx-auto max-w-4xl">
-            <p className="text-xs font-mono text-parrot uppercase tracking-widest mb-3">Founders</p>
-            <h1 className="font-serif text-4xl lg:text-5xl font-bold mb-4">Founder Stories</h1>
-            <p className="text-white/60 text-lg max-w-xl">
-              The people building the future — their decisions, mistakes, and breakthroughs
-            </p>
+    <PageShell>
+      <SEO
+        title="Founder Stories — ScopeDrop"
+        description="The people building the future: their decisions, mistakes and breakthroughs."
+        keywords={["founder stories", "startup founders", "ScopeDrop"]}
+      />
+      <PageHead
+        kicker="FOUNDERS"
+        title="Founder Stories"
+        dek="The people building the future: their decisions, mistakes and breakthroughs."
+      />
+      <section className="flow-sec">
+        <div className="wrap">
+          <StoryGrid rows={data} isLoading={isLoading} error={error} emptyLabel="No founder stories yet" />
+          <div className="st-load">
+            <Link to="/startups/news?c=startups">All startup stories →</Link>
           </div>
         </div>
-        <div className="container mx-auto px-4 py-10 max-w-6xl">
-          <ArticleGrid
-            queryKey={["articles-founder-stories"]}
-            queryFn={queryFn}
-          />
-        </div>
-      </main>
-      <Footer />
-    </div>
+      </section>
+    </PageShell>
   );
 };
 

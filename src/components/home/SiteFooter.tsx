@@ -4,15 +4,15 @@ const READ_LINKS: { label: string; to: string }[] = [
   { label: "Today's flagship", to: "/" },
   { label: "The Decode Desk", to: "/startups/news" },
   { label: "The Pattern Desk", to: "/startups/news" },
-  { label: "The Data Desk", to: "/funding" },
+  { label: "The Data Desk", to: "/startups/news?c=funding" },
   { label: "The Radar Desk", to: "/tech/emerging" },
   { label: "Founder Stories", to: "/founder-stories" },
 ];
 
 const PLATFORM_LINKS: { label: string; to: string }[] = [
   { label: "Company directory", to: "/directory" },
-  { label: "Founder Track", to: "/founder-stories" },
-  { label: "Term glossary", to: "/newsletter" },
+  { label: "Founder Track", to: "/learn" },
+  { label: "Term glossary", to: "/learn#glossary" },
   { label: "Events near you", to: "/events" },
   { label: "Emerging tech radar", to: "/tech/emerging" },
   { label: "Collections", to: "/market-maps" },
