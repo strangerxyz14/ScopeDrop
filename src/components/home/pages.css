@@ -12,11 +12,17 @@
   background: transparent; color: var(--fg-2); cursor: pointer; font-size: 18px; line-height: 1;
 }
 .sdvg .hd-burger:hover { border-color: var(--fg-mute); }
+/* "More" is a button among links: centre the row and give the button the
+   links' exact box so its text sits on the same line. */
+.sdvg .nav { align-items: center; }
+.sdvg .nav .more { display: flex; align-items: center; }
 .sdvg .nav .more-btn {
-  font: inherit; font-size: 13.5px; color: var(--fg-mute); padding: 8px 14px;
-  border-radius: 4px; background: transparent; border: 0; cursor: pointer;
-  transition: color .15s, background .15s;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: inherit; font-size: 13.5px; line-height: inherit; color: var(--fg-mute);
+  padding: 8px 14px; margin: 0; border-radius: 4px; background: transparent; border: 0;
+  cursor: pointer; transition: color .15s, background .15s;
 }
+.sdvg .nav .more-btn .caret { font-size: 9px; line-height: 1; }
 .sdvg .nav .more-btn:hover { color: var(--fg); background: rgba(255, 255, 255, .04); }
 /* The header's backdrop-filter makes it the containing block for fixed
    children, so the panel sizes itself instead of using bottom: 0. */

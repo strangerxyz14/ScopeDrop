@@ -74,7 +74,8 @@ export function SiteHeader() {
           ))}
           <div className="more">
             <button type="button" className="more-btn" aria-haspopup="true">
-              More ▾
+              More
+              <span className="caret" aria-hidden="true">▾</span>
             </button>
             <div className="dropdown" role="menu">
               {MORE_ITEMS.map((n) => (
