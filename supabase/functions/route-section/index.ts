@@ -121,6 +121,28 @@ function chunks<T>(items: T[], size: number): T[][] {
   return out;
 }
 
+// Source URLs run to 300+ characters (Google News redirects), so a fixed
+// count can build a 30KB request URL that the gateway rejects (HTTP/2
+// stream error on the first free run). Chunk by encoded length instead.
+const MAX_FILTER_CHARS = 4_000;
+function chunksByLength(items: string[]): string[][] {
+  const out: string[][] = [];
+  let current: string[] = [];
+  let length = 0;
+  for (const item of items) {
+    const size = encodeURIComponent(item).length + 3;
+    if (current.length > 0 && length + size > MAX_FILTER_CHARS) {
+      out.push(current);
+      current = [];
+      length = 0;
+    }
+    current.push(item);
+    length += size;
+  }
+  if (current.length > 0) out.push(current);
+  return out;
+}
+
 /** Source signals and recorded capital events for a batch of articles. */
 async function loadContext(supabase: Supabase, articles: ArticleRow[], withContent: boolean): Promise<Context> {
   const signals = new Map<string, SignalRow>();
@@ -136,7 +158,7 @@ async function loadContext(supabase: Supabase, articles: ArticleRow[], withConte
   // predate raw_signals.classifier_verdict.
   const eventVerdicts = new Map<string, ClassifierVerdict>();
   const sourceUrls = [...new Set([...signals.values()].map((s) => s.source_url).filter((x): x is string => !!x))];
-  for (const part of chunks(sourceUrls, LOOKUP_CHUNK)) {
+  for (const part of chunksByLength(sourceUrls)) {
     const { data, error } = await supabase.from("capital_events").select("source_url, event_type").in("source_url", part);
     if (error) throw error;
     for (const e of (data ?? []) as { source_url: string; event_type: string }[]) {
