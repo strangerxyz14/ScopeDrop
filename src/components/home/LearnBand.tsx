@@ -43,7 +43,7 @@ export function LearnBand() {
                   const stepCount = parseSteps(t.steps).length;
                   const num = String(i + 1).padStart(2, "0");
                   return (
-                    <Link key={t.id} className="trk" to="/newsletter">
+                    <Link key={t.id} className="trk" to="/learn">
                       <span>
                         <span className="n">{num} · </span>
                         <span className="t">{t.title}</span>
@@ -98,7 +98,7 @@ export function LearnBand() {
                 ))}
               </div>
             )}
-            <Link className="cta" to="/newsletter">
+            <Link className="cta" to="/learn#glossary">
               See all terms →
             </Link>
           </aside>

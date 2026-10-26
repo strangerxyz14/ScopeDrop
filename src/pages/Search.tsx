@@ -1,174 +1,150 @@
-
-import { useState } from "react";
+// ============================================================
+// Search — /search?q=, stories (headline + summary) and companies
+// (name), matched server-side. The query lives in ?q= so results
+// can be linked and the back button restores them.
+// ============================================================
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Header } from "@/components/Header/Header";
-import Footer from "@/components/Footer";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import NewsCard from "@/components/NewsCard";
-import { Search as SearchIcon, Loader } from "lucide-react";
+import SEO from "@/components/SEO";
+import { PageHead, PageShell, StoryGrid } from "@/components/home/PageShell";
+import type { StoryArticle } from "@/components/home/StoryCards";
+import type { CompanyEntity } from "@/hooks/home/useTrendingCompanies";
+import { formatMoneyShort } from "@/components/home/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { mapDbArticleToNewsArticle } from "@/services/articlesService";
+
+/** Strip characters that carry meaning in PostgREST filters and ilike patterns. */
+function cleanTerm(raw: string): string {
+  return raw.replace(/[,()"\\%_*:]/g, " ").replace(/\s+/g, " ").trim();
+}
 
 const Search = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
-  const [isSearching, setIsSearching] = useState(false);
-  
-  const { data: articles, isLoading } = useQuery({
-    queryKey: ['articles', 'search'],
+  const [params, setParams] = useSearchParams();
+  const q = cleanTerm(params.get("q") ?? "");
+  const [input, setInput] = useState(params.get("q") ?? "");
+
+  // Debounce typing into ?q= so each keystroke doesn't hit the database.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      const next = new URLSearchParams(params);
+      if (input.trim()) next.set("q", input.trim());
+      else next.delete("q");
+      if (next.toString() !== params.toString()) setParams(next, { replace: true });
+    }, 300);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input]);
+
+  const enabled = q.length >= 2;
+
+  const stories = useQuery<StoryArticle[]>({
+    queryKey: ["search", "stories", q],
+    enabled,
     queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from("articles")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(50);
-        if (error) throw error;
-        return (data ?? []).map((row: any) => mapDbArticleToNewsArticle(row));
-      } catch (e) {
-        console.warn("Supabase search preload failed.", e);
-        return [];
-      }
+      const { data, error } = await supabase
+        .from("articles")
+        .select("*")
+        .eq("status", "published")
+        .or(`headline.ilike.%${q}%,summary.ilike.%${q}%`)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return data ?? [];
     },
+    staleTime: 60 * 1000,
   });
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchTerm.trim()) return;
-    
-    setIsSearching(true);
-    
-    // Simulate search delay
-    setTimeout(() => {
-      setIsSearching(false);
-    }, 1000);
-  };
-
-  // Simple filtering based on search term - in a real app, this would be a server call
-  const filteredArticles = articles ? articles.filter(article => {
-    if (!searchTerm) return true;
-    
-    const term = searchTerm.toLowerCase();
-    return (
-      article.title.toLowerCase().includes(term) || 
-      article.description.toLowerCase().includes(term) ||
-      (article.category && article.category.toLowerCase().includes(term)) ||
-      (article.source?.name && article.source.name.toLowerCase().includes(term))
-    );
-  }) : [];
-  
-  // Further filter by tab categories
-  const getTabFilteredArticles = () => {
-    if (activeTab === "all") return filteredArticles;
-    
-    return filteredArticles.filter(article => {
-      const category = article.category?.toLowerCase() || "";
-      
-      switch(activeTab) {
-        case "funding":
-          return category.includes("funding") || category.includes("venture");
-        case "acquisitions":
-          return category.includes("acquisition");
-        case "success":
-          return category.includes("success");
-        case "failure":
-          return category.includes("failure");
-        default:
-          return true;
-      }
-    });
-  };
-
-  const displayArticles = getTabFilteredArticles();
-  const hasResults = displayArticles.length > 0;
+  const companies = useQuery<CompanyEntity[]>({
+    queryKey: ["search", "companies", q],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("entities")
+        .select("*")
+        .eq("entity_type", "company")
+        .ilike("name", `%${q}%`)
+        .order("total_funding_raised", { ascending: false, nullsFirst: false })
+        .limit(6);
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 60 * 1000,
+  });
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
-      <Header />
-      
-      <main className="flex-grow">
-        {/* Search Header */}
-        <div className="bg-gradient-to-r from-oxford to-oxford-400 text-white py-12">
-          <div className="container mx-auto px-4 max-w-3xl">
-            <h1 className="text-3xl md:text-4xl font-display font-bold mb-6 text-center">
-              Search ElevArc
-            </h1>
-            
-            <form onSubmit={handleSearch} className="flex gap-2">
-              <div className="relative flex-grow">
-                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={20} />
-                <Input
-                  type="text"
-                  placeholder="Search for startups, funding news, investors..."
-                  className="pl-10 py-6 rounded-md w-full bg-white text-gray-800"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <Button 
-                type="submit" 
-                className="bg-parrot text-oxford hover:bg-parrot-400 transition-colors"
-                disabled={isSearching}
-              >
-                {isSearching ? <Loader className="animate-spin" size={20} /> : "Search"}
-              </Button>
-            </form>
-          </div>
-        </div>
-        
-        {/* Search Results */}
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-            <div className="flex justify-center mb-6">
-              <TabsList>
-                <TabsTrigger value="all">All Results</TabsTrigger>
-                <TabsTrigger value="funding">Funding</TabsTrigger>
-                <TabsTrigger value="acquisitions">Acquisitions</TabsTrigger>
-                <TabsTrigger value="success">Success Stories</TabsTrigger>
-                <TabsTrigger value="failure">Failures</TabsTrigger>
-              </TabsList>
+    <PageShell>
+      <SEO
+        title={q ? `Search: ${q} — ScopeDrop` : "Search — ScopeDrop"}
+        description="Search ScopeDrop stories and companies."
+        keywords={["search", "startup news", "ScopeDrop"]}
+      />
+      <PageHead kicker="SEARCH" title="Search stories and companies">
+        <form className="co-search dir-search sr-box" role="search" onSubmit={(e) => e.preventDefault()}>
+          <span aria-hidden="true">⌕</span>
+          <input
+            type="search"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Company, investor, technology…"
+            aria-label="Search"
+            autoFocus
+          />
+        </form>
+      </PageHead>
+
+      <section className="flow-sec">
+        <div className="wrap">
+          {!enabled ? (
+            <div className="sd-empty">
+              <span className="k">Type at least two characters</span>
+              <p>
+                Or browse <Link to="/startups/news" style={{ color: "var(--parrot)" }}>all stories</Link>{" "}
+                and the <Link to="/directory" style={{ color: "var(--parrot)" }}>company directory</Link>.
+              </p>
             </div>
-            
-            <TabsContent value={activeTab} className="mt-6">
-              {isLoading || isSearching ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {Array(6).fill(0).map((_, i) => (
-                    <div key={i} className="bg-white animate-pulse h-80 rounded-lg shadow"></div>
-                  ))}
-                </div>
-              ) : hasResults ? (
-                <>
-                  <div className="mb-6 text-gray-600">
-                    Found {displayArticles.length} results{searchTerm ? ` for "${searchTerm}"` : ""}
+          ) : (
+            <>
+              {(companies.data?.length ?? 0) > 0 && (
+                <div className="sr-companies">
+                  <div className="sec-h">
+                    <h3>Companies</h3>
+                    <Link className="more" to={`/directory?q=${encodeURIComponent(q)}`}>
+                      In the directory →
+                    </Link>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {displayArticles.map((article, index) => (
-                      <NewsCard
-                        key={article.id ?? article.slug ?? index}
-                        article={article}
-                        articleId={(article.slug ?? article.id ?? "").toString()}
-                      />
+                  <div className="co-list">
+                    {companies.data!.map((c) => (
+                      <Link key={c.id} className="co-row" to={`/directory?entity=${c.id}`}>
+                        <div>
+                          <div className="nm">{c.name}</div>
+                          {(c.sector || c.headquarters) && (
+                            <div className="sec">
+                              {[c.sector, c.headquarters].filter(Boolean).join(" · ").toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        {formatMoneyShort(c.total_funding_raised) && (
+                          <div className="v">{formatMoneyShort(c.total_funding_raised)}</div>
+                        )}
+                      </Link>
                     ))}
                   </div>
-                </>
-              ) : (
-                <div className="text-center py-12 bg-white rounded-lg shadow">
-                  <p className="text-gray-500">
-                    {searchTerm 
-                      ? `No results found for "${searchTerm}". Try different keywords.` 
-                      : "Enter a search term to find startup news and insights."}
-                  </p>
                 </div>
               )}
-            </TabsContent>
-          </Tabs>
+              <div className="sec-h">
+                <h3>Stories</h3>
+              </div>
+              <StoryGrid
+                rows={stories.data}
+                isLoading={stories.isLoading}
+                error={stories.error}
+                emptyLabel={`No stories match "${q}"`}
+              />
+            </>
+          )}
         </div>
-      </main>
-      
-      <Footer />
-    </div>
+      </section>
+    </PageShell>
   );
 };
 
