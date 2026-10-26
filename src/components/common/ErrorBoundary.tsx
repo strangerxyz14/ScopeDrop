@@ -104,13 +104,10 @@ export class ErrorBoundary extends Component<Props, State> {
     return sessionId;
   };
 
+  // A full reload: React.lazy caches a failed import, so resetting state alone
+  // re-throws the same error (the usual cause here is a chunk from an old deploy).
   private handleRetry = () => {
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null,
-      errorId: '',
-    });
+    window.location.reload();
   };
 
   private handleGoHome = () => {
@@ -168,10 +165,10 @@ export class ErrorBoundary extends Component<Props, State> {
               <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
                 <AlertTriangle className="w-6 h-6 text-red-600" />
               </div>
-              <CardTitle className="text-xl font-semibold text-gray-900">
+              <CardTitle className="text-xl font-semibold text-foreground">
                 Something went wrong
               </CardTitle>
-              <p className="text-gray-600 mt-2">
+              <p className="text-muted-foreground mt-2">
                 We're sorry, but something unexpected happened. Our team has been notified.
               </p>
             </CardHeader>

@@ -23,18 +23,28 @@ export function formatRoundType(roundType: string | null | undefined): string {
   return map[roundType] ?? roundType.toUpperCase().replace(/_/g, " ");
 }
 
+/**
+ * "15 MIN AGO", "3 HR AGO", "2 DAYS AGO". Spelled-out units so it never
+ * reads like the reading time next to it ("3 MIN READ"); "15M AGO" beside
+ * "3 MIN" looked like two clashing timestamps.
+ */
 export function formatRelativeTime(iso: string): string {
   const then = new Date(iso).getTime();
   if (!isFinite(then)) return "";
   const diffSec = Math.floor((Date.now() - then) / 1000);
   if (diffSec < 60) return "JUST NOW";
   const min = Math.floor(diffSec / 60);
-  if (min < 60) return `${min}M AGO`;
+  if (min < 60) return `${min} MIN AGO`;
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}H AGO`;
+  if (hr < 24) return `${hr} HR AGO`;
   const d = Math.floor(hr / 24);
-  if (d < 30) return `${d}D AGO`;
+  if (d < 30) return d === 1 ? "1 DAY AGO" : `${d} DAYS AGO`;
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "2-digit" }).toUpperCase();
+}
+
+/** "3 MIN READ": always labelled, so it isn't mistaken for a timestamp. */
+export function formatReadTime(minutes: number): string {
+  return `${minutes} MIN READ`;
 }
 
 export function kickerFromArticle(a: {

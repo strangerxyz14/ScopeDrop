@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
 import { LeadThumbFallback } from "./HeroIllustration";
-import { bylineFromArticle, estimateReadTime, formatRelativeTime, kickerFromArticle } from "./utils";
+import { bylineFromArticle, estimateReadTime, formatReadTime, formatRelativeTime, kickerFromArticle } from "./utils";
 
 export type StoryArticle = Database["public"]["Tables"]["articles"]["Row"];
 
@@ -36,7 +36,7 @@ export function StoryLead({ article }: { article: StoryArticle }) {
         <h4>{article.headline}</h4>
         <p className="dek-sm">{article.summary}</p>
         <div className="byline st-meta">
-          BY {byline.toUpperCase()} · {readTime} MIN · {storyTime(article)}
+          BY {byline.toUpperCase()} · {storyTime(article)} · {formatReadTime(readTime)}
         </div>
       </div>
     </Link>
@@ -63,7 +63,7 @@ export function StorySide({
       <h4>{article.headline}</h4>
       <p className="dek-sm">{article.summary}</p>
       <div className="m">
-        {byline.replace(/^The /, "").toUpperCase()} · {readTime} MIN · {storyTime(article)}
+        {byline.replace(/^The /, "").toUpperCase()} · {storyTime(article)} · {formatReadTime(readTime)}
       </div>
     </Link>
   );
@@ -82,7 +82,7 @@ export function StoryCard({ article }: { article: StoryArticle }) {
       <h4>{article.headline}</h4>
       {article.summary && <p className="dek-sm">{article.summary}</p>}
       <div className="m">
-        {storyTime(article)} · {readTime} MIN
+        {storyTime(article)} · {formatReadTime(readTime)}
       </div>
     </Link>
   );
