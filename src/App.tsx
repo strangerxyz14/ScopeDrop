@@ -10,58 +10,59 @@ import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { HealthCheck } from "@/components/common/HealthCheck";
 import { supabaseConfig } from "@/integrations/supabase/client";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { lazyWithReload } from "@/lib/lazyWithReload";
 
 // Lazy load all page components
-const Home = React.lazy(() => import("./pages/Home"));
-const NotFound = React.lazy(() => import("./pages/NotFound"));
-const StartupNews = React.lazy(() => import("./pages/StartupNews"));
-const TechStacks = React.lazy(() => import("./pages/TechStacks"));
-const GrowthHacking = React.lazy(() => import("./pages/GrowthHacking"));
-const Search = React.lazy(() => import("./pages/Search"));
-const Newsletter = React.lazy(() => import("./pages/Newsletter"));
-const Events = React.lazy(() => import("./pages/Events"));
-const EventDetail = React.lazy(() => import("./pages/EventDetail"));
-const ErrorMonitoring = React.lazy(() => import("./pages/ErrorMonitoring"));
-const EventReview = React.lazy(() => import("./pages/admin/EventReview"));
-const ArticleView = React.lazy(() => import("./pages/ArticleView"));
-const FundingRounds = React.lazy(() => import("./pages/FundingRounds"));
-const MarketMaps = React.lazy(() => import("./pages/MarketMaps"));
-const MarketMapView = React.lazy(() => import("./pages/MarketMapView"));
-const TopicFeedPage = React.lazy(() => import("./pages/TopicFeedPage"));
-const MarketsPage = React.lazy(() => import("./pages/MarketsPage"));
-const StartupsPage = React.lazy(() => import("./pages/StartupsPage"));
-const AcquisitionsPage = React.lazy(() => import("./pages/AcquisitionsPage"));
-const FounderStoriesPage = React.lazy(() => import("./pages/FounderStoriesPage"));
-const FundingPage = React.lazy(() => import("./pages/FundingPage"));
-const AIToolsPage = React.lazy(() => import("./pages/AIToolsPage"));
-const DevToolsPage = React.lazy(() => import("./pages/DevToolsPage"));
+const Home = lazyWithReload(() => import("./pages/Home"));
+const NotFound = lazyWithReload(() => import("./pages/NotFound"));
+const StartupNews = lazyWithReload(() => import("./pages/StartupNews"));
+const TechStacks = lazyWithReload(() => import("./pages/TechStacks"));
+const GrowthHacking = lazyWithReload(() => import("./pages/GrowthHacking"));
+const Search = lazyWithReload(() => import("./pages/Search"));
+const Newsletter = lazyWithReload(() => import("./pages/Newsletter"));
+const Events = lazyWithReload(() => import("./pages/Events"));
+const EventDetail = lazyWithReload(() => import("./pages/EventDetail"));
+const ErrorMonitoring = lazyWithReload(() => import("./pages/ErrorMonitoring"));
+const EventReview = lazyWithReload(() => import("./pages/admin/EventReview"));
+const ArticleView = lazyWithReload(() => import("./pages/ArticleView"));
+const FundingRounds = lazyWithReload(() => import("./pages/FundingRounds"));
+const MarketMaps = lazyWithReload(() => import("./pages/MarketMaps"));
+const MarketMapView = lazyWithReload(() => import("./pages/MarketMapView"));
+const TopicFeedPage = lazyWithReload(() => import("./pages/TopicFeedPage"));
+const MarketsPage = lazyWithReload(() => import("./pages/MarketsPage"));
+const StartupsPage = lazyWithReload(() => import("./pages/StartupsPage"));
+const AcquisitionsPage = lazyWithReload(() => import("./pages/AcquisitionsPage"));
+const FounderStoriesPage = lazyWithReload(() => import("./pages/FounderStoriesPage"));
+const FundingPage = lazyWithReload(() => import("./pages/FundingPage"));
+const AIToolsPage = lazyWithReload(() => import("./pages/AIToolsPage"));
+const DevToolsPage = lazyWithReload(() => import("./pages/DevToolsPage"));
 
 // Account Pages
-const Dashboard = React.lazy(() => import("./pages/account/Dashboard"));
-const SavedArticles = React.lazy(() => import("./pages/account/SavedArticles"));
-const EmailPreferences = React.lazy(() => import("./pages/account/EmailPreferences"));
-const RecentlyViewed = React.lazy(() => import("./pages/account/RecentlyViewed"));
-const Settings = React.lazy(() => import("./pages/account/Settings"));
-const SignOut = React.lazy(() => import("./pages/SignOut"));
+const Dashboard = lazyWithReload(() => import("./pages/account/Dashboard"));
+const SavedArticles = lazyWithReload(() => import("./pages/account/SavedArticles"));
+const EmailPreferences = lazyWithReload(() => import("./pages/account/EmailPreferences"));
+const RecentlyViewed = lazyWithReload(() => import("./pages/account/RecentlyViewed"));
+const Settings = lazyWithReload(() => import("./pages/account/Settings"));
+const SignOut = lazyWithReload(() => import("./pages/SignOut"));
 
 // Explore Pages
-const BigFundingStories = React.lazy(() => import("./pages/explore/BigFundingStories"));
-const EmergingTech = React.lazy(() => import("./pages/explore/EmergingTech"));
-const FounderSpotlights = React.lazy(() => import("./pages/explore/FounderSpotlights"));
-const CaseStudies = React.lazy(() => import("./pages/explore/CaseStudies"));
-const GrowthStrategies = React.lazy(() => import("./pages/explore/GrowthStrategies"));
+const BigFundingStories = lazyWithReload(() => import("./pages/explore/BigFundingStories"));
+const EmergingTech = lazyWithReload(() => import("./pages/explore/EmergingTech"));
+const FounderSpotlights = lazyWithReload(() => import("./pages/explore/FounderSpotlights"));
+const CaseStudies = lazyWithReload(() => import("./pages/explore/CaseStudies"));
+const GrowthStrategies = lazyWithReload(() => import("./pages/explore/GrowthStrategies"));
 
 // Resource Pages
-const Blog = React.lazy(() => import("./pages/resources/Blog"));
-const HowWeCurate = React.lazy(() => import("./pages/resources/HowWeCurate"));
-const ApiAccess = React.lazy(() => import("./pages/resources/ApiAccess"));
-const StartupSubmission = React.lazy(() => import("./pages/resources/StartupSubmission"));
-const Contact = React.lazy(() => import("./pages/resources/Contact"));
+const Blog = lazyWithReload(() => import("./pages/resources/Blog"));
+const HowWeCurate = lazyWithReload(() => import("./pages/resources/HowWeCurate"));
+const ApiAccess = lazyWithReload(() => import("./pages/resources/ApiAccess"));
+const StartupSubmission = lazyWithReload(() => import("./pages/resources/StartupSubmission"));
+const Contact = lazyWithReload(() => import("./pages/resources/Contact"));
 
 // Legal Pages
-const PrivacyPolicy = React.lazy(() => import("./pages/PrivacyPolicy"));
-const TermsOfService = React.lazy(() => import("./pages/TermsOfService"));
-const Sitemap = React.lazy(() => import("./pages/Sitemap"));
+const PrivacyPolicy = lazyWithReload(() => import("./pages/PrivacyPolicy"));
+const TermsOfService = lazyWithReload(() => import("./pages/TermsOfService"));
+const Sitemap = lazyWithReload(() => import("./pages/Sitemap"));
 
 // Loading component for Suspense fallbacks
 const PageLoadingSkeleton = () => (
