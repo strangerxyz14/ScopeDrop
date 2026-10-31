@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { offTopicReason } from "../_shared/relevance.ts";
+import { isTechDeal, offTopicReason } from "../_shared/relevance.ts";
 
 const ALLOWED_ORIGINS = [
   ...(Deno.env.get("ENVIRONMENT") === "development"
@@ -123,14 +123,18 @@ async function fetchGNews(apiKey: string): Promise<RawSignalRow[]> {
 }
 
 // ─────────────────────────────────────────────────────────────
-// SOURCE 2 — Finnhub (existing, kept as-is)
+// SOURCE 2 — Finnhub merger news
+// Finnhub's categories are general, forex, crypto and merger. The old
+// "technology" isn't one, so it got general world news that the
+// classifier rejected or never published; merger feeds Acquisitions.
+// Merger news spans every industry, so only tech / startup deals pass.
 // ─────────────────────────────────────────────────────────────
 async function fetchFinnhub(apiKey: string): Promise<RawSignalRow[]> {
-  const url = `https://finnhub.io/api/v1/news?category=technology&token=${apiKey}`;
+  const url = `https://finnhub.io/api/v1/news?category=merger&token=${apiKey}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Finnhub HTTP ${res.status}`);
   const items: any[] = await res.json();
-  return items.slice(0, 10).map((a) => ({
+  return items.filter((a) => isTechDeal(a.headline, a.summary)).slice(0, 10).map((a) => ({
     title: a.headline ?? "",
     raw_content: a.summary ?? "",
     source_url: a.url ?? "",

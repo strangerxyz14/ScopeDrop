@@ -150,3 +150,36 @@ export function offTopicReason(title: string | null | undefined, content: string
   }
   return null;
 }
+
+// ── Tech deals ──────────────────────────────────────────────
+// Finnhub's merger feed covers every industry: insurance books, metals
+// suppliers, regional banks. The LLM classifier accepted those as
+// "acquisitions" (AIG buying Everest's Chile insurance unit, 2026-10-31),
+// so merger stories need a tech or startup cue before they go any
+// further. Word-boundary matches only ("ai" must not match "said").
+const TECH_DEAL_TERMS = [
+  "ai", "artificial intelligence", "machine learning", "generative", "llms?", "genai",
+  "software", "saas", "cloud", "data ?cent(?:er|re)s?", "data platform", "analytics", "databases?",
+  "cyber[a-z]*", "security software", "identity management", "fraud detection", "observability",
+  "chips?", "chipmakers?", "semiconductors?", "foundry", "gpus?", "photonics", "optical networking",
+  "fintech", "payments?", "neobank", "digital banking", "crypto[a-z]*", "blockchain", "stablecoins?",
+  "biotech[a-z]*", "medtech", "digital health", "healthtech", "telehealth",
+  "robotics?", "autonomous", "drones?", "quantum", "space ?tech", "satellites?", "air taxi",
+  "electric vehicles?", "evs?", "energy storage", "power trading", "climate ?tech",
+  "internet", "e-?commerce", "marketplace", "apps?", "developer tools?", "open[- ]source",
+  "telecom[a-z]*", "5g", "it services", "tech", "technology", "technologies", "digital",
+  "startups?", "venture[- ]backed", "vc[- ]backed", "unicorn", "acqui-?hire",
+  "microsoft", "alphabet", "google", "apple", "amazon", "meta", "nvidia", "intel", "amd", "qualcomm", "broadcom",
+  "marvell", "nxp", "arm holdings", "tsmc", "samsung", "oracle", "salesforce", "adobe", "ibm", "cisco", "sap",
+  "servicenow", "openai", "anthropic", "xai", "tesla", "spacex", "snowflake", "databricks", "palantir", "workday",
+  "shopify", "uber", "stripe", "coinbase", "paypal", "mastercard", "netflix", "spotify", "okta",
+  "dynatrace", "synopsys", "nebius", "supabase", "hugging face",
+  "electronics", "design automation", "pcb", "memory chips?", "games?", "gaming", "esports", "game studios?",
+  "adtech", "ad tech", "advertising technology", "audio software", "onsemi", "synaptics", "sony", "niantic",
+  "krafton", "cadence design",
+];
+const TECH_DEAL_SIGNAL = new RegExp(String.raw`\b(?:${TECH_DEAL_TERMS.join("|")})\b`, "i");
+/** Whether a deal story is about a tech company or startup; for the Finnhub merger feed. */
+export function isTechDeal(title: string | null | undefined, content: string | null | undefined): boolean {
+  return TECH_DEAL_SIGNAL.test(normalize(`${title ?? ""} ${content ?? ""}`));
+}
