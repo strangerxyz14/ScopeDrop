@@ -390,6 +390,15 @@ export type WikidataPick =
   | { kind: "ambiguous"; candidates: { id: string; label: string; description: string | null }[] }
   | { kind: "none"; reason: string };
 
+// Investors are matched by name only when something says they invest:
+// the investor "Luminate" is not Luminate the 1991 music-data company.
+const INVESTOR_WORDS = /ventur|capital|invest|fund|equity|asset|bank|philanthrop|angel|accelerat|incubat|family office|holding|partners/i;
+
+function investorLike(hint: EntityHint, x: { c: WikidataCandidate; f: WikidataFacts }): boolean {
+  if (hint.entity_type !== "investor") return true;
+  return INVESTOR_WORDS.test([hint.name, x.c.description ?? "", ...x.f.industries].join(" "));
+}
+
 const EARLY_ROUNDS = new Set(["pre_seed", "seed", "series_a"]);
 const WELL_KNOWN_SITELINKS = 20;
 
@@ -579,14 +588,14 @@ export function pickWikidata(
   const runnerUp = ranked[1]?.f.sitelinks ?? 0;
   // Well known and clearly the namesake people mean (Intel, Hugging Face).
   // Not for early-stage entities: a seed-stage "Apple" is not Apple.
-  if (!isEarlyStage(hint) && fullName(top) && !top.f.isHuman && top.f.sitelinks >= WELL_KNOWN_SITELINKS && top.f.sitelinks >= 3 * Math.max(1, runnerUp)) {
+  if (!isEarlyStage(hint) && fullName(top) && !top.f.isHuman && investorLike(hint, top) && top.f.sitelinks >= WELL_KNOWN_SITELINKS && top.f.sitelinks >= 3 * Math.max(1, runnerUp)) {
     return { kind: "match", facts: top.f, candidate: top.c, reason: `well known (${top.f.sitelinks} sitelinks)` };
   }
   // The only business with a multi-word full name ("Sarvam AI", "Varda
   // Space Industries"): its news names it by definition, but two
   // unrelated businesses rarely share a full multi-word name.
   // Not for people: "Yash Mehta" the angel is not "Yash Mehta" the cricketer.
-  if (fitting.length === 1 && distinctive && fullName(top) && !needStrong && !top.f.isHuman) {
+  if (fitting.length === 1 && distinctive && fullName(top) && !needStrong && !top.f.isHuman && investorLike(hint, top)) {
     return { kind: "match", facts: top.f, candidate: top.c, reason: "only business with this full name" };
   }
   if (fitting.length === 1) return { kind: "unconfirmed", facts: top.f, candidate: top.c };
