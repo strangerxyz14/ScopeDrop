@@ -24,6 +24,7 @@ const Events = lazyWithReload(() => import("./pages/Events"));
 const EventDetail = lazyWithReload(() => import("./pages/EventDetail"));
 const ErrorMonitoring = lazyWithReload(() => import("./pages/ErrorMonitoring"));
 const EventReview = lazyWithReload(() => import("./pages/admin/EventReview"));
+const EntityReview = lazyWithReload(() => import("./pages/admin/EntityReview"));
 const ArticleView = lazyWithReload(() => import("./pages/ArticleView"));
 const FundingRounds = lazyWithReload(() => import("./pages/FundingRounds"));
 const MarketMaps = lazyWithReload(() => import("./pages/MarketMaps"));
@@ -165,6 +166,8 @@ const App = () => {
                 <Route path="/admin/monitoring" element={<ErrorMonitoring />} />
                 {/* Unlinked admin route — gated server-side by ADMIN_EMAIL in admin-events edge function. Not in sitemap, not in nav. */}
                 <Route path="/admin/events" element={<EventReview />} />
+                {/* Unlinked admin route — gated server-side by ADMIN_EMAIL in admin-entities. */}
+                <Route path="/admin/entities" element={<EntityReview />} />
                 
                 {/* Account Pages */}
                 <Route path="/account/dashboard" element={<Dashboard />} />
