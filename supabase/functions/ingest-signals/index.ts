@@ -123,10 +123,13 @@ async function fetchGNews(apiKey: string): Promise<RawSignalRow[]> {
 }
 
 // ─────────────────────────────────────────────────────────────
-// SOURCE 2 — Finnhub (existing, kept as-is)
+// SOURCE 2 — Finnhub merger news
+// Finnhub's categories are general, forex, crypto and merger. The old
+// "technology" isn't one, so it got general world news that the
+// classifier rejected or never published; merger feeds Acquisitions.
 // ─────────────────────────────────────────────────────────────
 async function fetchFinnhub(apiKey: string): Promise<RawSignalRow[]> {
-  const url = `https://finnhub.io/api/v1/news?category=technology&token=${apiKey}`;
+  const url = `https://finnhub.io/api/v1/news?category=merger&token=${apiKey}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Finnhub HTTP ${res.status}`);
   const items: any[] = await res.json();
