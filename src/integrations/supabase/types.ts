@@ -258,7 +258,12 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          domain: string | null
           employee_count_estimate: number | null
+          enriched_at: string | null
+          enrichment: Json | null
+          enrichment_sources: string[]
+          enrichment_status: string | null
           entity_type: string
           founded_year: number | null
           headquarters: string | null
@@ -266,17 +271,26 @@ export type Database = {
           last_funding_stage: string | null
           logo_url: string | null
           name: string
+          sec_cik: string | null
           sector: string | null
           slug: string
           tags: string[] | null
+          ticker: string | null
           total_funding_raised: number | null
           updated_at: string
           website: string | null
+          wikidata_id: string | null
+          yc_id: string | null
         }
         Insert: {
           created_at?: string
           description?: string | null
+          domain?: string | null
           employee_count_estimate?: number | null
+          enriched_at?: string | null
+          enrichment?: Json | null
+          enrichment_sources?: string[]
+          enrichment_status?: string | null
           entity_type: string
           founded_year?: number | null
           headquarters?: string | null
@@ -284,17 +298,26 @@ export type Database = {
           last_funding_stage?: string | null
           logo_url?: string | null
           name: string
+          sec_cik?: string | null
           sector?: string | null
           slug: string
           tags?: string[] | null
+          ticker?: string | null
           total_funding_raised?: number | null
           updated_at?: string
           website?: string | null
+          wikidata_id?: string | null
+          yc_id?: string | null
         }
         Update: {
           created_at?: string
           description?: string | null
+          domain?: string | null
           employee_count_estimate?: number | null
+          enriched_at?: string | null
+          enrichment?: Json | null
+          enrichment_sources?: string[]
+          enrichment_status?: string | null
           entity_type?: string
           founded_year?: number | null
           headquarters?: string | null
@@ -302,12 +325,16 @@ export type Database = {
           last_funding_stage?: string | null
           logo_url?: string | null
           name?: string
+          sec_cik?: string | null
           sector?: string | null
           slug?: string
           tags?: string[] | null
+          ticker?: string | null
           total_funding_raised?: number | null
           updated_at?: string
           website?: string | null
+          wikidata_id?: string | null
+          yc_id?: string | null
         }
         Relationships: []
       }
