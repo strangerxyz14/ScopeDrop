@@ -720,7 +720,9 @@ export function mergeFindings(
     logo_url: domain ? logoUrlFor(domain) : null,
     wikidata_id: w?.id ?? null,
     sec_cik: f.secProfile?.cik ?? f.sec?.external_id ?? w?.cik ?? null,
-    ticker: f.sec?.ticker ?? w?.ticker ?? f.secProfile?.tickers?.[0] ?? null,
+    // SEC's primary ticker first: Wikidata lists every exchange, so its
+    // sample for AIG was the Tokyo code "8685".
+    ticker: f.sec?.ticker ?? f.secProfile?.tickers?.[0] ?? w?.ticker ?? null,
     yc_id: f.yc ? f.yc.external_id.split("~")[0] : null,
   };
 
