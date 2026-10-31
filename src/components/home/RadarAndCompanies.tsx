@@ -25,17 +25,17 @@ function RadarPanel() {
         </div>
       ) : (
         <>
-          {(data.length > 0 ? data : [{ name: "—", velocityPct: 0 }, { name: "—", velocityPct: 0 }, { name: "—", velocityPct: 0 }]).map((s, i) => (
+          {(data.length > 0 ? data : [0, 1, 2].map(() => ({ name: "—", barPct: 0, label: "" }))).map((s, i) => (
             <div key={`${s.name}-${i}`} className="radar-item">
               <span className="nm">{s.name}</span>
               <span className="bh">
-                <i style={{ ["--w" as string]: `${Math.min(100, Math.max(0, s.velocityPct))}%` } as React.CSSProperties}></i>
+                <i style={{ ["--w" as string]: `${s.barPct}%` } as React.CSSProperties}></i>
               </span>
-              <span className="v">+{s.velocityPct}%</span>
+              <span className="v">{s.label}</span>
             </div>
           ))}
           <div className="radar-note">
-            FUNDING MOMENTUM, QUARTER OVER QUARTER · COMPUTED FROM TRACKED ROUNDS
+            MONEY RAISED THIS QUARTER · CHANGE VS LAST QUARTER · NEW = FIRST DEALS
           </div>
         </>
       )}

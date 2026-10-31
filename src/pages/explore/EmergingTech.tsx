@@ -23,7 +23,7 @@ const EmergingTech = () => {
       <PageHead
         kicker="EMERGING TECH RADAR · THIS QUARTER"
         title="Where the capital is moving"
-        dek="Funding momentum by sector: money raised in the last 90 days against the 90 days before, computed from the rounds we track."
+        dek="Sectors ranked by money raised in the last 90 days, with the change against the 90 days before. Built from the closed and agreed deals we track."
       />
 
       <section className="flow-sec">
@@ -46,13 +46,13 @@ const EmergingTech = () => {
                 <div key={s.name} className="radar-item">
                   <span className="nm">{s.name}</span>
                   <span className="bh">
-                    <i style={{ width: `${Math.min(100, Math.max(0, s.velocityPct))}%` }}></i>
+                    <i style={{ width: `${s.barPct}%` }}></i>
                   </span>
-                  <span className="v">+{s.velocityPct}%</span>
+                  <span className="v">{s.label}</span>
                 </div>
               ))}
               <div className="radar-note">
-                FUNDING MOMENTUM, QUARTER OVER QUARTER · COMPUTED FROM TRACKED ROUNDS
+                MONEY RAISED THIS QUARTER · CHANGE VS LAST QUARTER · NEW = FIRST DEALS
               </div>
             </div>
           )}
