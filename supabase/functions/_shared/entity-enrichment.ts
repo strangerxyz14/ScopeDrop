@@ -234,6 +234,8 @@ export async function wikidataSearch(name: string, ua: string, limit = 7): Promi
   }));
 }
 
+const ADDRESS_LIKE = /\d|\b(street|st|building|tower|plaza|center|centre|campus|avenue|road|house|square|park)\b/i;
+
 // "company" (Q783794) is not a subclass of "business" (Q4830453) in
 // Wikidata, so Freshworks would fail a business-only check.
 const BUSINESS_ROOTS = ["wd:Q4830453", "wd:Q783794", "wd:Q6881511", "wd:Q167037"];
@@ -245,7 +247,7 @@ export async function wikidataFacts(ids: string[], ua: string): Promise<Map<stri
   if (clean.length === 0) return out;
   const query = `
 SELECT ?item (SAMPLE(?biz) AS ?business) (SAMPLE(?org) AS ?organization) (SAMPLE(?hum) AS ?human)
-  (SAMPLE(?web) AS ?website) (MIN(?inc) AS ?inception) (SAMPLE(?hqL) AS ?hq) (SAMPLE(?cL) AS ?country)
+  (SAMPLE(?web) AS ?website) (MIN(?inc) AS ?inception) (SAMPLE(?hqL) AS ?hq) (SAMPLE(?hqPL) AS ?hqParent) (SAMPLE(?hqCL) AS ?hqCountry) (SAMPLE(?cL) AS ?country)
   (MAX(?emp) AS ?employees) (SAMPLE(?cik0) AS ?cik) (SAMPLE(?tick) AS ?ticker)
   (GROUP_CONCAT(DISTINCT ?indL; separator="|") AS ?industries) (SAMPLE(?links) AS ?sitelinks)
 WHERE {
@@ -255,7 +257,11 @@ WHERE {
   BIND(EXISTS { ?item wdt:P31 wd:Q5 } AS ?hum)
   OPTIONAL { ?item wdt:P856 ?web }
   OPTIONAL { ?item wdt:P571 ?inc }
-  OPTIONAL { ?item wdt:P159 ?hqI . ?hqI rdfs:label ?hqL FILTER(LANG(?hqL) = "en") }
+  OPTIONAL {
+    ?item wdt:P159 ?hqI . ?hqI rdfs:label ?hqL FILTER(LANG(?hqL) = "en")
+    OPTIONAL { ?hqI wdt:P131 ?hqP . ?hqP rdfs:label ?hqPL FILTER(LANG(?hqPL) = "en") }
+    OPTIONAL { ?hqI wdt:P17 ?hqC . ?hqC rdfs:label ?hqCL FILTER(LANG(?hqCL) = "en") }
+  }
   OPTIONAL { ?item wdt:P17 ?cI . ?cI rdfs:label ?cL FILTER(LANG(?cL) = "en") }
   OPTIONAL { ?item wdt:P1128 ?emp }
   OPTIONAL { ?item wdt:P5531 ?cik0 }
@@ -295,8 +301,11 @@ GROUP BY ?item`;
       isHuman: b.human?.value === "true",
       website: b.website?.value ?? null,
       inceptionYear: Number.isFinite(year) && year > 1600 ? year : null,
-      headquarters: b.hq?.value ?? null,
-      country: b.country?.value ?? null,
+      // An HQ that is a building or street ("200 West Street") reads
+      // better as the place it is in.
+      headquarters: (ADDRESS_LIKE.test(b.hq?.value ?? "") ? b.hqParent?.value : b.hq?.value) ?? b.hq?.value ?? null,
+      // The HQ's own country: Shein is from China but based in Singapore.
+      country: b.hqCountry?.value ?? b.country?.value ?? null,
       employees: Number.isFinite(emp) && emp > 0 ? emp : null,
       cik: b.cik?.value ? String(b.cik.value).replace(/\D/g, "").padStart(10, "0") : null,
       ticker: b.ticker?.value ?? null,
@@ -407,26 +416,53 @@ export function nameKeys(name: string, entityType: string): string[] {
 }
 
 const STOPWORDS = new Set([
-  "company", "companies", "american", "british", "indian", "french", "german", "chinese", "based", "multinational",
-  "technology", "technologies", "services", "service", "business", "industry", "private", "public", "startup",
-  "founded", "group", "limited", "corporation", "global", "international", "united", "states", "kingdom", "provider",
-  "platform", "products", "firm", "organization", "headquartered", "subsidiary",
-  // Places say where, not what: "betting company in Africa" vs news about Africa.
-  "africa", "african", "europe", "european", "asian", "america", "americas", "china", "japan", "japanese", "india",
-  "korea", "korean", "canada", "canadian", "israel", "israeli", "singapore", "brazil", "brazilian", "middle", "eastern",
-  "western", "northern", "southern",
+  "company", "companies", "based", "multinational", "technology", "technologies", "services", "service", "business",
+  "industry", "private", "public", "startup", "founded", "group", "limited", "corporation", "global", "international",
+  "united", "states", "kingdom", "provider", "platform", "products", "firm", "organization", "headquartered",
+  "subsidiary",
+  // Places and nationalities say where, not what: "betting company in
+  // Africa" agreeing with news about Africa proves nothing.
+  "africa", "african", "europe", "european", "asian", "america", "american", "americas", "british", "indian", "french",
+  "german", "chinese", "china", "japan", "japanese", "india", "korea", "korean", "canada", "canadian", "israel",
+  "israeli", "singapore", "brazil", "brazilian", "middle", "eastern", "western", "northern", "southern", "swedish",
+  "danish", "norwegian", "finnish", "dutch", "spanish", "italian", "swiss", "irish", "australian", "mexican",
+  "california", "californian", "texas", "london", "paris", "berlin",
+]);
+
+/** Stems too general to tell two companies apart ("production", "systems"). */
+const GENERIC_STEMS = new Set([
+  "produ", "manuf", "syste", "servi", "solut", "devel", "resea", "opera", "manag", "inter", "natio", "gener", "compa",
+  "indus", "provi", "speci", "corpo", "holdi", "found",
 ]);
 
 /** 5-letter stems of the meaningful words in a description: "biotechnology company" → ["biote"]. */
 function stems(text: string | null | undefined): string[] {
   if (!text) return [];
   return [...new Set(
-    text.toLowerCase().split(/[^a-z]+/).filter((w) => w.length >= 5 && !STOPWORDS.has(w)).map((w) => w.slice(0, 5)),
+    text.toLowerCase().split(/[^a-z]+/)
+      .filter((w) => w.length >= 5 && !STOPWORDS.has(w))
+      .map((w) => w.slice(0, 5))
+      .filter((s) => !GENERIC_STEMS.has(s)),
   )];
 }
 
 function contextStems(context: string): Set<string> {
   return new Set(context.split(/[^a-z]+/).filter((w) => w.length >= 5).map((w) => w.slice(0, 5)));
+}
+
+/**
+ * The entity's own name, as words, stems and squashed: its news contains
+ * these by definition, so finding them there proves nothing ("Even
+ * Healthcare" vs "health", "Toyota" HQ'd in Toyota, "Dodge AI" vs dodge.com).
+ */
+function nameTokens(name: string): Set<string> {
+  const words = normalizeCompanyName(name).split(" ").filter(Boolean);
+  const out = new Set<string>([words.join("")]);
+  for (const w of words) {
+    out.add(w);
+    if (w.length >= 5) out.add(w.slice(0, 5));
+  }
+  return out;
 }
 
 /** Domain label without its TLD, if distinctive enough to search for: "huggingface.co" → "huggingface". */
@@ -436,21 +472,33 @@ function domainLabel(domain: string | null): string | null {
   return label.length >= 5 ? label : null;
 }
 
+export interface Evidence {
+  why: string;
+  /** Domain or HQ city named in the news; stems alone are weak. */
+  strong: boolean;
+  /** Shared industry stems, for weak evidence. */
+  stems: number;
+}
+
 /** What in the entity's news, if anything, agrees with a Wikidata candidate. */
-export function contextEvidence(hint: EntityHint, f: WikidataFacts, description: string | null): string | null {
+export function contextEvidence(hint: EntityHint, f: WikidataFacts, description: string | null): Evidence | null {
   const ctx = hint.context;
   if (!ctx) return null;
+  const own = nameTokens(hint.name);
   const domain = domainFromWebsite(f.website);
-  if (domain && ctx.includes(domain)) return `news names ${domain}`;
+  if (domain && ctx.includes(domain)) return { why: `news names ${domain}`, strong: true, stems: 0 };
   const label = domainLabel(domain);
-  if (label && label !== normalizeCompanyName(hint.name).replace(/\s/g, "") && ctx.includes(label)) return `news names ${label}`;
+  if (label && !own.has(label) && ctx.includes(label)) return { why: `news names ${label}`, strong: true, stems: 0 };
   const city = f.headquarters?.split(",")[0].trim().toLowerCase();
-  if (city && city.length >= 4 && new RegExp(`\\b${city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(ctx)) {
-    return `news names ${f.headquarters}`;
+  if (
+    city && city.length >= 4 && !own.has(city.replace(/\s/g, "")) &&
+    new RegExp(`\\b${city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(ctx)
+  ) {
+    return { why: `news names ${f.headquarters}`, strong: true, stems: 0 };
   }
   const ctxStems = contextStems(ctx);
-  const shared = stems([description, ...f.industries].join(" ")).filter((s) => ctxStems.has(s));
-  if (shared.length > 0) return `news shares "${shared.join(", ")}"`;
+  const shared = stems([description, ...f.industries].join(" ")).filter((s) => ctxStems.has(s) && !own.has(s));
+  if (shared.length > 0) return { why: `news shares "${shared.join(", ")}"`, strong: false, stems: shared.length };
   return null;
 }
 
@@ -462,9 +510,10 @@ export function ycEvidence(hint: EntityHint, yc: RegistryRow, wikidataDomain: st
   if (/\by ?combinator\b|\(yc [swfx]\d{2}\)|\byc[- ]backed\b/.test(ctx)) return "news mentions Y Combinator";
   if (yc.domain && ctx.includes(yc.domain)) return `news names ${yc.domain}`;
   const label = domainLabel(yc.domain);
-  if (label && label !== normalizeCompanyName(yc.name).replace(/\s/g, "") && ctx.includes(label)) return `news names ${label}`;
+  if (label && !nameTokens(hint.name).has(label) && ctx.includes(label)) return `news names ${label}`;
   return null;
 }
+
 
 export function pickWikidata(
   hint: EntityHint,
@@ -484,6 +533,12 @@ export function pickWikidata(
     .filter((x) => stageFits(hint, x.f));
   if (fitting.length === 0) return { kind: "none", reason: "name matches are not businesses of this kind" };
 
+  // A match that needs the generic tail stripped ("Dodge AI" → "Dodge")
+  // is a weaker claim than a full-name match.
+  const full = normalizeCompanyName(hint.name);
+  const fullName = (x: { c: WikidataCandidate }) =>
+    normalizeCompanyName(x.c.label) === full || normalizeCompanyName(x.c.matchText) === full;
+
   // Another source agreeing settles it outright.
   const known = new Set(corroboration.domains);
   const corroborated = fitting.filter((x) =>
@@ -495,11 +550,18 @@ export function pickWikidata(
     return { kind: "match", facts: corroborated[0].f, candidate: corroborated[0].c, reason: "same domain or CIK in another source" };
   }
 
+  // When SEC already names the company, a Wikidata namesake must agree
+  // on something specific: "PTC" the software firm (SEC) is not the
+  // roller-coaster maker whose description shares "manufacturing".
+  // A one-word name ("Luminate", "Gradient") collides easily, so shared
+  // industry words must be at least two.
+  const needStrong = !!corroboration.cik;
+  const distinctive = full.split(" ").length >= 2;
   const evidenced = fitting
-    .map((x) => ({ ...x, why: contextEvidence(hint, x.f, x.c.description) }))
-    .filter((x) => x.why);
+    .map((x) => ({ ...x, ev: contextEvidence(hint, x.f, x.c.description) }))
+    .filter((x) => x.ev && (x.ev.strong || (!needStrong && fullName(x) && (distinctive || x.ev.stems >= 2))));
   if (evidenced.length === 1) {
-    return { kind: "match", facts: evidenced[0].f, candidate: evidenced[0].c, reason: evidenced[0].why! };
+    return { kind: "match", facts: evidenced[0].f, candidate: evidenced[0].c, reason: evidenced[0].ev!.why };
   }
 
   const ranked = [...fitting].sort((a, b) => b.f.sitelinks - a.f.sitelinks);
@@ -507,8 +569,15 @@ export function pickWikidata(
   const runnerUp = ranked[1]?.f.sitelinks ?? 0;
   // Well known and clearly the namesake people mean (Intel, Hugging Face).
   // Not for early-stage entities: a seed-stage "Apple" is not Apple.
-  if (!isEarlyStage(hint) && top.f.sitelinks >= WELL_KNOWN_SITELINKS && top.f.sitelinks >= 3 * Math.max(1, runnerUp)) {
+  if (!isEarlyStage(hint) && fullName(top) && !top.f.isHuman && top.f.sitelinks >= WELL_KNOWN_SITELINKS && top.f.sitelinks >= 3 * Math.max(1, runnerUp)) {
     return { kind: "match", facts: top.f, candidate: top.c, reason: `well known (${top.f.sitelinks} sitelinks)` };
+  }
+  // The only business with a multi-word full name ("Sarvam AI", "Varda
+  // Space Industries"): its news names it by definition, but two
+  // unrelated businesses rarely share a full multi-word name.
+  // Not for people: "Yash Mehta" the angel is not "Yash Mehta" the cricketer.
+  if (fitting.length === 1 && distinctive && fullName(top) && !needStrong && !top.f.isHuman) {
+    return { kind: "match", facts: top.f, candidate: top.c, reason: "only business with this full name" };
   }
   if (fitting.length === 1) return { kind: "unconfirmed", facts: top.f, candidate: top.c };
   return {
@@ -516,7 +585,6 @@ export function pickWikidata(
     candidates: ranked.slice(0, 5).map((x) => ({ id: x.c.id, label: x.c.label, description: x.c.description })),
   };
 }
-
 
 // ── Merging into an entity row ──────────────────────────────
 
