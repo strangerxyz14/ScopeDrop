@@ -170,6 +170,7 @@ export type Database = {
           announced_at: string
           counterparty_entity_id: string | null
           created_at: string
+          deal_status: string | null
           event_type: string
           id: string
           one_liner: string
@@ -183,6 +184,7 @@ export type Database = {
           announced_at: string
           counterparty_entity_id?: string | null
           created_at?: string
+          deal_status?: string | null
           event_type: string
           id?: string
           one_liner: string
@@ -196,6 +198,7 @@ export type Database = {
           announced_at?: string
           counterparty_entity_id?: string | null
           created_at?: string
+          deal_status?: string | null
           event_type?: string
           id?: string
           one_liner?: string
