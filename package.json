@@ -18,6 +18,7 @@
     "cache:clean": "node scripts/clean-cache.js",
     "test:cache": "node scripts/test-cache.js",
     "test:api": "node scripts/test-api.js",
+    "test:deal-guards": "esbuild scripts/test-deal-guards.ts --bundle --platform=node --log-level=warning | node",
     "setup:complete": "npm run setup:supabase && npm run test:cache"
   },
   "dependencies": {

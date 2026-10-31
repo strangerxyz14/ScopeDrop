@@ -13,6 +13,7 @@ import {
 import { callLLM, TASK, estimateTokens } from "../_shared/llm.ts";
 import { offTopicReason, CLASSIFIED_RELEVANT } from "../_shared/relevance.ts";
 import { SECTION_GUIDE, sectionFields, type ClassifierVerdict } from "../_shared/section-router.ts";
+import { guardCapitalEvent } from "../_shared/deal-guards.ts";
 
 type SectionFields = NonNullable<ReturnType<typeof sectionFields>>;
 
@@ -567,6 +568,7 @@ serve(async (req) => {
       editorial_past: 0,
       duplicates: 0,
       duplicate_stories: 0,
+      deal_guard_rejected: 0,
       errors: 0,
     };
     let tokensUsed = 0;
@@ -779,6 +781,16 @@ serve(async (req) => {
           continue;
         }
 
+        // ── Deterministic deal guards (no LLM call) ──
+        // Reject misread headlines (commercial deals, investor packages,
+        // stale / cancelled / lawsuit stories), move valuations out of
+        // amount_usd and set deal_status. See _shared/deal-guards.ts.
+        const guardBase = {
+          title: signal.title,
+          content: sanitizeContent(signal.raw_content ?? ""),
+          signalDate: signal.created_at ?? today,
+        };
+
         if (contentType === "funding") {
           summary.classified_funding++;
 
@@ -789,6 +801,19 @@ serve(async (req) => {
           if (!companyName || !announcedAt) {
             await markRelevant(signal.id, unconfirmedVerdict, classifiedSection); // no event, but still an article
             summary.errors++;
+            continue;
+          }
+
+          const guard = guardCapitalEvent({
+            ...guardBase,
+            kind: "funding",
+            amountUsd: asNumberOrNull(parsed.amount_usd),
+            valuationUsd: asNumberOrNull(parsed.valuation_usd),
+          });
+          if (!guard.ok) {
+            console.log(`deal guard rejected ${signal.id}: ${guard.reason}`);
+            await markRelevant(signal.id, unconfirmedVerdict, classifiedSection); // no event, but still an article
+            summary.deal_guard_rejected++;
             continue;
           }
 
@@ -817,8 +842,9 @@ serve(async (req) => {
               event_type: "funding",
               primary_entity_id: companyId,
               round_type: roundType,
-              amount_usd: asNumberOrNull(parsed.amount_usd),
-              valuation_usd: asNumberOrNull(parsed.valuation_usd),
+              amount_usd: guard.amountUsd,
+              valuation_usd: guard.valuationUsd,
+              deal_status: guard.dealStatus,
               announced_at: announcedAt,
               one_liner: typeof parsed.one_liner === "string" && parsed.one_liner.trim()
                 ? parsed.one_liner.trim()
@@ -859,6 +885,19 @@ serve(async (req) => {
             continue;
           }
 
+          const guard = guardCapitalEvent({
+            ...guardBase,
+            kind: dealType,
+            amountUsd: asNumberOrNull(parsed.deal_value_usd),
+            valuationUsd: null,
+          });
+          if (!guard.ok) {
+            console.log(`deal guard rejected ${signal.id}: ${guard.reason}`);
+            await markRelevant(signal.id, unconfirmedVerdict, classifiedSection); // no event, but still an article
+            summary.deal_guard_rejected++;
+            continue;
+          }
+
           const acquiredId = await resolveEntity(supabase, acquiredName, "company");
           const acquirerId = typeof parsed.acquirer_name === "string" && parsed.acquirer_name.trim()
             ? await resolveEntity(supabase, parsed.acquirer_name.trim(), "company")
@@ -878,7 +917,9 @@ serve(async (req) => {
             primary_entity_id: acquiredId,
             counterparty_entity_id: acquirerId,
             round_type: dealType, // 'acquisition' | 'ipo' are valid round_type values
-            amount_usd: asNumberOrNull(parsed.deal_value_usd),
+            amount_usd: guard.amountUsd,
+            valuation_usd: guard.valuationUsd,
+            deal_status: guard.dealStatus,
             announced_at: announcedAt,
             one_liner: typeof parsed.one_liner === "string" && parsed.one_liner.trim()
               ? parsed.one_liner.trim()
