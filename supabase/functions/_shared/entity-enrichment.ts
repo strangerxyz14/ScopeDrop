@@ -382,6 +382,26 @@ export interface EntityHint {
   earliestRound: string | null;
   /** Lowercased source text of the news behind the entity's capital events. */
   context: string;
+  /** Editor decisions from /admin/entities, if any. */
+  review?: EntityReview | null;
+}
+
+export interface ReviewCandidate {
+  source: "wikidata" | "yc";
+  id: string;
+}
+
+/**
+ * Stored in entities.enrichment.review. A confirmed candidate is accepted
+ * on the next run; rejected ones are never offered again.
+ */
+export interface EntityReview {
+  confirm?: ReviewCandidate | null;
+  rejected?: ReviewCandidate[];
+}
+
+function isRejected(review: EntityReview | null | undefined, source: ReviewCandidate["source"], id: string): boolean {
+  return (review?.rejected ?? []).some((r) => r.source === source && r.id === id);
 }
 
 export type WikidataPick =
@@ -720,7 +740,9 @@ export function mergeFindings(
     logo_url: domain ? logoUrlFor(domain) : null,
     wikidata_id: w?.id ?? null,
     sec_cik: f.secProfile?.cik ?? f.sec?.external_id ?? w?.cik ?? null,
-    ticker: f.sec?.ticker ?? w?.ticker ?? f.secProfile?.tickers?.[0] ?? null,
+    // SEC's primary ticker first: Wikidata lists every exchange, so its
+    // sample for AIG was the Tokyo code "8685".
+    ticker: f.sec?.ticker ?? f.secProfile?.tickers?.[0] ?? w?.ticker ?? null,
     yc_id: f.yc ? f.yc.external_id.split("~")[0] : null,
   };
 
@@ -798,10 +820,20 @@ export async function enrichBatch(items: BatchItem[], deps: BatchDeps): Promise<
       }
       // Only exact-name candidates can be picked; facts for the rest would
       // just slow the SPARQL query down.
-      searches.set(it.row.id, found.filter((c) => keys.has(normalizeCompanyName(c.label)) || keys.has(normalizeCompanyName(c.matchText))));
+      searches.set(
+        it.row.id,
+        found
+          .filter((c) => keys.has(normalizeCompanyName(c.label)) || keys.has(normalizeCompanyName(c.matchText)))
+          .filter((c) => !isRejected(it.hint.review, "wikidata", c.id)),
+      );
       await sleep(deps.searchDelayMs ?? 200);
     }
-    const ids = [...new Set([...searches.values()].flat().map((c) => c.id))];
+    // A confirmed candidate needs its facts even if search ranks it differently now.
+    const confirmed = usable
+      .map((it) => it.hint.review?.confirm)
+      .filter((c): c is ReviewCandidate => c?.source === "wikidata")
+      .map((c) => c.id);
+    const ids = [...new Set([...[...searches.values()].flat().map((c) => c.id), ...confirmed])];
     for (let i = 0; i < ids.length; i += FACTS_CHUNK) {
       for (const [k, v] of await wikidataFacts(ids.slice(i, i + FACTS_CHUNK), deps.ua)) facts.set(k, v);
     }
@@ -816,19 +848,31 @@ export async function enrichBatch(items: BatchItem[], deps: BatchDeps): Promise<
     const keys = keysOf.get(it.row.id)!;
     const hits = keys.flatMap((k) => byKey.get(k) ?? []);
     const ycIds = new Set(hits.filter((r) => r.source === "yc").map((r) => r.external_id.split("~")[0]));
-    const ycCandidate = it.row.entity_type !== "investor" && ycIds.size === 1 ? hits.find((r) => r.source === "yc")! : null;
+    const ycHit = it.row.entity_type !== "investor" && ycIds.size === 1 ? hits.find((r) => r.source === "yc")! : null;
+    const ycCandidate = ycHit && !isRejected(it.hint.review, "yc", ycHit.external_id.split("~")[0]) ? ycHit : null;
     // SEC: exact legal name only, and never for early-stage startups.
     const secHits = (byKey.get(keys[0]) ?? []).filter((r) => r.source === "sec");
     const secCandidate = secHits.length === 1 && !isEarlyStage(it.hint) ? secHits[0] : null;
 
     const nameDomain = it.row.entity_type !== "investor" ? domainFromName(it.row.name) : null;
-    const pick = pickWikidata(it.hint, searches.get(it.row.id) ?? [], facts, {
+    let pick = pickWikidata(it.hint, searches.get(it.row.id) ?? [], facts, {
       domains: [ycCandidate?.domain, nameDomain].filter((d): d is string => !!d),
       cik: secCandidate?.external_id ?? null,
       ticker: secCandidate?.ticker ?? null,
     });
+    // An editor's confirmation outranks the matching rules.
+    const confirm = it.hint.review?.confirm;
+    if (confirm?.source === "wikidata" && facts.has(confirm.id)) {
+      const candidate = (searches.get(it.row.id) ?? []).find((c) => c.id === confirm.id) ??
+        { id: confirm.id, label: it.row.name, description: null, matchText: it.row.name };
+      pick = { kind: "match", facts: facts.get(confirm.id)!, candidate, reason: "confirmed in review" };
+    }
     const wikidataDomain = pick.kind === "match" || pick.kind === "unconfirmed" ? domainFromWebsite(pick.facts.website) : null;
-    const ycReason = ycCandidate ? ycEvidence(it.hint, ycCandidate, wikidataDomain) : null;
+    const ycReason = ycCandidate
+      ? (confirm?.source === "yc" && confirm.id === ycCandidate.external_id.split("~")[0]
+        ? "confirmed in review"
+        : ycEvidence(it.hint, ycCandidate, wikidataDomain))
+      : null;
 
     const cik = secCandidate?.external_id ?? (pick.kind === "match" ? pick.facts.cik : null);
     let secProfile: SecProfile | null = null;

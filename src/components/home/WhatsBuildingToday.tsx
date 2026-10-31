@@ -44,8 +44,8 @@ export function WhatsBuildingToday() {
           </div>
         ) : rows.length === 0 ? (
           <div className="sd-empty">
-            <span className="k">The feed populates as stories publish</span>
-            <p>Check back soon.</p>
+            <span className="k">New stories land here through the day</span>
+            <p>Check back shortly.</p>
           </div>
         ) : (
           <div className="flow" ref={containerRef}>

@@ -71,8 +71,8 @@ export function LearnBand() {
                 </div>
               ) : (
                 <div className="sd-empty">
-                  <span className="k">Steps forthcoming</span>
-                  <p>The Founder Track is being written.</p>
+                  <span className="k">Coming soon</span>
+                  <p>We're writing the Founder Track now.</p>
                 </div>
               )}
             </div>

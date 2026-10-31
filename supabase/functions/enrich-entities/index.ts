@@ -32,6 +32,7 @@ import {
   type BatchItem,
   enrichBatch,
   ENRICHMENT_VERSION,
+  type EntityReview,
   type EntityRow,
   parseSecTickers,
   parseYcCompanies,
@@ -49,10 +50,12 @@ const YC_URL = "https://yc-oss.github.io/api/companies/all.json";
 const SEC_URL = "https://www.sec.gov/files/company_tickers.json";
 
 const ENTITY_COLUMNS =
-  "id, name, entity_type, website, founded_year, headquarters, employee_count_estimate, description, logo_url, domain, wikidata_id, sec_cik, ticker, yc_id";
+  "id, name, entity_type, website, founded_year, headquarters, employee_count_estimate, description, logo_url, domain, wikidata_id, sec_cik, ticker, yc_id, enrichment";
 const ROUND_ORDER = ["pre_seed", "seed", "series_a", "series_b", "series_c", "series_d_plus", "growth", "debt"];
 
 type Supabase = ReturnType<typeof createClient>;
+// The row as loaded: enrichment carries the editor's review, if any.
+type QueueRow = EntityRow & { enrichment?: { review?: EntityReview | null } | null };
 
 function jsonResp(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -123,11 +126,11 @@ async function registryByNames(supabase: Supabase, keys: string[]): Promise<Regi
 
 // ── Queue and context ───────────────────────────────────────
 
-async function loadQueue(supabase: Supabase, ids: string[], limit: number): Promise<EntityRow[]> {
+async function loadQueue(supabase: Supabase, ids: string[], limit: number): Promise<QueueRow[]> {
   if (ids.length > 0) {
     const { data, error } = await supabase.from("entities").select(ENTITY_COLUMNS).in("id", ids.slice(0, MAX_LIMIT));
     if (error) throw error;
-    return (data ?? []) as EntityRow[];
+    return (data ?? []) as QueueRow[];
   }
   const { data: fresh, error } = await supabase
     .from("entities")
@@ -136,7 +139,7 @@ async function loadQueue(supabase: Supabase, ids: string[], limit: number): Prom
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
-  const rows = (fresh ?? []) as EntityRow[];
+  const rows = (fresh ?? []) as QueueRow[];
   if (rows.length < limit) {
     const retryBefore = new Date(Date.now() - RETRY_AFTER_DAYS * 86400_000).toISOString();
     const { data: retry, error: retryErr } = await supabase
@@ -147,7 +150,7 @@ async function loadQueue(supabase: Supabase, ids: string[], limit: number): Prom
       .order("enriched_at", { ascending: true })
       .limit(limit - rows.length);
     if (retryErr) throw retryErr;
-    rows.push(...((retry ?? []) as EntityRow[]));
+    rows.push(...((retry ?? []) as QueueRow[]));
   }
   return rows;
 }
@@ -157,7 +160,7 @@ async function loadQueue(supabase: Supabase, ids: string[], limit: number): Prom
  * behind its capital events (as company, counterparty or investor). The
  * matcher uses the text to confirm a namesake is the same company.
  */
-async function loadHints(supabase: Supabase, rows: EntityRow[]): Promise<BatchItem[]> {
+async function loadHints(supabase: Supabase, rows: QueueRow[]): Promise<BatchItem[]> {
   const ids = rows.map((r) => r.id);
   // deno-lint-ignore no-explicit-any
   const events: any[] = [];
@@ -225,6 +228,7 @@ async function loadHints(supabase: Supabase, rows: EntityRow[]): Promise<BatchIt
       entity_type: row.entity_type,
       earliestRound: earliest.get(row.id) ?? null,
       context: (context.get(row.id) ?? []).join(" ").toLowerCase().slice(0, CONTEXT_CHARS),
+      review: row.enrichment?.review ?? null,
     },
   }));
 }
@@ -286,7 +290,8 @@ serve(async (req) => {
         ...result.updates,
         enrichment_status: result.status,
         enrichment_sources: result.sources,
-        enrichment: result.raw,
+        // Keep the editor's decision: later runs must still honor it.
+        enrichment: item.hint.review ? { ...result.raw, review: item.hint.review } : result.raw,
         enriched_at: now,
       }).eq("id", item.row.id);
       if (error) throw error;

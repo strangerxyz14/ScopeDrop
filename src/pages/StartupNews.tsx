@@ -98,7 +98,7 @@ const StartupNews = () => {
             ) : rows.length === 0 ? (
               <div className="sd-empty">
                 <span className="k">No {active.key ? active.label : ""} stories yet</span>
-                <p>The feed populates as stories publish. Check back soon.</p>
+                <p>New stories land here through the day. Check back shortly.</p>
               </div>
             ) : (
               <>

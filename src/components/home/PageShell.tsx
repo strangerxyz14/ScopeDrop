@@ -83,7 +83,7 @@ export function StoryGrid({
     return (
       <div className="sd-empty">
         <span className="k">{emptyLabel}</span>
-        <p>The feed populates as stories publish. Check back soon.</p>
+        <p>New stories land here through the day. Check back shortly.</p>
       </div>
     );
   }
