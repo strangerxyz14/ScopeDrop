@@ -10,6 +10,8 @@ export interface RadarSector {
  * Computes emerging-tech radar: for each sector with tracked rounds, momentum =
  * ((sum of amount_usd in the last 90 days) / (sum of amount_usd in the prior 90 days) - 1) * 100.
  * When there is no prior-window baseline, the sector uses a floor of its current-window amount as a proxy.
+ * Only closed and agreed deals count: "seeks $20B" or "in talks" stories
+ * (deal_status 'reported') aren't money that moved.
  * Empty return means no capital events tracked yet.
  */
 export function useRadar(limit = 5) {
@@ -30,7 +32,8 @@ export function useRadar(limit = 5) {
           "amount_usd, announced_at, primary_entity:entities!capital_events_primary_entity_id_fkey(sector)",
         )
         .gte("announced_at", iso)
-        .not("amount_usd", "is", null);
+        .not("amount_usd", "is", null)
+        .in("deal_status", ["closed", "agreed"]);
       if (error) throw error;
 
       type Row = {
