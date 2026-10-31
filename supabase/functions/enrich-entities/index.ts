@@ -17,6 +17,9 @@
 //   {"limit": 25}                 entities per run (max 60; time-boxed)
 //   {"dry_run": true}             return decisions without writing
 //
+// A Wikidata 429 ends the batch without writing "no_match" for the rows
+// it could not check; they stay queued (stop_reason "rate_limited").
+//
 // Deploy with verify_jwt ON; only the service role may call it.
 // Needs migration 20261031120000_entity_enrichment.sql.
 // Optional secret ENRICH_CONTACT: an email or URL for the User-Agent that
@@ -265,7 +268,7 @@ serve(async (req) => {
 
     const rows = await loadQueue(supabase, ids, limit);
     const items = await loadHints(supabase, rows);
-    const outcomes = await enrichBatch(items, {
+    const { outcomes, rateLimited } = await enrichBatch(items, {
       ua,
       registryByNames: (keys) => registryByNames(supabase, keys),
       logoUrlFor: logoDevUrl,
@@ -303,6 +306,8 @@ serve(async (req) => {
       filled,
       written,
       never_enriched_remaining: remaining,
+      // Wikidata asked us to slow down: the undecided rows wait for the next run.
+      stop_reason: rateLimited ? "rate_limited" : null,
       elapsed_ms: Date.now() - started,
       decisions: outcomes.map(({ item, result }) => ({
         id: item.row.id,

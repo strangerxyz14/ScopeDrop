@@ -186,6 +186,14 @@ export function parseSecTickers(json: Record<string, any>): RegistryRow[] {
   return [...byCik.values()].filter((r) => r.name_norm);
 }
 
+/** A source asked us to slow down; the batch stops and its rows wait for the next run. */
+export class RateLimitedError extends Error {
+  constructor(source: string) {
+    super(`${source} rate limited (HTTP 429)`);
+    this.name = "RateLimitedError";
+  }
+}
+
 // ── Wikidata ────────────────────────────────────────────────
 
 export interface WikidataCandidate {
@@ -223,6 +231,7 @@ export async function wikidataSearch(name: string, ua: string, limit = 7): Promi
     format: "json",
   }).toString();
   const res = await fetch(url, { headers: { "User-Agent": ua } });
+  if (res.status === 429) throw new RateLimitedError("wikidata search");
   if (!res.ok) throw new Error(`wikidata search HTTP ${res.status}`);
   const body = await res.json();
   // deno-lint-ignore no-explicit-any
@@ -286,6 +295,7 @@ GROUP BY ?item`;
     await new Promise((r) => setTimeout(r, 3000));
     res = await post();
   }
+  if (res.status === 429) throw new RateLimitedError("wikidata sparql");
   if (!res.ok) throw new Error(`wikidata sparql HTTP ${res.status}`);
   const body = await res.json();
   // deno-lint-ignore no-explicit-any
@@ -741,7 +751,13 @@ export interface BatchOutcome {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const FACTS_CHUNK = 40;
 
-export async function enrichBatch(items: BatchItem[], deps: BatchDeps): Promise<BatchOutcome[]> {
+export interface BatchResult {
+  outcomes: BatchOutcome[];
+  /** Wikidata returned 429: only unusable-name rows were decided; the rest stay queued. */
+  rateLimited: boolean;
+}
+
+export async function enrichBatch(items: BatchItem[], deps: BatchDeps): Promise<BatchResult> {
   const outcomes: BatchOutcome[] = [];
   const usable = items.filter((it) => isUsableName(it.row.name));
   for (const it of items) {
@@ -759,25 +775,32 @@ export async function enrichBatch(items: BatchItem[], deps: BatchDeps): Promise<
   // Wikidata: search by the suffix-free name, then by the core name if
   // that found no exact label.
   const searches = new Map<string, WikidataCandidate[]>();
-  for (const it of usable) {
-    const keys = new Set(keysOf.get(it.row.id));
-    let found = await wikidataSearch(searchName(it.row.name), deps.ua);
-    const hasExact = (cs: WikidataCandidate[]) =>
-      cs.some((c) => keys.has(normalizeCompanyName(c.label)) || keys.has(normalizeCompanyName(c.matchText)));
-    const core = keysOf.get(it.row.id)![1];
-    if (!hasExact(found) && core) {
-      await sleep(deps.searchDelayMs ?? 200);
-      found = [...found, ...await wikidataSearch(core, deps.ua)];
-    }
-    // Only exact-name candidates can be picked; facts for the rest would
-    // just slow the SPARQL query down.
-    searches.set(it.row.id, found.filter((c) => keys.has(normalizeCompanyName(c.label)) || keys.has(normalizeCompanyName(c.matchText))));
-    await sleep(deps.searchDelayMs ?? 200);
-  }
   const facts = new Map<string, WikidataFacts>();
-  const ids = [...new Set([...searches.values()].flat().map((c) => c.id))];
-  for (let i = 0; i < ids.length; i += FACTS_CHUNK) {
-    for (const [k, v] of await wikidataFacts(ids.slice(i, i + FACTS_CHUNK), deps.ua)) facts.set(k, v);
+  try {
+    for (const it of usable) {
+      const keys = new Set(keysOf.get(it.row.id));
+      let found = await wikidataSearch(searchName(it.row.name), deps.ua);
+      const hasExact = (cs: WikidataCandidate[]) =>
+        cs.some((c) => keys.has(normalizeCompanyName(c.label)) || keys.has(normalizeCompanyName(c.matchText)));
+      const core = keysOf.get(it.row.id)![1];
+      if (!hasExact(found) && core) {
+        await sleep(deps.searchDelayMs ?? 200);
+        found = [...found, ...await wikidataSearch(core, deps.ua)];
+      }
+      // Only exact-name candidates can be picked; facts for the rest would
+      // just slow the SPARQL query down.
+      searches.set(it.row.id, found.filter((c) => keys.has(normalizeCompanyName(c.label)) || keys.has(normalizeCompanyName(c.matchText))));
+      await sleep(deps.searchDelayMs ?? 200);
+    }
+    const ids = [...new Set([...searches.values()].flat().map((c) => c.id))];
+    for (let i = 0; i < ids.length; i += FACTS_CHUNK) {
+      for (const [k, v] of await wikidataFacts(ids.slice(i, i + FACTS_CHUNK), deps.ua)) facts.set(k, v);
+    }
+  } catch (e) {
+    // Decisions without Wikidata would wrongly record "no_match"; leave
+    // these rows unenriched so the next run retries them.
+    if (e instanceof RateLimitedError) return { outcomes, rateLimited: true };
+    throw e;
   }
 
   for (const it of usable) {
@@ -821,5 +844,5 @@ export async function enrichBatch(items: BatchItem[], deps: BatchDeps): Promise<
       }, deps.logoUrlFor),
     });
   }
-  return outcomes;
+  return { outcomes, rateLimited: false };
 }
