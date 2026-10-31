@@ -185,8 +185,8 @@ const Directory = () => {
       />
       <PageHead
         kicker={`COMPANIES${data.length ? ` · ${data.length} TRACKED` : ""}`}
-        title="Company directory"
-        dek="Every company the ScopeDrop desk tracks, built from the funding rounds and stories we cover."
+        title="Every company we track"
+        dek="Startups and investors, and the money behind them. Built from the rounds and stories we cover."
       />
       <section className="flow-sec">
         <div className="wrap">

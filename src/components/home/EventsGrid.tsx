@@ -48,8 +48,8 @@ export function EventsGrid() {
           </div>
         ) : showEmptyForAll ? (
           <div className="sd-empty">
-            <span className="k">No upcoming events tracked</span>
-            <p>Events populate as they're added.</p>
+            <span className="k">No events on the calendar yet</span>
+            <p>New events land here as soon as they're announced.</p>
           </div>
         ) : showEmptyForCity ? (
           <div className="sd-empty">

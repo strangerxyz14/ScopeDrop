@@ -20,8 +20,8 @@ function RadarPanel() {
       </div>
       {data.length === 0 && !isLoading ? (
         <div className="sd-empty">
-          <span className="k">Radar populates once tracked rounds reach density</span>
-          <p>No sectors have enough capital events tracked yet.</p>
+          <span className="k">Not enough deals yet to call a trend</span>
+          <p>The radar fills in as rounds land.</p>
         </div>
       ) : (
         <>
